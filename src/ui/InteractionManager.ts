@@ -1,0 +1,360 @@
+import { Graph } from '@/core/Graph';
+import { Node } from '@/core/Node';
+import { Port } from '@/core/Port';
+import { Viewport } from './Viewport';
+import { NodeRenderer } from './NodeRenderer';
+import { SelectionManager } from './SelectionManager';
+import { ContextMenu } from './ContextMenu';
+
+export type DragState =
+  | { type: 'none' }
+  | { type: 'pan'; startX: number; startY: number }
+  | { type: 'nodes'; referenceNode: Node; offsetX: number; offsetY: number }
+  | { type: 'connection'; port: Port; startX: number; startY: number }
+  | { type: 'marquee'; startX: number; startY: number; currentX: number; currentY: number };
+
+export class InteractionManager {
+  private graph: Graph;
+  private viewport: Viewport;
+  private nodeRenderer: NodeRenderer;
+  private svg: SVGSVGElement;
+  private selectionManager: SelectionManager;
+  private contextMenu: ContextMenu;
+  private transformGroup: SVGGElement | null = null;
+
+  private dragState: DragState = { type: 'none' };
+  private currentMousePos: { x: number; y: number } | null = null;
+  private marqueeElement: SVGRectElement | null = null;
+  private rightClickStartPos: { x: number; y: number } | null = null;
+  private readonly CLICK_THRESHOLD = 5; // pixels
+
+  constructor(
+    graph: Graph,
+    viewport: Viewport,
+    nodeRenderer: NodeRenderer,
+    svg: SVGSVGElement,
+    selectionManager: SelectionManager,
+    contextMenu: ContextMenu
+  ) {
+    this.graph = graph;
+    this.viewport = viewport;
+    this.nodeRenderer = nodeRenderer;
+    this.svg = svg;
+    this.selectionManager = selectionManager;
+    this.contextMenu = contextMenu;
+
+    // Find the transform group that contains the nodes
+    this.transformGroup = svg.querySelector('.transform-group');
+
+    this.setupEventListeners();
+    this.createMarqueeElement();
+  }
+
+  private setupEventListeners(): void {
+    // Mouse events on SVG (for nodes/ports)
+    this.svg.addEventListener('pointerdown', this.onPointerDown.bind(this));
+    this.svg.addEventListener('pointermove', this.onPointerMove.bind(this));
+    this.svg.addEventListener('pointerup', this.onPointerUp.bind(this));
+
+    // Wheel event for zoom
+    this.svg.addEventListener('wheel', this.onWheel.bind(this), { passive: false });
+
+    // Keyboard events
+    document.addEventListener('keydown', this.onKeyDown.bind(this));
+
+    // Prevent default context menu - we'll show it on pointer up if not dragging
+    this.svg.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+    });
+  }
+
+  private createMarqueeElement(): void {
+    this.marqueeElement = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    this.marqueeElement.classList.add('marquee-selection');
+    this.marqueeElement.style.display = 'none';
+
+    // Add marquee to transform group so it transforms with the viewport
+    if (this.transformGroup) {
+      this.transformGroup.appendChild(this.marqueeElement);
+    } else {
+      this.svg.appendChild(this.marqueeElement);
+    }
+  }
+
+  private onPointerDown(e: PointerEvent): void {
+    this.currentMousePos = { x: e.clientX, y: e.clientY };
+    const target = e.target as Element;
+
+    // Check if clicking on a port
+    if (target.classList.contains('port')) {
+      const portId = target.getAttribute('data-port-id');
+      if (portId) {
+        const port = this.findPort(portId);
+        if (port) {
+          const pos = this.nodeRenderer.getPortWorldPosition(portId);
+          if (pos) {
+            this.dragState = {
+              type: 'connection',
+              port,
+              startX: pos.x,
+              startY: pos.y,
+            };
+            e.stopPropagation();
+            return;
+          }
+        }
+      }
+    }
+
+    // Check if clicking on a node
+    const nodeElement = target.closest('.node') as SVGGElement | null;
+    if (nodeElement) {
+      const nodeId = nodeElement.getAttribute('data-node-id');
+      if (nodeId) {
+        const node = this.graph.getNode(nodeId);
+        if (node) {
+          const worldPos = this.viewport.screenToWorld(e.clientX, e.clientY);
+
+          // Handle selection based on modifier keys
+          if (e.shiftKey) {
+            // Shift+click: Add to selection
+            this.selectionManager.selectNode(nodeId, 'add');
+          } else if (e.ctrlKey || e.metaKey) {
+            // Ctrl/Cmd+click: Toggle selection
+            this.selectionManager.selectNode(nodeId, 'toggle');
+          } else {
+            // Regular click: Select this node (replace selection if not already selected)
+            if (!this.selectionManager.isSelected(nodeId)) {
+              this.selectionManager.selectNode(nodeId, 'replace');
+            }
+          }
+
+          // Start dragging if node is selected
+          if (this.selectionManager.isSelected(nodeId)) {
+            this.dragState = {
+              type: 'nodes',
+              referenceNode: node,
+              offsetX: worldPos.x - node.position.x,
+              offsetY: worldPos.y - node.position.y,
+            };
+          }
+
+          e.stopPropagation();
+          return;
+        }
+      }
+    }
+
+    // Otherwise, pan (right button) or marquee select (left button)
+    if (e.button === 2) {
+      // Right mouse button = pan
+      // Track right-click start position for context menu vs pan detection
+      this.rightClickStartPos = { x: e.clientX, y: e.clientY };
+      this.dragState = {
+        type: 'pan',
+        startX: e.clientX,
+        startY: e.clientY,
+      };
+    } else if (e.button === 0) {
+      // Left mouse button = marquee select
+      const worldPos = this.viewport.screenToWorld(e.clientX, e.clientY);
+      this.dragState = {
+        type: 'marquee',
+        startX: worldPos.x,
+        startY: worldPos.y,
+        currentX: worldPos.x,
+        currentY: worldPos.y,
+      };
+      if (!e.shiftKey) {
+        this.selectionManager.clearSelection();
+      }
+      this.updateMarqueeVisual();
+    }
+  }
+
+  private onPointerMove(e: PointerEvent): void {
+    this.currentMousePos = { x: e.clientX, y: e.clientY };
+
+    if (this.dragState.type === 'pan') {
+      const dx = e.clientX - this.dragState.startX;
+      const dy = e.clientY - this.dragState.startY;
+      this.viewport.pan(dx, dy);
+      this.dragState.startX = e.clientX;
+      this.dragState.startY = e.clientY;
+    } else if (this.dragState.type === 'nodes') {
+      // Move all selected nodes together
+      const worldPos = this.viewport.screenToWorld(e.clientX, e.clientY);
+      this.selectionManager.setSelectedNodesPosition(
+        this.dragState.referenceNode.id,
+        worldPos.x,
+        worldPos.y,
+        this.dragState.offsetX,
+        this.dragState.offsetY
+      );
+    } else if (this.dragState.type === 'marquee') {
+      const worldPos = this.viewport.screenToWorld(e.clientX, e.clientY);
+      this.dragState.currentX = worldPos.x;
+      this.dragState.currentY = worldPos.y;
+      this.updateMarqueeVisual();
+      this.updateMarqueeSelection();
+    } else if (this.dragState.type === 'connection') {
+      // Connection drag is visualized by GraphEditor via getDragState()
+      // Just update currentMousePos which is used for drag visualization
+    }
+  }
+
+  private onPointerUp(e: PointerEvent): void {
+    if (this.dragState.type === 'connection') {
+      const target = e.target as Element;
+      // Check if we're hovering over a port (could be the circle or the container)
+      const portElement = target.classList.contains('port') ? target : target.closest('.port');
+
+      if (portElement) {
+        const portId = portElement.getAttribute('data-port-id');
+        if (portId) {
+          const targetPort = this.findPort(portId);
+          if (targetPort && this.dragState.port.canConnectTo(targetPort)) {
+            try {
+              // Determine source and target - output connects to input
+              const sourcePort = this.dragState.port.isInput ? targetPort : this.dragState.port;
+              const inputPort = this.dragState.port.isInput ? this.dragState.port : targetPort;
+
+              // Make sure we're connecting output to input
+              if (!sourcePort.isInput && inputPort.isInput) {
+                this.graph.connect(sourcePort, inputPort);
+              }
+            } catch (err) {
+              console.error('Failed to create connection:', err);
+            }
+          }
+        }
+      }
+    } else if (this.dragState.type === 'marquee') {
+      this.hideMarquee();
+    } else if (this.dragState.type === 'pan' && e.button === 2 && this.rightClickStartPos) {
+      // Check if this was a click (no significant movement) or a drag
+      const dx = Math.abs(e.clientX - this.rightClickStartPos.x);
+      const dy = Math.abs(e.clientY - this.rightClickStartPos.y);
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < this.CLICK_THRESHOLD) {
+        // It was a click, not a drag - show context menu
+        const target = e.target as Element;
+        const isNode = target.closest('.node');
+        const isPort = target.classList.contains('port');
+
+        if (!isNode && !isPort) {
+          this.contextMenu.show(e.clientX, e.clientY);
+        }
+      }
+    }
+
+    this.rightClickStartPos = null;
+    this.dragState = { type: 'none' };
+  }
+
+  private onWheel(e: WheelEvent): void {
+    e.preventDefault();
+    this.viewport.zoom(-e.deltaY, e.clientX, e.clientY);
+  }
+
+  private onKeyDown(e: KeyboardEvent): void {
+    // Don't handle keyboard shortcuts if context menu is open
+    if (this.contextMenu.isOpen()) {
+      return;
+    }
+
+    if (e.key === ' ') {
+      // Spacebar: Open context menu at cursor position
+      e.preventDefault();
+      if (this.currentMousePos) {
+        this.contextMenu.show(this.currentMousePos.x, this.currentMousePos.y);
+      } else {
+        // Fallback to center of screen
+        this.contextMenu.show(window.innerWidth / 2, window.innerHeight / 2);
+      }
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      // Prevent default behavior (like going back in browser)
+      if (this.selectionManager.getSelectionCount() > 0) {
+        e.preventDefault();
+        this.selectionManager.deleteSelectedNodes();
+      }
+    } else if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+      // Select all nodes
+      e.preventDefault();
+      const allNodeIds = Array.from(this.graph.nodes.keys());
+      this.selectionManager.selectNodes(allNodeIds, 'replace');
+    }
+  }
+
+  private findPort(portId: string): Port | null {
+    for (const node of this.graph.nodes.values()) {
+      for (const port of node.inputs.values()) {
+        if (port.id === portId) return port;
+      }
+      for (const port of node.outputs.values()) {
+        if (port.id === portId) return port;
+      }
+    }
+    return null;
+  }
+
+  // Public methods for GraphEditor to access drag state
+  getDragState(): DragState {
+    return this.dragState;
+  }
+
+  getCurrentMousePos(): { x: number; y: number } | null {
+    return this.currentMousePos;
+  }
+
+  private updateMarqueeVisual(): void {
+    if (this.dragState.type !== 'marquee' || !this.marqueeElement) return;
+
+    const { startX, startY, currentX, currentY } = this.dragState;
+    const x = Math.min(startX, currentX);
+    const y = Math.min(startY, currentY);
+    const width = Math.abs(currentX - startX);
+    const height = Math.abs(currentY - startY);
+
+    this.marqueeElement.setAttribute('x', x.toString());
+    this.marqueeElement.setAttribute('y', y.toString());
+    this.marqueeElement.setAttribute('width', width.toString());
+    this.marqueeElement.setAttribute('height', height.toString());
+    this.marqueeElement.style.display = 'block';
+  }
+
+  private updateMarqueeSelection(): void {
+    if (this.dragState.type !== 'marquee') return;
+
+    const { startX, startY, currentX, currentY } = this.dragState;
+    const minX = Math.min(startX, currentX);
+    const maxX = Math.max(startX, currentX);
+    const minY = Math.min(startY, currentY);
+    const maxY = Math.max(startY, currentY);
+
+    // Check which nodes intersect with the marquee
+    const intersectingNodes: string[] = [];
+    for (const node of this.graph.nodes.values()) {
+      const nodeLeft = node.position.x;
+      const nodeRight = node.position.x + 200; // Node width
+      const nodeTop = node.position.y;
+      const nodeBottom = node.position.y + 100; // Approximate node height
+
+      const intersects = nodeLeft < maxX && nodeRight > minX && nodeTop < maxY && nodeBottom > minY;
+
+      if (intersects) {
+        intersectingNodes.push(node.id);
+      }
+    }
+
+    // Add intersecting nodes to selection
+    this.selectionManager.selectNodes(intersectingNodes, 'add');
+  }
+
+  private hideMarquee(): void {
+    if (this.marqueeElement) {
+      this.marqueeElement.style.display = 'none';
+    }
+  }
+}

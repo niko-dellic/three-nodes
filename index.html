@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Three-nodes - Visual Programming for Three.js</title>
+  </head>
+  <body>
+    <div id="app">
+      <!-- 3D Viewport (background layer) -->
+      <div id="viewport"></div>
+
+      <!-- Node Editor (overlay layer) -->
+      <div id="editor"></div>
+
+      <!-- Toggle button -->
+      <button id="toggle-button">View 3D</button>
+
+      <!-- Info overlay -->
+      <div class="info">
+        <p><strong>Controls:</strong></p>
+        <p>Tab - Toggle between editor and 3D view</p>
+        <p>Editor Mode: Drag nodes, connect ports, scroll to zoom</p>
+        <p>Viewport Mode: Orbit camera with mouse</p>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
