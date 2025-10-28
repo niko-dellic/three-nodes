@@ -17,6 +17,8 @@ const graph = new Graph();
 const widthNode = registry.createNode('NumberSliderNode', 'width-node')!;
 widthNode.position = { x: 50, y: 100 };
 widthNode.label = 'Width';
+widthNode.setProperty('default', 2);
+(widthNode as any).setValue(2); // Set the current value
 graph.addNode(widthNode);
 
 const heightNode = registry.createNode('NumberNode', 'height-node')!;
@@ -37,7 +39,7 @@ boxGeoNode.position = { x: 300, y: 200 };
 graph.addNode(boxGeoNode);
 
 // Connect dimensions to box geometry
-graph.connect(widthNode.outputs.get('result')!, boxGeoNode.inputs.get('width')!);
+graph.connect(widthNode.outputs.get('value')!, boxGeoNode.inputs.get('width')!);
 graph.connect(heightNode.outputs.get('result')!, boxGeoNode.inputs.get('height')!);
 graph.connect(depthNode.outputs.get('result')!, boxGeoNode.inputs.get('depth')!);
 
@@ -66,14 +68,6 @@ const sceneNode = registry.createNode('SceneNode', 'scene')!;
 sceneNode.position = { x: 800, y: 50 };
 graph.addNode(sceneNode);
 
-// Add mesh to scene
-const addMeshNode = registry.createNode('AddToSceneNode', 'add-mesh')!;
-addMeshNode.position = { x: 1050, y: 250 };
-graph.addNode(addMeshNode);
-
-graph.connect(sceneNode.outputs.get('scene')!, addMeshNode.inputs.get('scene')!);
-graph.connect(meshNode.outputs.get('mesh')!, addMeshNode.inputs.get('object')!);
-
 // 7. Create camera
 const cameraPosNode = registry.createNode('Vector3Node', 'camera-pos')!;
 cameraPosNode.position = { x: 800, y: 450 };
@@ -94,18 +88,12 @@ ambientLightNode.position = { x: 550, y: 100 };
 ambientLightNode.inputs.get('intensity')!.value = 0.5;
 graph.addNode(ambientLightNode);
 
-const addAmbientNode = registry.createNode('AddToSceneNode', 'add-ambient')!;
-addAmbientNode.position = { x: 1050, y: 100 };
-graph.addNode(addAmbientNode);
-
-graph.connect(sceneNode.outputs.get('scene')!, addAmbientNode.inputs.get('scene')!);
-graph.connect(ambientLightNode.outputs.get('light')!, addAmbientNode.inputs.get('object')!);
-
 const directionalLightPos = registry.createNode('Vector3Node', 'dir-light-pos')!;
 directionalLightPos.position = { x: 300, y: -25 };
-directionalLightPos.inputs.get('x')!.value = 5;
-directionalLightPos.inputs.get('y')!.value = 5;
-directionalLightPos.inputs.get('z')!.value = 5;
+directionalLightPos.setProperty('xDefault', 5);
+directionalLightPos.setProperty('yDefault', 5);
+directionalLightPos.setProperty('zDefault', 5);
+
 graph.addNode(directionalLightPos);
 
 const directionalLightNode = registry.createNode('DirectionalLightNode', 'dir-light')!;
@@ -118,29 +106,41 @@ graph.connect(
   directionalLightNode.inputs.get('position')!
 );
 
-const addDirLightNode = registry.createNode('AddToSceneNode', 'add-dir-light')!;
-addDirLightNode.position = { x: 1050, y: 50 };
-graph.addNode(addDirLightNode);
+// 9. Scene Compiler - Collects all objects and camera for the scene
+const sceneCompiler = registry.createNode('SceneCompilerNode', 'scene-compiler')!;
+sceneCompiler.position = { x: 1050, y: 250 };
+graph.addNode(sceneCompiler);
 
-graph.connect(sceneNode.outputs.get('scene')!, addDirLightNode.inputs.get('scene')!);
-graph.connect(directionalLightNode.outputs.get('light')!, addDirLightNode.inputs.get('object')!);
+// Connect scene
+graph.connect(sceneNode.outputs.get('scene')!, sceneCompiler.inputs.get('scene')!);
 
-// 9. Add update toggle
+// Connect all objects to the compiler (using shift+drag for multiple connections)
+graph.connect(meshNode.outputs.get('mesh')!, sceneCompiler.inputs.get('objects')!);
+graph.connect(ambientLightNode.outputs.get('light')!, sceneCompiler.inputs.get('objects')!, true);
+graph.connect(
+  directionalLightNode.outputs.get('light')!,
+  sceneCompiler.inputs.get('objects')!,
+  true
+);
+
+// Connect camera
+graph.connect(cameraNode.outputs.get('camera')!, sceneCompiler.inputs.get('camera')!);
+
+// 10. Add update toggle
 const updateToggle = registry.createNode('BooleanInputNode', 'update-toggle')!;
-updateToggle.position = { x: 1050, y: 350 };
+updateToggle.position = { x: 1050, y: 450 };
 updateToggle.label = 'Update Scene';
 // Set initial value to true so scene renders by default
 (updateToggle as any).setValue(true);
 graph.addNode(updateToggle);
 
-// 10. Scene output node
+// 11. Scene Output - Finalizes the scene by clearing and rebuilding
 const sceneOutputNode = registry.createNode('SceneOutputNode', 'scene-output')!;
 sceneOutputNode.position = { x: 1300, y: 250 };
 graph.addNode(sceneOutputNode);
 
-// Connect scene, camera, and update toggle to output
-graph.connect(addMeshNode.outputs.get('scene')!, sceneOutputNode.inputs.get('scene')!);
-graph.connect(cameraNode.outputs.get('camera')!, sceneOutputNode.inputs.get('camera')!);
+// Connect compiled scene and update toggle to output
+graph.connect(sceneCompiler.outputs.get('compiled')!, sceneOutputNode.inputs.get('compiled')!);
 graph.connect(updateToggle.outputs.get('value')!, sceneOutputNode.inputs.get('update')!);
 
 // Initialize UI - Create containers programmatically

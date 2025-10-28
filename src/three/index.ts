@@ -30,6 +30,7 @@ import { MeshStandardMaterialNode } from './nodes/material/MeshStandardMaterialN
 import { SceneNode } from './nodes/scene/SceneNode';
 import { CreateMeshNode } from './nodes/scene/CreateMeshNode';
 import { AddToSceneNode } from './nodes/scene/AddToSceneNode';
+import { SceneCompilerNode } from './nodes/scene/SceneCompilerNode';
 
 // Camera nodes
 import { PerspectiveCameraNode } from './nodes/camera/PerspectiveCameraNode';
@@ -71,6 +72,7 @@ export { MeshStandardMaterialNode } from './nodes/material/MeshStandardMaterialN
 export { SceneNode } from './nodes/scene/SceneNode';
 export { CreateMeshNode } from './nodes/scene/CreateMeshNode';
 export { AddToSceneNode } from './nodes/scene/AddToSceneNode';
+export { SceneCompilerNode } from './nodes/scene/SceneCompilerNode';
 export { PerspectiveCameraNode } from './nodes/camera/PerspectiveCameraNode';
 export { AmbientLightNode } from './nodes/lights/AmbientLightNode';
 export { DirectionalLightNode } from './nodes/lights/DirectionalLightNode';
@@ -229,8 +231,16 @@ export function createDefaultRegistry(): NodeRegistry {
   registry.register(AddToSceneNode, {
     type: 'AddToSceneNode',
     category: 'Scene',
-    label: 'Add to Scene',
-    description: 'Adds an object to a scene',
+    label: 'Add to Scene (Legacy)',
+    description: '[DEPRECATED] Use Scene Compiler instead',
+  });
+
+  registry.register(SceneCompilerNode, {
+    type: 'SceneCompilerNode',
+    category: 'Scene',
+    label: 'Scene Compiler',
+    description: 'Compiles scene, objects, and camera for output',
+    icon: '📦',
   });
 
   // Register camera nodes

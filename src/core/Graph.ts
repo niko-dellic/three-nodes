@@ -1,12 +1,19 @@
 import { Node } from './Node';
 import { Edge } from './Edge';
 import { Port } from './Port';
+import * as THREE from 'three';
 
 export class Graph {
   public nodes: Map<string, Node> = new Map();
   public edges: Map<string, Edge> = new Map();
+  public defaultScene: THREE.Scene; // Always available for preview/rendering
 
   private _listeners: Set<(graph: Graph) => void> = new Set();
+
+  constructor() {
+    // Create a default scene that's always available
+    this.defaultScene = new THREE.Scene();
+  }
 
   // Add a node to the graph
   addNode(node: Node): void {

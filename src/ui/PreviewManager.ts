@@ -8,8 +8,8 @@ export type PreviewMode = 'none' | 'selected' | 'all';
 export class PreviewManager {
   private graph: Graph;
   private selectionManager: SelectionManager;
-  private previewMode: PreviewMode = 'none';
-  private previewScene: THREE.Scene;
+  private previewMode: PreviewMode = 'selected'; // Default to 'selected'
+  private currentBakedScene: THREE.Scene | null = null;
   private previewMaterial: THREE.Material;
   private nodeObjects: Map<string, THREE.Object3D> = new Map();
   private hiddenNodes: Set<string> = new Set();
@@ -26,26 +26,30 @@ export class PreviewManager {
   constructor(graph: Graph, selectionManager: SelectionManager) {
     this.graph = graph;
     this.selectionManager = selectionManager;
-    this.previewScene = new THREE.Scene();
 
-    // Initialize preview materials
+    // Initialize preview materials - Default is BasicMaterial (unlit), semi-transparent green
     this.previewMaterials = [
-      new THREE.MeshStandardMaterial({
+      new THREE.MeshBasicMaterial({
+        color: 0x00ff00,
+        transparent: true,
+        opacity: 0.5,
+        side: THREE.DoubleSide,
+      }),
+      new THREE.MeshBasicMaterial({
         color: 0x00ff00,
         wireframe: true,
         transparent: true,
         opacity: 0.7,
       }),
-      new THREE.MeshNormalMaterial({ wireframe: false }),
-      new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        metalness: 0.5,
-        roughness: 0.5,
+      new THREE.MeshNormalMaterial({ wireframe: false, transparent: true, opacity: 0.8 }),
+      new THREE.MeshBasicMaterial({
+        color: 0xff9900,
+        transparent: true,
+        opacity: 0.6,
       }),
-      new THREE.MeshBasicMaterial({ color: 0xff9900 }),
     ];
 
-    // Default preview material - wireframe for geometry visualization
+    // Default preview material - BasicMaterial, semi-transparent green
     this.previewMaterial = this.previewMaterials[0];
 
     // Listen to graph changes
@@ -76,7 +80,7 @@ export class PreviewManager {
     this.previewModeSelect.id = 'preview-mode';
     this.previewModeSelect.innerHTML = `
       <option value="none">None</option>
-      <option value="selected">Selected</option>
+      <option value="selected" selected>Selected</option>
       <option value="all">All</option>
     `;
     container.appendChild(this.previewModeSelect);
@@ -96,10 +100,10 @@ export class PreviewManager {
     this.previewMaterialSelect = document.createElement('select');
     this.previewMaterialSelect.id = 'preview-material-select';
     this.previewMaterialSelect.innerHTML = `
-      <option value="0">Wireframe</option>
-      <option value="1">Normal</option>
-      <option value="2">Standard</option>
-      <option value="3">Basic</option>
+      <option value="0" selected>Basic (Green)</option>
+      <option value="1">Wireframe</option>
+      <option value="2">Normal</option>
+      <option value="3">Basic (Orange)</option>
     `;
     container.appendChild(this.previewMaterialSelect);
 
@@ -170,7 +174,7 @@ export class PreviewManager {
   }
 
   getCurrentMaterialName(): string {
-    const materialNames = ['Wireframe', 'Normal', 'Standard', 'Basic'];
+    const materialNames = ['Basic (Green)', 'Wireframe', 'Normal', 'Basic (Orange)'];
     return materialNames[this.currentMaterialIndex];
   }
 
@@ -189,16 +193,42 @@ export class PreviewManager {
     return !this.hiddenNodes.has(nodeId);
   }
 
-  getPreviewScene(): THREE.Scene {
-    return this.previewScene;
+  /**
+   * Get the scene to use for preview (baked scene if available, otherwise default scene)
+   */
+  private getPreviewScene(): THREE.Scene {
+    return this.currentBakedScene || this.graph.defaultScene;
+  }
+
+  /**
+   * Set the current baked scene from the graph output
+   */
+  setBakedScene(scene: THREE.Scene | null): void {
+    // Remove preview objects from old scene
+    const oldScene = this.getPreviewScene();
+    for (const obj of this.nodeObjects.values()) {
+      oldScene.remove(obj);
+    }
+
+    this.currentBakedScene = scene;
+
+    // Re-add preview objects to new scene (or default scene if null)
+    const newScene = this.getPreviewScene();
+    for (const obj of this.nodeObjects.values()) {
+      newScene.add(obj);
+    }
   }
 
   private updatePreview(): void {
-    // Clear preview scene
-    this.previewScene.clear();
+    // Remove all preview objects from the scene
+    const scene = this.getPreviewScene();
+    for (const obj of this.nodeObjects.values()) {
+      scene.remove(obj);
+    }
     this.nodeObjects.clear();
 
     if (this.previewMode === 'none') {
+      this.notifyChange();
       return;
     }
 
@@ -217,7 +247,7 @@ export class PreviewManager {
       nodesToPreview.push(...this.graph.nodes.values());
     }
 
-    // Add objects to preview scene
+    // Add objects to baked scene as preview overlays
     for (const node of nodesToPreview) {
       if (this.previewMode === 'all' && this.hiddenNodes.has(node.id)) {
         continue; // Skip hidden nodes
@@ -236,9 +266,25 @@ export class PreviewManager {
 
       if (!value) continue;
 
+      // Handle CompiledScene from SceneCompilerNode
+      if (
+        value &&
+        typeof value === 'object' &&
+        'objects' in value &&
+        Array.isArray(value.objects)
+      ) {
+        // This is a compiled scene - preview the objects array
+        for (const obj of value.objects) {
+          if (obj instanceof THREE.Object3D) {
+            this.addObject3DToPreview(node.id + '_obj_' + obj.uuid, obj, true); // Preserve materials
+          }
+        }
+        continue;
+      }
+
       // Handle different Three.js object types
       if (value instanceof THREE.Object3D) {
-        this.addObject3DToPreview(node.id, value);
+        this.addObject3DToPreview(node.id, value, true); // Preserve materials for mesh objects
       } else if (value instanceof THREE.BufferGeometry) {
         this.addGeometryToPreview(node.id, value);
       } else if (value instanceof THREE.Material) {
@@ -248,42 +294,92 @@ export class PreviewManager {
     }
   }
 
-  private addObject3DToPreview(nodeId: string, object: THREE.Object3D): void {
-    // Clone the object to avoid modifying the original
-    const clone = object.clone(true);
+  private addObject3DToPreview(
+    nodeId: string,
+    object: THREE.Object3D,
+    preserveMaterials: boolean = false
+  ): void {
+    const scene = this.getPreviewScene();
 
-    // Override materials with preview material if in wireframe mode
-    const isWireframe =
-      this.previewMaterial instanceof THREE.MeshBasicMaterial ||
-      this.previewMaterial instanceof THREE.MeshStandardMaterial
-        ? this.previewMaterial.wireframe
-        : false;
+    // Clone the object so we don't affect the original
+    const clone = object.clone();
 
-    if (isWireframe) {
+    // Apply preview material to all meshes in the hierarchy (unless preserving materials)
+    if (!preserveMaterials) {
       clone.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           child.material = this.previewMaterial;
         }
       });
+    } else {
+      // For meshes with materials, make them slightly transparent to distinguish from baked scene
+      clone.traverse((child) => {
+        if (child instanceof THREE.Mesh && child.material) {
+          // Clone the material and make it semi-transparent
+          const material =
+            child.material instanceof Array
+              ? child.material.map((m) => m.clone())
+              : child.material.clone();
+
+          if (Array.isArray(material)) {
+            material.forEach((m) => {
+              m.transparent = true;
+              m.opacity = 0.7;
+            });
+          } else {
+            material.transparent = true;
+            material.opacity = 0.7;
+          }
+
+          child.material = material;
+        }
+      });
     }
 
-    this.previewScene.add(clone);
     this.nodeObjects.set(nodeId, clone);
+    scene.add(clone);
   }
 
   private addGeometryToPreview(nodeId: string, geometry: THREE.BufferGeometry): void {
-    // Create a mesh with the geometry and preview material
-    const mesh = new THREE.Mesh(geometry, this.previewMaterial);
-    this.previewScene.add(mesh);
-    this.nodeObjects.set(nodeId, mesh);
+    const scene = this.getPreviewScene();
+
+    // Handle both single geometry and arrays
+    if (Array.isArray(geometry)) {
+      // Create a group for multiple geometries
+      const group = new THREE.Group();
+      for (const geom of geometry) {
+        const mesh = new THREE.Mesh(geom.clone(), this.previewMaterial);
+        group.add(mesh);
+      }
+      this.nodeObjects.set(nodeId, group);
+      scene.add(group);
+    } else {
+      // Create a mesh with the preview material
+      const mesh = new THREE.Mesh(geometry.clone(), this.previewMaterial);
+      this.nodeObjects.set(nodeId, mesh);
+      scene.add(mesh);
+    }
   }
 
   private addMaterialPreview(nodeId: string, material: THREE.Material): void {
-    // Create a sphere to preview the material
+    const scene = this.getPreviewScene();
+
+    // Create a sphere to show the material
     const geometry = new THREE.SphereGeometry(1, 32, 32);
     const mesh = new THREE.Mesh(geometry, material);
-    this.previewScene.add(mesh);
     this.nodeObjects.set(nodeId, mesh);
+    scene.add(mesh);
+  }
+
+  /**
+   * Clean up - removes all preview objects from the scene
+   */
+  dispose(): void {
+    const scene = this.getPreviewScene();
+    for (const obj of this.nodeObjects.values()) {
+      scene.remove(obj);
+    }
+    this.nodeObjects.clear();
   }
 
   onChange(callback: () => void): () => void {
@@ -296,8 +392,8 @@ export class PreviewManager {
   }
 
   destroy(): void {
-    this.previewScene.clear();
-    this.nodeObjects.clear();
+    // Remove all preview objects from the baked scene
+    this.dispose();
     this.hiddenNodes.clear();
     this.onChangeCallbacks.clear();
   }

@@ -56,11 +56,22 @@ export class LiveViewport {
           const sceneOutput = output.value as unknown as SceneOutput;
           this.currentScene = sceneOutput.scene;
 
+          // Update preview manager with the current baked scene
+          if (this.previewManager) {
+            this.previewManager.setBakedScene(this.currentScene);
+          }
+
           // Update controls camera (always uses default camera)
           this.updateControlsCamera();
           return;
         }
       }
+    }
+
+    // No scene output found - use default scene for preview
+    this.currentScene = this.graph.defaultScene;
+    if (this.previewManager) {
+      this.previewManager.setBakedScene(null); // null means use default scene
     }
   }
 
@@ -84,17 +95,10 @@ export class LiveViewport {
     const animate = () => {
       this.controls.update();
 
-      // Determine what to render based on preview mode
-      const shouldRenderPreview =
-        this.previewManager && this.previewManager.getPreviewMode() !== 'none';
-
-      if (shouldRenderPreview && this.previewManager) {
-        // Render preview scene with default camera
-        const previewScene = this.previewManager.getPreviewScene();
-        this.renderer.render(previewScene, this.defaultCamera);
-      } else if (this.currentScene) {
+      // Always render the baked scene (with preview objects added to it)
+      if (this.currentScene) {
         // Render the actual scene from SceneOutputNode with default camera
-        // This ensures orbit controls always work properly
+        // Preview objects are added directly to this scene by PreviewManager
         this.renderer.render(this.currentScene, this.defaultCamera);
       } else {
         // Render empty scene

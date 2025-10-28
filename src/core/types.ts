@@ -7,6 +7,7 @@ export interface PortSchema {
 }
 
 export interface EvaluationContext {
+  graph?: import('./Graph').Graph; // Reference to the graph for accessing shared resources
   [key: string]: unknown;
 }
 

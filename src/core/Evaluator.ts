@@ -17,6 +17,9 @@ export class Evaluator {
       return;
     }
 
+    // Add graph reference to context
+    const contextWithGraph = { ...context, graph: this.graph };
+
     // Evaluate nodes in topological order
     for (const node of sorted) {
       if (node.isDirty) {
@@ -25,7 +28,7 @@ export class Evaluator {
 
         // Evaluate the node
         try {
-          node.evaluate(context);
+          node.evaluate(contextWithGraph);
           node.markClean();
         } catch (error) {
           console.error(`Error evaluating node ${node.id}:`, error);
