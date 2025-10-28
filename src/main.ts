@@ -1,6 +1,22 @@
 import './style.css';
 import { Graph } from '@/core/Graph';
-import { createDefaultRegistry } from '@/three';
+import {
+  createDefaultRegistry,
+  NumberSliderNode,
+  NumberNode,
+  BoxGeometryNode,
+  ColorPickerNode,
+  MeshStandardMaterialNode,
+  CreateMeshNode,
+  SceneNode,
+  Vector3Node,
+  PerspectiveCameraNode,
+  AmbientLightNode,
+  DirectionalLightNode,
+  SceneCompilerNode,
+  SceneOutputNode,
+  ButtonNode,
+} from '@/three';
 import { GraphEditor, LiveViewport, ViewModeManager, PreviewManager } from '@/ui';
 
 // Create the node registry
@@ -14,134 +30,125 @@ const graph = new Graph();
 
 // 1. Create number inputs for box dimensions
 
-const widthNode = registry.createNode('NumberSliderNode', 'width-node')!;
+// Using insertNode for full type safety
+const widthNode = registry.insertNode(NumberSliderNode, 'width-node');
 widthNode.position = { x: 50, y: 100 };
 widthNode.label = 'Width';
 widthNode.setProperty('default', 2);
-(widthNode as any).setValue(2); // Set the current value
+widthNode.setValue(2); // Now type-safe, no cast needed!
 graph.addNode(widthNode);
 
-const heightNode = registry.createNode('NumberNode', 'height-node')!;
+const heightNode = registry.insertNode(NumberNode, 'height-node');
 heightNode.position = { x: 50, y: 200 };
 heightNode.label = 'Height';
 heightNode.inputs.get('value')!.value = 2;
 graph.addNode(heightNode);
 
-const depthNode = registry.createNode('NumberNode', 'depth-node')!;
+const depthNode = registry.insertNode(NumberNode, 'depth-node');
 depthNode.position = { x: 50, y: 300 };
 depthNode.label = 'Depth';
 depthNode.inputs.get('value')!.value = 2;
 graph.addNode(depthNode);
 
 // 2. Create box geometry
-const boxGeoNode = registry.createNode('BoxGeometryNode', 'box-geo')!;
+const boxGeoNode = registry.insertNode(BoxGeometryNode, 'box-geo');
 boxGeoNode.position = { x: 300, y: 200 };
 graph.addNode(boxGeoNode);
 
 // Connect dimensions to box geometry
-graph.connect(widthNode.outputs.get('value')!, boxGeoNode.inputs.get('width')!);
-graph.connect(heightNode.outputs.get('result')!, boxGeoNode.inputs.get('height')!);
-graph.connect(depthNode.outputs.get('result')!, boxGeoNode.inputs.get('depth')!);
+graph.connect(widthNode.output('value'), boxGeoNode.input('width'));
+graph.connect(heightNode.output('result'), boxGeoNode.input('height'));
+graph.connect(depthNode.output('result'), boxGeoNode.input('depth'));
 
 // 3. Create color for material
-const colorNode = registry.createNode('ColorPickerNode', 'color-picker')!;
+const colorNode = registry.insertNode(ColorPickerNode, 'color-picker');
 colorNode.position = { x: 300, y: 400 };
 graph.addNode(colorNode);
 
 // 4. Create material
-const materialNode = registry.createNode('MeshStandardMaterialNode', 'material')!;
+const materialNode = registry.insertNode(MeshStandardMaterialNode, 'material');
 materialNode.position = { x: 550, y: 350 };
 graph.addNode(materialNode);
 
-graph.connect(colorNode.outputs.get('color')!, materialNode.inputs.get('color')!);
+graph.connect(colorNode.output('color'), materialNode.input('color'));
 
 // 5. Create mesh
-const meshNode = registry.createNode('CreateMeshNode', 'mesh')!;
+const meshNode = registry.insertNode(CreateMeshNode, 'mesh');
 meshNode.position = { x: 800, y: 250 };
 graph.addNode(meshNode);
 
-graph.connect(boxGeoNode.outputs.get('geometry')!, meshNode.inputs.get('geometry')!);
-graph.connect(materialNode.outputs.get('material')!, meshNode.inputs.get('material')!);
+graph.connect(boxGeoNode.output('geometry'), meshNode.input('geometry'));
+graph.connect(materialNode.output('material'), meshNode.input('material'));
 
 // 6. Create scene
-const sceneNode = registry.createNode('SceneNode', 'scene')!;
+const sceneNode = registry.insertNode(SceneNode, 'scene');
 sceneNode.position = { x: 800, y: 50 };
 graph.addNode(sceneNode);
 
 // 7. Create camera
-const cameraPosNode = registry.createNode('Vector3Node', 'camera-pos')!;
+const cameraPosNode = registry.insertNode(Vector3Node, 'camera-pos');
 cameraPosNode.position = { x: 800, y: 450 };
 cameraPosNode.inputs.get('x')!.value = 0;
 cameraPosNode.inputs.get('y')!.value = 0;
 cameraPosNode.inputs.get('z')!.value = 5;
 graph.addNode(cameraPosNode);
 
-const cameraNode = registry.createNode('PerspectiveCameraNode', 'camera')!;
+const cameraNode = registry.insertNode(PerspectiveCameraNode, 'camera');
 cameraNode.position = { x: 1050, y: 450 };
 graph.addNode(cameraNode);
 
-graph.connect(cameraPosNode.outputs.get('vector')!, cameraNode.inputs.get('position')!);
+graph.connect(cameraPosNode.output('vector'), cameraNode.input('position'));
 
 // 8. Add lights
-const ambientLightNode = registry.createNode('AmbientLightNode', 'ambient-light')!;
+const ambientLightNode = registry.insertNode(AmbientLightNode, 'ambient-light');
 ambientLightNode.position = { x: 550, y: 100 };
-ambientLightNode.inputs.get('intensity')!.value = 0.5;
+ambientLightNode.input('intensity').value = 0.5;
 graph.addNode(ambientLightNode);
 
-const directionalLightPos = registry.createNode('Vector3Node', 'dir-light-pos')!;
+// Using insertNode with Vector3Node for type safety
+const directionalLightPos = registry.insertNode(Vector3Node, 'dir-light-pos');
 directionalLightPos.position = { x: 300, y: -25 };
-directionalLightPos.setProperty('xDefault', 5);
-directionalLightPos.setProperty('yDefault', 5);
-directionalLightPos.setProperty('zDefault', 5);
-
+directionalLightPos.setVector(10, 10, 10); // Type-safe!
 graph.addNode(directionalLightPos);
 
-const directionalLightNode = registry.createNode('DirectionalLightNode', 'dir-light')!;
+const directionalLightNode = registry.insertNode(DirectionalLightNode, 'dir-light');
 directionalLightNode.position = { x: 550, y: -50 };
-directionalLightNode.inputs.get('intensity')!.value = 1;
+directionalLightNode.input('intensity').value = 1;
 graph.addNode(directionalLightNode);
 
-graph.connect(
-  directionalLightPos.outputs.get('vector')!,
-  directionalLightNode.inputs.get('position')!
-);
+graph.connect(directionalLightPos.output('vector'), directionalLightNode.input('position'));
 
 // 9. Scene Compiler - Collects all objects and camera for the scene
-const sceneCompiler = registry.createNode('SceneCompilerNode', 'scene-compiler')!;
-sceneCompiler.position = { x: 1050, y: 250 };
+const sceneCompiler = registry.insertNode(SceneCompilerNode, 'scene-compiler');
+sceneCompiler.position = { x: 1350, y: 250 };
 graph.addNode(sceneCompiler);
 
 // Connect scene
-graph.connect(sceneNode.outputs.get('scene')!, sceneCompiler.inputs.get('scene')!);
+graph.connect(sceneNode.output('scene'), sceneCompiler.input('scene'));
 
 // Connect all objects to the compiler (using shift+drag for multiple connections)
-graph.connect(meshNode.outputs.get('mesh')!, sceneCompiler.inputs.get('objects')!);
-graph.connect(ambientLightNode.outputs.get('light')!, sceneCompiler.inputs.get('objects')!, true);
-graph.connect(
-  directionalLightNode.outputs.get('light')!,
-  sceneCompiler.inputs.get('objects')!,
-  true
-);
+graph.connect(meshNode.output('mesh'), sceneCompiler.input('objects'));
+graph.connect(ambientLightNode.output('light'), sceneCompiler.input('objects'), true);
+graph.connect(directionalLightNode.output('light'), sceneCompiler.input('objects'), true);
 
 // Connect camera
-graph.connect(cameraNode.outputs.get('camera')!, sceneCompiler.inputs.get('camera')!);
+graph.connect(cameraNode.output('camera'), sceneCompiler.input('camera'));
 
 // 10. Add update toggle
-const updateToggle = registry.createNode('BooleanInputNode', 'update-toggle')!;
-updateToggle.position = { x: 1050, y: 450 };
-updateToggle.label = 'Update Scene';
-// Set initial value to true so scene renders by default
-(updateToggle as any).setValue(true);
-graph.addNode(updateToggle);
+// Using insertNode for type safety
+const updateButton = registry.insertNode(ButtonNode, 'update-button');
+updateButton.position = { x: 1350, y: 400 };
+updateButton.label = 'Update Scene';
+graph.addNode(updateButton);
 
 // 11. Scene Output - Finalizes the scene by clearing and rebuilding
-const sceneOutputNode = registry.createNode('SceneOutputNode', 'scene-output')!;
-sceneOutputNode.position = { x: 1300, y: 250 };
+const sceneOutputNode = registry.insertNode(SceneOutputNode, 'scene-output');
+sceneOutputNode.position = { x: 1600, y: 250 };
 graph.addNode(sceneOutputNode);
 
 // Connect compiled scene and update toggle to output
-graph.connect(sceneCompiler.outputs.get('compiled')!, sceneOutputNode.inputs.get('compiled')!);
-graph.connect(updateToggle.outputs.get('value')!, sceneOutputNode.inputs.get('update')!);
+graph.connect(sceneCompiler.output('compiled'), sceneOutputNode.input('compiled'));
+graph.connect(updateButton.output('trigger'), sceneOutputNode.input('update'));
 
 // Initialize UI - Create containers programmatically
 const appContainer = document.getElementById('app')! as HTMLElement;

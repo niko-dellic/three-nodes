@@ -2,7 +2,7 @@ import { TweakpaneNode } from '../../TweakpaneNode';
 import { PortType } from '@/types';
 import { EvaluationContext } from '@/core/types';
 
-export class NumberSliderNode extends TweakpaneNode {
+export class NumberSliderNode extends TweakpaneNode<never, 'value'> {
   private currentValue: number = 0;
   private params = { value: 0 };
 

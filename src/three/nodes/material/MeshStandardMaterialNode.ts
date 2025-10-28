@@ -9,6 +9,24 @@ export class MeshStandardMaterialNode extends BaseThreeNode {
     this.addInput({ name: 'color', type: PortType.Color, defaultValue: new THREE.Color(1, 1, 1) });
     this.addInput({ name: 'metalness', type: PortType.Number, defaultValue: 0 });
     this.addInput({ name: 'roughness', type: PortType.Number, defaultValue: 1 });
+    this.addInput({
+      name: 'emissive',
+      type: PortType.Color,
+      defaultValue: new THREE.Color(0, 0, 0),
+    });
+    this.addInput({ name: 'emissiveIntensity', type: PortType.Number, defaultValue: 0 });
+    // wireframe
+    this.addInput({ name: 'wireframe', type: PortType.Boolean, defaultValue: false });
+    // side
+    this.addInput({ name: 'side', type: PortType.Number, defaultValue: THREE.FrontSide });
+    // depthTest
+    this.addInput({ name: 'depthTest', type: PortType.Boolean, defaultValue: true });
+    // depthWrite
+    this.addInput({ name: 'depthWrite', type: PortType.Boolean, defaultValue: true });
+    // transparent
+    this.addInput({ name: 'transparent', type: PortType.Boolean, defaultValue: false });
+    // opacity
+    this.addInput({ name: 'opacity', type: PortType.Number, defaultValue: 1 });
     this.addOutput({ name: 'material', type: PortType.Material });
   }
 

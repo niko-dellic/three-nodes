@@ -160,16 +160,30 @@ export class Vector3Node extends TweakpaneNode {
   // Setters for individual axis values
   setX(value: number): void {
     this.params.x = value;
+    this.setProperty('xDefault', value);
     this.markDirty();
   }
 
   setY(value: number): void {
     this.params.y = value;
+    this.setProperty('yDefault', value);
     this.markDirty();
   }
 
   setZ(value: number): void {
     this.params.z = value;
+    this.setProperty('zDefault', value);
+    this.markDirty();
+  }
+
+  // Convenience method to set all values at once
+  setVector(x: number, y: number, z: number): void {
+    this.params.x = x;
+    this.params.y = y;
+    this.params.z = z;
+    this.setProperty('xDefault', x);
+    this.setProperty('yDefault', y);
+    this.setProperty('zDefault', z);
     this.markDirty();
   }
 

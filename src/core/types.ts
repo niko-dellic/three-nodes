@@ -22,6 +22,8 @@ export interface PropertyConfig {
   max?: number;
   step?: number;
   options?: Record<string, any>; // For list type
+  multiline?: boolean; // For string type
+  rows?: number; // For multiline string type
 }
 
 export interface NodeProperty {
@@ -33,6 +35,8 @@ export interface NodeProperty {
   max?: number;
   step?: number;
   options?: Record<string, any>;
+  multiline?: boolean;
+  rows?: number;
 }
 
 export interface SerializedGraph {

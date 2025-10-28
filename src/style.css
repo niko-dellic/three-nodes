@@ -512,3 +512,19 @@ body {
   background: #3a3a3a;
   border-color: #4a4a4a;
 }
+
+/* Property externally managed (when input port is connected) */
+.property-externally-managed {
+  opacity: 0.5;
+  pointer-events: none;
+  position: relative;
+}
+
+.property-externally-managed::after {
+  content: '🔗';
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  font-size: 10px;
+  opacity: 0.7;
+}

@@ -1,7 +1,10 @@
 import { Node } from '@/core/Node';
 import * as THREE from 'three';
 
-export abstract class BaseThreeNode extends Node {
+export abstract class BaseThreeNode<
+  TInputs extends string = string,
+  TOutputs extends string = string,
+> extends Node<TInputs, TOutputs> {
   protected resources: Set<THREE.Object3D | THREE.Material | THREE.BufferGeometry | THREE.Texture> =
     new Set();
 

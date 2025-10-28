@@ -3,7 +3,7 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class CreateMeshNode extends BaseThreeNode {
+export class CreateMeshNode extends BaseThreeNode<'geometry' | 'material', 'mesh'> {
   constructor(id: string) {
     super(id, 'CreateMeshNode', 'Create Mesh');
     this.addInput({ name: 'geometry', type: PortType.Geometry });

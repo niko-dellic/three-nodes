@@ -224,6 +224,8 @@ export class PreviewManager {
     const scene = this.getPreviewScene();
     for (const obj of this.nodeObjects.values()) {
       scene.remove(obj);
+      // Dispose of cloned materials and geometries
+      this.disposeObject(obj);
     }
     this.nodeObjects.clear();
 
@@ -260,6 +262,10 @@ export class PreviewManager {
   }
 
   private addNodeToPreview(node: Node): void {
+    // Track objects we've already added (by uuid) to prevent duplicates
+    // This is needed because loader nodes output the same object to multiple ports
+    const addedObjects = new Set<string>();
+
     // Check all output ports for Three.js objects
     for (const output of node.outputs.values()) {
       const value = output.value;
@@ -276,20 +282,64 @@ export class PreviewManager {
         // This is a compiled scene - preview the objects array
         for (const obj of value.objects) {
           if (obj instanceof THREE.Object3D) {
-            this.addObject3DToPreview(node.id + '_obj_' + obj.uuid, obj, true); // Preserve materials
+            const objId = node.id + '_obj_' + obj.uuid;
+            if (!addedObjects.has(objId)) {
+              addedObjects.add(objId);
+              this.addObject3DToPreview(objId, obj, true); // Preserve materials
+            }
           }
+        }
+        continue;
+      }
+
+      // Handle DirectionalLight specially to show helper
+      if (value instanceof THREE.DirectionalLight) {
+        const lightId = node.id + '_light_' + value.uuid;
+        if (!addedObjects.has(lightId)) {
+          addedObjects.add(lightId);
+          this.addDirectionalLightToPreview(lightId, value);
+        }
+        continue;
+      }
+
+      // Handle other lights with helpers
+      if (value instanceof THREE.PointLight) {
+        const lightId = node.id + '_light_' + value.uuid;
+        if (!addedObjects.has(lightId)) {
+          addedObjects.add(lightId);
+          this.addPointLightToPreview(lightId, value);
+        }
+        continue;
+      }
+
+      if (value instanceof THREE.SpotLight) {
+        const lightId = node.id + '_light_' + value.uuid;
+        if (!addedObjects.has(lightId)) {
+          addedObjects.add(lightId);
+          this.addSpotLightToPreview(lightId, value);
         }
         continue;
       }
 
       // Handle different Three.js object types
       if (value instanceof THREE.Object3D) {
-        this.addObject3DToPreview(node.id, value, true); // Preserve materials for mesh objects
+        const objId = node.id + '_' + value.uuid;
+        if (!addedObjects.has(objId)) {
+          addedObjects.add(objId);
+          this.addObject3DToPreview(objId, value, true); // Preserve materials for mesh objects
+        }
       } else if (value instanceof THREE.BufferGeometry) {
-        this.addGeometryToPreview(node.id, value);
+        const geomId = node.id + '_geom_' + value.uuid;
+        if (!addedObjects.has(geomId)) {
+          addedObjects.add(geomId);
+          this.addGeometryToPreview(geomId, value);
+        }
       } else if (value instanceof THREE.Material) {
-        // Materials alone don't render, but we could show a preview sphere
-        this.addMaterialPreview(node.id, value);
+        const matId = node.id + '_mat_' + value.uuid;
+        if (!addedObjects.has(matId)) {
+          addedObjects.add(matId);
+          this.addMaterialPreview(matId, value);
+        }
       }
     }
   }
@@ -371,6 +421,100 @@ export class PreviewManager {
     scene.add(mesh);
   }
 
+  private addDirectionalLightToPreview(nodeId: string, light: THREE.DirectionalLight): void {
+    const scene = this.getPreviewScene();
+
+    // Clone the light
+    const lightClone = light.clone();
+
+    // Create helper
+    const helper = new THREE.DirectionalLightHelper(lightClone, 1);
+
+    // Create a group containing both light and helper
+    const group = new THREE.Group();
+    group.add(lightClone);
+    group.add(helper);
+
+    this.nodeObjects.set(nodeId, group);
+    scene.add(group);
+  }
+
+  private addPointLightToPreview(nodeId: string, light: THREE.PointLight): void {
+    const scene = this.getPreviewScene();
+
+    // Clone the light
+    const lightClone = light.clone();
+
+    // Create helper
+    const helper = new THREE.PointLightHelper(lightClone, 0.5);
+
+    // Create a group containing both light and helper
+    const group = new THREE.Group();
+    group.add(lightClone);
+    group.add(helper);
+
+    this.nodeObjects.set(nodeId, group);
+    scene.add(group);
+  }
+
+  private addSpotLightToPreview(nodeId: string, light: THREE.SpotLight): void {
+    const scene = this.getPreviewScene();
+
+    // Clone the light
+    const lightClone = light.clone();
+
+    // Create helper
+    const helper = new THREE.SpotLightHelper(lightClone);
+
+    // Create a group containing both light and helper
+    const group = new THREE.Group();
+    group.add(lightClone);
+    group.add(helper);
+
+    this.nodeObjects.set(nodeId, group);
+    scene.add(group);
+  }
+
+  /**
+   * Properly dispose of an object and all its children
+   */
+  private disposeObject(obj: THREE.Object3D): void {
+    obj.traverse((child) => {
+      // Dispose geometries
+      if (
+        child instanceof THREE.Mesh ||
+        child instanceof THREE.Line ||
+        child instanceof THREE.Points
+      ) {
+        if (child.geometry) {
+          child.geometry.dispose();
+        }
+      }
+
+      // Dispose materials
+      if ('material' in child && child.material) {
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        materials.forEach((material) => {
+          if (material) {
+            // Dispose textures
+            Object.keys(material).forEach((key) => {
+              const value = (material as any)[key];
+              if (value && value.isTexture) {
+                value.dispose();
+              }
+            });
+            material.dispose();
+          }
+        });
+      }
+    });
+
+    // Clear children
+    while (obj.children.length > 0) {
+      obj.remove(obj.children[0]);
+    }
+  }
+
   /**
    * Clean up - removes all preview objects from the scene
    */
@@ -378,6 +522,7 @@ export class PreviewManager {
     const scene = this.getPreviewScene();
     for (const obj of this.nodeObjects.values()) {
       scene.remove(obj);
+      this.disposeObject(obj);
     }
     this.nodeObjects.clear();
   }

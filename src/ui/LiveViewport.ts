@@ -14,6 +14,8 @@ export class LiveViewport {
 
   private currentScene: THREE.Scene | null = null;
   private defaultCamera: THREE.PerspectiveCamera;
+  private nodeControlledCamera: THREE.Camera | null = null;
+  private isNodeCameraActive: boolean = false;
 
   constructor(container: HTMLElement, graph: Graph) {
     this.container = container;
@@ -93,13 +95,16 @@ export class LiveViewport {
 
   private startRenderLoop(): void {
     const animate = () => {
-      this.controls.update();
+      // Only update controls if not using node-controlled camera
+      if (!this.isNodeCameraActive) {
+        this.controls.update();
+      }
 
-      // Always render the baked scene (with preview objects added to it)
+      // Always render the baked scene (with active camera)
       if (this.currentScene) {
-        // Render the actual scene from SceneOutputNode with default camera
-        // Preview objects are added directly to this scene by PreviewManager
-        this.renderer.render(this.currentScene, this.defaultCamera);
+        // Use active camera (node-controlled or default)
+        const activeCamera = this.getActiveCamera();
+        this.renderer.render(this.currentScene, activeCamera);
       } else {
         // Render empty scene
         this.renderer.clear();
@@ -123,6 +128,27 @@ export class LiveViewport {
 
   setControlsEnabled(enabled: boolean): void {
     this.controls.enabled = enabled;
+  }
+
+  /**
+   * Set the active camera for the viewport
+   * Pass null to release control back to orbit controls
+   */
+  setActiveCamera(camera: THREE.Camera | null): void {
+    this.nodeControlledCamera = camera;
+    this.isNodeCameraActive = camera !== null;
+
+    // Disable orbit controls when node camera is active
+    this.controls.enabled = !this.isNodeCameraActive;
+  }
+
+  /**
+   * Get the current active camera (node-controlled or default)
+   */
+  private getActiveCamera(): THREE.Camera {
+    return this.isNodeCameraActive && this.nodeControlledCamera
+      ? this.nodeControlledCamera
+      : this.defaultCamera;
   }
 
   destroy(): void {

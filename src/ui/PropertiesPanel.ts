@@ -217,7 +217,7 @@ export class PropertiesPanel {
         bindingConfig.view = 'color';
       }
 
-      pane.addBinding(params, name, bindingConfig).on('change', (ev) => {
+      const binding = pane.addBinding(params, name, bindingConfig).on('change', (ev) => {
         node.setProperty(name, ev.value);
 
         // If this is a TweakpaneNode, reinitialize its controls if needed
@@ -229,6 +229,15 @@ export class PropertiesPanel {
           }
         }
       });
+
+      // Check if this property has a corresponding connected input port
+      const inputPort = node.inputs.get(name);
+      if (inputPort && inputPort.connections.length > 0) {
+        // Property is externally managed - gray it out
+        const bindingElement = binding.element;
+        bindingElement.classList.add('property-externally-managed');
+        bindingConfig.disabled = true;
+      }
     }
 
     return section;

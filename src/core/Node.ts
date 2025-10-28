@@ -1,8 +1,9 @@
 import { Port } from './Port';
 import { PortSchema, EvaluationContext, PropertyConfig, NodeProperty } from './types';
 import { PortValue } from '@/types';
+import type { Graph } from './Graph';
 
-export abstract class Node {
+export abstract class Node<TInputs extends string = string, TOutputs extends string = string> {
   public id: string;
   public type: string;
   public label: string;
@@ -12,6 +13,7 @@ export abstract class Node {
   public position: { x: number; y: number } = { x: 0, y: 0 };
   public customWidth?: number; // Optional custom width set by user resize
   public customHeight?: number; // Optional custom height set by user resize
+  public graph?: Graph; // Reference to parent graph (set by Graph.addNode)
 
   // Dirty flag for incremental evaluation
   private _isDirty = true;
@@ -159,5 +161,29 @@ export abstract class Node {
       port.value = value;
       this.cacheOutput(name, value);
     }
+  }
+
+  /**
+   * Get an output port, throwing if it doesn't exist
+   * Type-safe: only accepts output port names that exist on this node
+   */
+  output(name: TOutputs): Port {
+    const port = this.outputs.get(name);
+    if (!port) {
+      throw new Error(`Output port '${name}' not found on node ${this.type} (${this.id})`);
+    }
+    return port;
+  }
+
+  /**
+   * Get an input port, throwing if it doesn't exist
+   * Type-safe: only accepts input port names that exist on this node
+   */
+  input(name: TInputs): Port {
+    const port = this.inputs.get(name);
+    if (!port) {
+      throw new Error(`Input port '${name}' not found on node ${this.type} (${this.id})`);
+    }
+    return port;
   }
 }

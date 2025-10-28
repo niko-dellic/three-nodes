@@ -12,7 +12,7 @@ export class NodeRegistry {
     this.nodeTypes.set(metadata.type, { constructor, metadata });
   }
 
-  // Create a node instance by type
+  // Create a node instance by type string
   createNode(type: string, id?: string): Node | null {
     const entry = this.nodeTypes.get(type);
     if (!entry) {
@@ -21,6 +21,12 @@ export class NodeRegistry {
 
     const nodeId = id || this.generateId();
     return new entry.constructor(nodeId);
+  }
+
+  // Create a node instance with full type safety using the class constructor
+  insertNode<T extends Node>(constructor: new (id: string) => T, id?: string): T {
+    const nodeId = id || this.generateId();
+    return new constructor(nodeId);
   }
 
   // Get metadata for a node type

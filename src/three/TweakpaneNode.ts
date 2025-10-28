@@ -5,7 +5,10 @@ import { Pane } from 'tweakpane';
  * Base class for nodes that use Tweakpane controls
  * Manages Pane instance lifecycle and provides common functionality
  */
-export abstract class TweakpaneNode extends BaseThreeNode {
+export abstract class TweakpaneNode<
+  TInputs extends string = string,
+  TOutputs extends string = string,
+> extends BaseThreeNode<TInputs, TOutputs> {
   protected pane: Pane | null = null;
   protected container: HTMLElement | null = null;
 

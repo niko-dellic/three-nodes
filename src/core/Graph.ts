@@ -18,6 +18,7 @@ export class Graph {
   // Add a node to the graph
   addNode(node: Node): void {
     this.nodes.set(node.id, node);
+    node.graph = this; // Set graph reference on node
     node.init();
     this.notifyChange();
   }
@@ -35,6 +36,9 @@ export class Graph {
       }
     }
     edgesToRemove.forEach((id) => this.removeEdge(id));
+
+    // Clear graph reference
+    node.graph = undefined;
 
     // Dispose and remove node
     node.dispose();
