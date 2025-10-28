@@ -528,3 +528,24 @@ body {
   font-size: 10px;
   opacity: 0.7;
 }
+
+.context-menu .tp-btnv_b {
+  color: var(--text-color);
+  background-color: var(--tertiary-color);
+  border-color: var(--tertiary-color);
+  font-weight: normal;
+}
+
+.context-menu {
+  scrollbar-color: var(--secondary-color) transparent;
+  scrollbar-width: thin;
+  /* overlay scrollbar */
+  &::-webkit-scrollbar {
+    width: 4px;
+    background-color: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--secondary-color);
+    border-radius: 2px;
+  }
+}

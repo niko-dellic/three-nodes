@@ -2,7 +2,10 @@ import { BaseThreeNode } from '../../../BaseThreeNode';
 import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 
-export class AddNode extends BaseThreeNode {
+export class AddNode extends BaseThreeNode<
+  'a' | 'b',
+  'result'
+> {
   constructor(id: string) {
     super(id, 'AddNode', 'Add');
     this.addInput({ name: 'a', type: PortType.Number, defaultValue: 0 });

@@ -3,7 +3,10 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class PerspectiveCameraNode extends BaseThreeNode {
+export class PerspectiveCameraNode extends BaseThreeNode<
+  'fov' | 'aspect' | 'near' | 'far' | 'position',
+  'camera'
+> {
   constructor(id: string) {
     super(id, 'PerspectiveCameraNode', 'Perspective Camera');
     this.addInput({ name: 'fov', type: PortType.Number, defaultValue: 75 });

@@ -3,7 +3,10 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class Vector3Node extends TweakpaneNode {
+export class Vector3Node extends TweakpaneNode<
+  'x' | 'y' | 'z',
+  'vector'
+> {
   private params = { x: 0, y: 0, z: 0 };
   private bindings: Map<string, any> = new Map();
 

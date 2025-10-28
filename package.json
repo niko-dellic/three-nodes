@@ -9,7 +9,8 @@
     "test": "vitest",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "add-node-types": "python3 scripts/add_type_safety.py"
   },
   "dependencies": {
     "three": "^0.180.0",

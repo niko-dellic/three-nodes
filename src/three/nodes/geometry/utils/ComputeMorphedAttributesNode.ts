@@ -4,7 +4,10 @@ import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 import { computeMorphedAttributes } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-export class ComputeMorphedAttributesNode extends BaseThreeNode {
+export class ComputeMorphedAttributesNode extends BaseThreeNode<
+  'object',
+  'attributes'
+> {
   constructor(id: string) {
     super(id, 'ComputeMorphedAttributesNode', 'Compute Morphed Attributes');
     this.addInput({ name: 'object', type: PortType.Object3D });

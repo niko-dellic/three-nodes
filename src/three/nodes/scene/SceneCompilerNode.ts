@@ -16,7 +16,10 @@ export interface CompiledScene {
   camera: THREE.Camera;
 }
 
-export class SceneCompilerNode extends BaseThreeNode {
+export class SceneCompilerNode extends BaseThreeNode<
+  'scene' | 'objects' | 'camera',
+  'compiled'
+> {
   constructor(id: string) {
     super(id, 'SceneCompilerNode', 'Scene Compiler');
     this.addInput({ name: 'scene', type: PortType.Scene });

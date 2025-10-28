@@ -7,7 +7,10 @@ import { EvaluationContext } from '@/core';
  * Provides animation loop functionality
  * Calls update() on all input objects each frame
  */
-export class FrameNode extends BaseThreeNode {
+export class FrameNode extends BaseThreeNode<
+  'enabled' | 'objects',
+  'deltaTime' | 'elapsedTime' | 'frame'
+> {
   private isEnabled: boolean = false;
   private animationId: number | null = null;
   private startTime: number = 0;

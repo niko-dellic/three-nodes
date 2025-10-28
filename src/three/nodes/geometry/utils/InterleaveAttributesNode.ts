@@ -4,7 +4,10 @@ import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 import { interleaveAttributes } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-export class InterleaveAttributesNode extends BaseThreeNode {
+export class InterleaveAttributesNode extends BaseThreeNode<
+  'attributes',
+  'interleavedBuffer'
+> {
   constructor(id: string) {
     super(id, 'InterleaveAttributesNode', 'Interleave Attributes');
     this.addInput({ name: 'attributes', type: PortType.Any }); // Array of attributes

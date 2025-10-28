@@ -3,7 +3,10 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class PositionNode extends BaseThreeNode {
+export class PositionNode extends BaseThreeNode<
+  'object' | 'position',
+  'object'
+> {
   constructor(id: string) {
     super(id, 'PositionNode', 'Position');
     this.addInput({ name: 'object', type: PortType.Object3D });

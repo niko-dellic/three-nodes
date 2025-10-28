@@ -2,7 +2,10 @@ import { BaseThreeNode } from '../../BaseThreeNode';
 import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 
-export class RAD2DEGNode extends BaseThreeNode {
+export class RAD2DEGNode extends BaseThreeNode<
+  never,
+  'value'
+> {
   constructor(id: string) {
     super(id, 'RAD2DEGNode', 'RAD2DEG');
     this.addOutput({ name: 'value', type: PortType.Number });

@@ -3,7 +3,10 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class ClampNode extends BaseThreeNode {
+export class ClampNode extends BaseThreeNode<
+  'value' | 'min' | 'max',
+  'result'
+> {
   constructor(id: string) {
     super(id, 'ClampNode', 'Clamp');
     this.addInput({ name: 'value', type: PortType.Number, defaultValue: 0 });

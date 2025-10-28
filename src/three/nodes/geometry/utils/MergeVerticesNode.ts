@@ -4,7 +4,10 @@ import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-export class MergeVerticesNode extends BaseThreeNode {
+export class MergeVerticesNode extends BaseThreeNode<
+  'geometry',
+  'geometry'
+> {
   constructor(id: string) {
     super(id, 'MergeVerticesNode', 'Merge Vertices');
     this.addInput({ name: 'geometry', type: PortType.Geometry });

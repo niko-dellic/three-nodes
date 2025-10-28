@@ -3,7 +3,7 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class MeshMatcapMaterialNode extends BaseMaterialNode {
+export class MeshMatcapMaterialNode extends BaseMaterialNode<'matcap' | 'color' | 'map'> {
   constructor(id: string) {
     super(id, 'MeshMatcapMaterialNode', 'Matcap Material');
 

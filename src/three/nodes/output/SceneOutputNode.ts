@@ -14,7 +14,10 @@ import type { CompiledScene } from '../scene/SceneCompilerNode';
  *
  * This ensures clean rebuilds on every evaluation.
  */
-export class SceneOutputNode extends BaseThreeNode {
+export class SceneOutputNode extends BaseThreeNode<
+  'compiled' | 'update',
+  'output'
+> {
   private previousObjects: THREE.Object3D[] = [];
 
   constructor(id: string) {

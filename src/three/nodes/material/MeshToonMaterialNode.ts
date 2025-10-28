@@ -3,7 +3,7 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class MeshToonMaterialNode extends BaseMaterialNode {
+export class MeshToonMaterialNode extends BaseMaterialNode<'color' | 'gradientMap' | 'map'> {
   constructor(id: string) {
     super(id, 'MeshToonMaterialNode', 'Toon Material');
 

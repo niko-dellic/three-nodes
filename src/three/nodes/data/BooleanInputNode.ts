@@ -2,7 +2,10 @@ import { TweakpaneNode } from '../../TweakpaneNode';
 import { PortType } from '@/types';
 import { EvaluationContext } from '@/core/types';
 
-export class BooleanInputNode extends TweakpaneNode {
+export class BooleanInputNode extends TweakpaneNode<
+  never,
+  'value'
+> {
   private currentValue: boolean = false;
   private params = { value: false };
 

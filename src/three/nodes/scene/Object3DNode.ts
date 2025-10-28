@@ -8,7 +8,10 @@ import * as THREE from 'three';
  * Creates a basic empty Object3D container
  * Useful for grouping, transforms, and hierarchy
  */
-export class Object3DNode extends BaseThreeNode {
+export class Object3DNode extends BaseThreeNode<
+  'position' | 'rotation' | 'scale' | 'children',
+  'object'
+> {
   private object: THREE.Object3D;
 
   constructor(id: string) {

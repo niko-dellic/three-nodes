@@ -3,7 +3,10 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class CrossProductNode extends BaseThreeNode {
+export class CrossProductNode extends BaseThreeNode<
+  'vectorA' | 'vectorB',
+  'result'
+> {
   constructor(id: string) {
     super(id, 'CrossProductNode', 'Cross Product');
     this.addInput({ name: 'vectorA', type: PortType.Vector3 });

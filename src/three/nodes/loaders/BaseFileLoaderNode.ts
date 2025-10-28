@@ -7,7 +7,9 @@ import * as THREE from 'three';
  * Base class for file loader nodes
  * Provides common file picker UI and loading pattern
  */
-export abstract class BaseFileLoaderNode extends TweakpaneNode {
+export abstract class BaseFileLoaderNode<
+  TOutputs extends string = 'scene' | 'loaded',
+> extends TweakpaneNode<never, TOutputs> {
   protected fileInput: HTMLInputElement | null = null;
   protected loadedObject: THREE.Object3D | null = null;
   protected isLoading: boolean = false;

@@ -3,7 +3,10 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class EuclideanModuloNode extends BaseThreeNode {
+export class EuclideanModuloNode extends BaseThreeNode<
+  'n' | 'm',
+  'result'
+> {
   constructor(id: string) {
     super(id, 'EuclideanModuloNode', 'Euclidean Modulo');
     this.addInput({ name: 'n', type: PortType.Number, defaultValue: 0 });

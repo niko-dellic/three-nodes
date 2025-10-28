@@ -4,7 +4,10 @@ import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 import { toTrianglesDrawMode } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-export class ToTrianglesDrawModeNode extends BaseThreeNode {
+export class ToTrianglesDrawModeNode extends BaseThreeNode<
+  'geometry',
+  'geometry'
+> {
   constructor(id: string) {
     super(id, 'ToTrianglesDrawModeNode', 'To Triangles Draw Mode');
     this.addInput({ name: 'geometry', type: PortType.Geometry });

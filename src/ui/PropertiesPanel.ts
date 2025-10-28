@@ -218,7 +218,12 @@ export class PropertiesPanel {
       }
 
       const binding = pane.addBinding(params, name, bindingConfig).on('change', (ev) => {
-        node.setProperty(name, ev.value);
+        // Update property value but don't trigger graph evaluation
+        const prop = node.properties.get(name);
+        if (prop) {
+          prop.value = ev.value;
+          node.markDirty();
+        }
 
         // If this is a TweakpaneNode, reinitialize its controls if needed
         if (node instanceof TweakpaneNode) {
@@ -239,6 +244,44 @@ export class PropertiesPanel {
         bindingConfig.disabled = true;
       }
     }
+
+    // Add Update button
+    const updateButtonContainer = document.createElement('div');
+    updateButtonContainer.className = 'properties-update-button-container';
+    updateButtonContainer.style.cssText = 'margin-top: 10px; padding: 0 8px;';
+
+    const updateButton = document.createElement('button');
+    updateButton.className = 'properties-update-button';
+    updateButton.textContent = 'Update';
+    updateButton.style.cssText = `
+      width: 100%;
+      padding: 8px;
+      background-color: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+    `;
+
+    updateButton.addEventListener('mouseenter', () => {
+      updateButton.style.backgroundColor = '#357abd';
+    });
+
+    updateButton.addEventListener('mouseleave', () => {
+      updateButton.style.backgroundColor = '#4a90e2';
+    });
+
+    updateButton.addEventListener('click', () => {
+      // Trigger graph evaluation when button is clicked
+      if (node.graph) {
+        node.graph.triggerChange();
+      }
+    });
+
+    updateButtonContainer.appendChild(updateButton);
+    section.appendChild(updateButtonContainer);
 
     return section;
   }

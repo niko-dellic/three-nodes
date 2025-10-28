@@ -4,7 +4,10 @@ import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-export class ConvertToIndexedNode extends BaseThreeNode {
+export class ConvertToIndexedNode extends BaseThreeNode<
+  'geometry',
+  'geometry'
+> {
   constructor(id: string) {
     super(id, 'ConvertToIndexedNode', 'Convert To Indexed');
     this.addInput({ name: 'geometry', type: PortType.Geometry });

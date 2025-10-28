@@ -2,7 +2,10 @@ import { TweakpaneNode } from '../../TweakpaneNode';
 import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 
-export class MergeNode extends TweakpaneNode {
+export class MergeNode extends TweakpaneNode<
+  'string',
+  'array'
+> {
   constructor(id: string) {
     super(id, 'MergeNode', 'Merge');
 

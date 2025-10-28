@@ -3,7 +3,10 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class DirectionalLightNode extends BaseThreeNode {
+export class DirectionalLightNode extends BaseThreeNode<
+  'color' | 'intensity' | 'position',
+  'light'
+> {
   constructor(id: string) {
     super(id, 'DirectionalLightNode', 'Directional Light');
     this.addInput({ name: 'color', type: PortType.Color, defaultValue: new THREE.Color(1, 1, 1) });

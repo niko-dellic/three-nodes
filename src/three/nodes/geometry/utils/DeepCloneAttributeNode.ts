@@ -4,7 +4,10 @@ import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 import { deepCloneAttribute } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-export class DeepCloneAttributeNode extends BaseThreeNode {
+export class DeepCloneAttributeNode extends BaseThreeNode<
+  'attribute',
+  'attribute'
+> {
   constructor(id: string) {
     super(id, 'DeepCloneAttributeNode', 'Deep Clone Attribute');
     this.addInput({ name: 'attribute', type: PortType.Any });

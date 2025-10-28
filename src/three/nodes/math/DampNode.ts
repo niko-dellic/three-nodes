@@ -3,7 +3,10 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class DampNode extends BaseThreeNode {
+export class DampNode extends BaseThreeNode<
+  'x' | 'y' | 'lambda' | 'deltaTime',
+  'result'
+> {
   constructor(id: string) {
     super(id, 'DampNode', 'Damp');
     this.addInput({ name: 'x', type: PortType.Number, defaultValue: 0 });

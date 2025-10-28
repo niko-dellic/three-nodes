@@ -7,7 +7,10 @@ import * as THREE from 'three';
  * Camera Component Node
  * Creates and manages a camera instance for use in the scene
  */
-export class CameraComponentNode extends BaseThreeNode {
+export class CameraComponentNode extends BaseThreeNode<
+  never,
+  'camera'
+> {
   private camera: THREE.Camera | null = null;
 
   constructor(id: string) {

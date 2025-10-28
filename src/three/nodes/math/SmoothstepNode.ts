@@ -3,7 +3,10 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class SmoothstepNode extends BaseThreeNode {
+export class SmoothstepNode extends BaseThreeNode<
+  'x' | 'min' | 'max',
+  'result'
+> {
   constructor(id: string) {
     super(id, 'SmoothstepNode', 'Smoothstep');
     this.addInput({ name: 'x', type: PortType.Number, defaultValue: 0.5 });

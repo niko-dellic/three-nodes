@@ -9,7 +9,9 @@ import { EvaluationContext } from '@/core';
  * Loads GLTF/GLB files and outputs the loaded scene and animations
  * Reference: https://threejs.org/docs/#examples/en/loaders/GLTFLoader
  */
-export class GLTFLoaderNode extends BaseFileLoaderNode {
+export class GLTFLoaderNode extends BaseFileLoaderNode<
+  'scene' | 'loaded' | 'animations' | 'cameras' | 'asset'
+> {
   private gltf: GLTF | null = null;
   private loader: GLTFLoader;
 

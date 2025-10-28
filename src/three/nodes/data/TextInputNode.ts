@@ -2,7 +2,10 @@ import { TweakpaneNode } from '../../TweakpaneNode';
 import { PortType } from '@/types';
 import { EvaluationContext } from '@/core/types';
 
-export class TextInputNode extends TweakpaneNode {
+export class TextInputNode extends TweakpaneNode<
+  never,
+  'value'
+> {
   private currentValue: string = '';
   private params = { value: '' };
 

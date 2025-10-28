@@ -2,7 +2,10 @@ import { TweakpaneNode } from '../../TweakpaneNode';
 import { PortType, Point2D } from '@/types';
 import { EvaluationContext } from '@/core/types';
 
-export class PointInputNode extends TweakpaneNode {
+export class PointInputNode extends TweakpaneNode<
+  never,
+  'point'
+> {
   private currentValue: Point2D = { x: 0, y: 0 };
   private params = { point: { x: 0, y: 0 } };
 

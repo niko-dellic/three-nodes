@@ -2,7 +2,10 @@ import { BaseThreeNode } from '../../BaseThreeNode';
 import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 
-export class LengthNode extends BaseThreeNode {
+export class LengthNode extends BaseThreeNode<
+  'array',
+  'length'
+> {
   constructor(id: string) {
     super(id, 'LengthNode', 'Length');
 

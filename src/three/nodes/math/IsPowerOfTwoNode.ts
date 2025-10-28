@@ -3,7 +3,10 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class IsPowerOfTwoNode extends BaseThreeNode {
+export class IsPowerOfTwoNode extends BaseThreeNode<
+  'value',
+  'result'
+> {
   constructor(id: string) {
     super(id, 'IsPowerOfTwoNode', 'Is Power of Two');
     this.addInput({ name: 'value', type: PortType.Number, defaultValue: 1 });

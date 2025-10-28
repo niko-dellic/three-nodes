@@ -7,7 +7,10 @@ import * as THREE from 'three';
  * MoveToNode - Move object relative to its current position
  * Unlike PositionNode which sets absolute position, this adds to current position
  */
-export class MoveToNode extends BaseThreeNode {
+export class MoveToNode extends BaseThreeNode<
+  'object' | 'offset',
+  'object'
+> {
   constructor(id: string) {
     super(id, 'MoveToNode', 'Move To');
     this.addInput({ name: 'object', type: PortType.Object3D });

@@ -3,6 +3,7 @@ import { NodeRegistry } from './NodeRegistry';
 // Data nodes
 import { NumberNode } from './nodes/data/NumberNode';
 import { Vector3Node } from './nodes/data/Vector3Node';
+import { Vector3DecomposeNode } from './nodes/data/Vector3DecomposeNode';
 import { ColorNode } from './nodes/data/ColorNode';
 import { NumberSliderNode } from './nodes/data/NumberSliderNode';
 import { ColorPickerNode } from './nodes/data/ColorPickerNode';
@@ -26,6 +27,7 @@ import { SphereGeometryNode } from './nodes/geometry/SphereGeometryNode';
 // Material nodes
 import { MeshStandardMaterialNode } from './nodes/material/MeshStandardMaterialNode';
 import { MeshBasicMaterialNode } from './nodes/material/MeshBasicMaterialNode';
+import { MeshPhongMaterialNode } from './nodes/material/MeshPhongMaterialNode';
 import { MeshToonMaterialNode } from './nodes/material/MeshToonMaterialNode';
 import { MeshMatcapMaterialNode } from './nodes/material/MeshMatcapMaterialNode';
 import { PointsMaterialNode } from './nodes/material/PointsMaterialNode';
@@ -54,7 +56,7 @@ import { SceneOutputNode } from './nodes/output/SceneOutputNode';
 
 // Array nodes
 import { MergeNode } from './nodes/array/MergeNode';
-import { SplitNode } from './nodes/array/SplitNode';
+import { ExtractNode } from './nodes/array/ExtractNode';
 import { IndexNode } from './nodes/array/IndexNode';
 import { LengthNode } from './nodes/array/LengthNode';
 
@@ -123,6 +125,7 @@ export { TweakpaneNode } from './TweakpaneNode';
 // Export node types
 export { NumberNode } from './nodes/data/NumberNode';
 export { Vector3Node } from './nodes/data/Vector3Node';
+export { Vector3DecomposeNode } from './nodes/data/Vector3DecomposeNode';
 export { ColorNode } from './nodes/data/ColorNode';
 export { NumberSliderNode } from './nodes/data/NumberSliderNode';
 export { ColorPickerNode } from './nodes/data/ColorPickerNode';
@@ -138,6 +141,7 @@ export { BoxGeometryNode } from './nodes/geometry/BoxGeometryNode';
 export { SphereGeometryNode } from './nodes/geometry/SphereGeometryNode';
 export { MeshStandardMaterialNode } from './nodes/material/MeshStandardMaterialNode';
 export { MeshBasicMaterialNode } from './nodes/material/MeshBasicMaterialNode';
+export { MeshPhongMaterialNode } from './nodes/material/MeshPhongMaterialNode';
 export { MeshToonMaterialNode } from './nodes/material/MeshToonMaterialNode';
 export { MeshMatcapMaterialNode } from './nodes/material/MeshMatcapMaterialNode';
 export { PointsMaterialNode } from './nodes/material/PointsMaterialNode';
@@ -156,7 +160,7 @@ export { AmbientLightNode } from './nodes/lights/AmbientLightNode';
 export { DirectionalLightNode } from './nodes/lights/DirectionalLightNode';
 export { SceneOutputNode } from './nodes/output/SceneOutputNode';
 export { MergeNode } from './nodes/array/MergeNode';
-export { SplitNode } from './nodes/array/SplitNode';
+export { ExtractNode } from './nodes/array/ExtractNode';
 export { IndexNode } from './nodes/array/IndexNode';
 export { LengthNode } from './nodes/array/LengthNode';
 export { FrameNode } from './nodes/animation/FrameNode';
@@ -186,6 +190,14 @@ export function createDefaultRegistry(): NodeRegistry {
     category: 'Data',
     label: 'Vector3',
     description: 'Creates a 3D vector from X, Y, Z components',
+  });
+
+  registry.register(Vector3DecomposeNode, {
+    type: 'Vector3DecomposeNode',
+    category: 'Data',
+    label: 'Vector3 Decompose',
+    description: 'Decomposes a Vector3 into X, Y, Z components',
+    icon: '🔀',
   });
 
   registry.register(ColorNode, {
@@ -304,6 +316,14 @@ export function createDefaultRegistry(): NodeRegistry {
     category: 'Material',
     label: 'Basic Material',
     description: 'Creates a basic (unlit) material',
+  });
+
+  registry.register(MeshPhongMaterialNode, {
+    type: 'MeshPhongMaterialNode',
+    category: 'Material',
+    label: 'Phong Material',
+    description: 'Creates a Phong material with specular highlights and emissive properties',
+    icon: '✨',
   });
 
   registry.register(MeshToonMaterialNode, {
@@ -443,12 +463,12 @@ export function createDefaultRegistry(): NodeRegistry {
     icon: '🔗',
   });
 
-  registry.register(SplitNode, {
-    type: 'SplitNode',
+  registry.register(ExtractNode, {
+    type: 'ExtractNode',
     category: 'Array',
-    label: 'Split',
-    description: 'Split an array into individual values',
-    icon: '✂️',
+    label: 'Extract',
+    description: 'Extract element(s) from array by index. Returns single value or array of values.',
+    icon: '🔍',
   });
 
   registry.register(IndexNode, {

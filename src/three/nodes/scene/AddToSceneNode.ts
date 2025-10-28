@@ -3,7 +3,10 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class AddToSceneNode extends BaseThreeNode {
+export class AddToSceneNode extends BaseThreeNode<
+  'scene' | 'object',
+  'scene'
+> {
   constructor(id: string) {
     super(id, 'AddToSceneNode', 'Add to Scene');
     this.addInput({ name: 'scene', type: PortType.Scene });

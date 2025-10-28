@@ -4,7 +4,10 @@ import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 import { estimateBytesUsed } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-export class EstimateBytesUsedNode extends BaseThreeNode {
+export class EstimateBytesUsedNode extends BaseThreeNode<
+  'geometry',
+  'bytes'
+> {
   constructor(id: string) {
     super(id, 'EstimateBytesUsedNode', 'Estimate Bytes Used');
     this.addInput({ name: 'geometry', type: PortType.Geometry });

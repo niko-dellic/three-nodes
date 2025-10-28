@@ -9,7 +9,10 @@ import * as THREE from 'three';
  * When update is true, takes control of the viewport camera
  * When update is false, releases control back to orbit controls
  */
-export class ActiveCameraNode extends BaseThreeNode {
+export class ActiveCameraNode extends BaseThreeNode<
+  'camera' | 'update' | 'position' | 'target',
+  'camera'
+> {
   constructor(id: string) {
     super(id, 'ActiveCameraNode', 'Active Camera');
 

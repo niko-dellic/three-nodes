@@ -3,7 +3,10 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class PingPongNode extends BaseThreeNode {
+export class PingPongNode extends BaseThreeNode<
+  'x' | 'length',
+  'result'
+> {
   constructor(id: string) {
     super(id, 'PingPongNode', 'Ping Pong');
     this.addInput({ name: 'x', type: PortType.Number, defaultValue: 0 });

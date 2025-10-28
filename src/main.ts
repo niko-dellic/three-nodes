@@ -2,8 +2,6 @@ import './style.css';
 import { Graph } from '@/core/Graph';
 import {
   createDefaultRegistry,
-  NumberSliderNode,
-  NumberNode,
   BoxGeometryNode,
   ColorPickerNode,
   MeshStandardMaterialNode,
@@ -16,6 +14,7 @@ import {
   SceneCompilerNode,
   SceneOutputNode,
   ButtonNode,
+  Vector3DecomposeNode,
 } from '@/three';
 import { GraphEditor, LiveViewport, ViewModeManager, PreviewManager } from '@/ui';
 
@@ -30,35 +29,26 @@ const graph = new Graph();
 
 // 1. Create number inputs for box dimensions
 
-// Using insertNode for full type safety
-const widthNode = registry.insertNode(NumberSliderNode, 'width-node');
-widthNode.position = { x: 50, y: 100 };
-widthNode.label = 'Width';
-widthNode.setProperty('default', 2);
-widthNode.setValue(2); // Now type-safe, no cast needed!
-graph.addNode(widthNode);
+const dimsNode = registry.insertNode(Vector3Node, 'dims-node');
 
-const heightNode = registry.insertNode(NumberNode, 'height-node');
-heightNode.position = { x: 50, y: 200 };
-heightNode.label = 'Height';
-heightNode.inputs.get('value')!.value = 2;
-graph.addNode(heightNode);
+dimsNode.position = { x: -250, y: 200 };
+dimsNode.setVector(2, 2, 2);
+graph.addNode(dimsNode);
 
-const depthNode = registry.insertNode(NumberNode, 'depth-node');
-depthNode.position = { x: 50, y: 300 };
-depthNode.label = 'Depth';
-depthNode.inputs.get('value')!.value = 2;
-graph.addNode(depthNode);
+const decomposeNode = registry.insertNode(Vector3DecomposeNode, 'decompose-node');
+decomposeNode.position = { x: 0, y: 200 };
+graph.addNode(decomposeNode);
 
+graph.connect(dimsNode.output('vector'), decomposeNode.input('vector'));
 // 2. Create box geometry
 const boxGeoNode = registry.insertNode(BoxGeometryNode, 'box-geo');
 boxGeoNode.position = { x: 300, y: 200 };
 graph.addNode(boxGeoNode);
 
 // Connect dimensions to box geometry
-graph.connect(widthNode.output('value'), boxGeoNode.input('width'));
-graph.connect(heightNode.output('result'), boxGeoNode.input('height'));
-graph.connect(depthNode.output('result'), boxGeoNode.input('depth'));
+graph.connect(decomposeNode.output('x'), boxGeoNode.input('width'));
+graph.connect(decomposeNode.output('y'), boxGeoNode.input('height'));
+graph.connect(decomposeNode.output('z'), boxGeoNode.input('depth'));
 
 // 3. Create color for material
 const colorNode = registry.insertNode(ColorPickerNode, 'color-picker');
@@ -108,7 +98,7 @@ graph.addNode(ambientLightNode);
 // Using insertNode with Vector3Node for type safety
 const directionalLightPos = registry.insertNode(Vector3Node, 'dir-light-pos');
 directionalLightPos.position = { x: 300, y: -25 };
-directionalLightPos.setVector(10, 10, 10); // Type-safe!
+directionalLightPos.setVector(10, 10, 10);
 graph.addNode(directionalLightPos);
 
 const directionalLightNode = registry.insertNode(DirectionalLightNode, 'dir-light');
@@ -151,7 +141,8 @@ graph.connect(sceneCompiler.output('compiled'), sceneOutputNode.input('compiled'
 graph.connect(updateButton.output('trigger'), sceneOutputNode.input('update'));
 
 // Initialize UI - Create containers programmatically
-const appContainer = document.getElementById('app')! as HTMLElement;
+const appContainer = document.getElementById('app');
+if (!appContainer) throw new Error('App container not found');
 
 // Create viewport container (3D view - background layer)
 const viewportContainer = document.createElement('div');
@@ -192,25 +183,3 @@ const viewModeManager = new ViewModeManager(
 (window as any).registry = registry;
 (window as any).viewModeManager = viewModeManager;
 (window as any).previewManager = previewManager;
-
-/*
- * ARRAY SYSTEM USAGE:
- *
- * To create array connections:
- * 1. Hold SHIFT while dragging a connection to an input port
- * 2. This will ADD to existing connections instead of replacing
- * 3. Array connections appear as thicker, orange edges
- *
- * Array manipulation nodes available:
- * - Merge: Combine multiple values into an array
- * - Split: Break an array into individual outputs
- * - Index: Get a value at a specific index
- * - Length: Get the array length
- *
- * Example:
- * - Create 3 NumberSlider nodes with different values (e.g., 2, 3, 4)
- * - Connect first slider to BoxGeometry width (normal drag)
- * - Hold SHIFT and connect second slider to BoxGeometry width
- * - Hold SHIFT and connect third slider to BoxGeometry width
- * - Result: 3 box geometries with widths 2, 3, 4
- */

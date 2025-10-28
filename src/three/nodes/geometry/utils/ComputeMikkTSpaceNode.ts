@@ -4,7 +4,10 @@ import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 import { computeMikkTSpaceTangents } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-export class ComputeMikkTSpaceNode extends BaseThreeNode {
+export class ComputeMikkTSpaceNode extends BaseThreeNode<
+  'geometry',
+  'geometry'
+> {
   constructor(id: string) {
     super(id, 'ComputeMikkTSpaceNode', 'Compute MikkTSpace');
     this.addInput({ name: 'geometry', type: PortType.Geometry });

@@ -3,7 +3,7 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class LineDashedMaterialNode extends BaseMaterialNode {
+export class LineDashedMaterialNode extends BaseMaterialNode<'color' | 'dashSize' | 'gapSize'> {
   constructor(id: string) {
     super(id, 'LineDashedMaterialNode', 'Line Dashed Material');
 

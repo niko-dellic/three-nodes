@@ -2,7 +2,10 @@ import { TweakpaneNode } from '../../TweakpaneNode';
 import { PortType } from '@/types';
 import { EvaluationContext } from '@/core/types';
 
-export class ButtonNode extends TweakpaneNode {
+export class ButtonNode extends TweakpaneNode<
+  never,
+  'trigger'
+> {
   private triggered: boolean = false;
 
   constructor(id: string) {

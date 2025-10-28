@@ -3,7 +3,10 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class CeilPowerOfTwoNode extends BaseThreeNode {
+export class CeilPowerOfTwoNode extends BaseThreeNode<
+  'value',
+  'result'
+> {
   constructor(id: string) {
     super(id, 'CeilPowerOfTwoNode', 'Ceil Power of Two');
     this.addInput({ name: 'value', type: PortType.Number, defaultValue: 1 });

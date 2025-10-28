@@ -7,7 +7,7 @@ import { Rhino3dmLoader } from 'three/examples/jsm/loaders/3DMLoader.js';
  * Loads Rhino 3dm files and outputs the loaded object
  * Reference: https://threejs.org/docs/#examples/en/loaders/3DMLoader
  */
-export class Rhino3dmLoaderNode extends BaseFileLoaderNode {
+export class Rhino3dmLoaderNode extends BaseFileLoaderNode<'scene' | 'loaded'> {
   private loader: Rhino3dmLoader;
 
   constructor(id: string) {

@@ -3,7 +3,10 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class RandomNode extends BaseThreeNode {
+export class RandomNode extends BaseThreeNode<
+  'low' | 'high',
+  'result'
+> {
   constructor(id: string) {
     super(id, 'RandomNode', 'Random');
     this.addInput({ name: 'low', type: PortType.Number, defaultValue: 0 });

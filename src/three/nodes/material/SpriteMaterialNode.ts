@@ -3,7 +3,7 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class SpriteMaterialNode extends BaseMaterialNode {
+export class SpriteMaterialNode extends BaseMaterialNode<'color' | 'map' | 'rotation'> {
   constructor(id: string) {
     super(id, 'SpriteMaterialNode', 'Sprite Material');
 

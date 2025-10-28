@@ -8,7 +8,10 @@ import * as THREE from 'three';
  * Wraps an Object3D with a custom update function
  * The update function is defined as JavaScript code in the properties panel
  */
-export class UpdatableObjectNode extends BaseThreeNode {
+export class UpdatableObjectNode extends BaseThreeNode<
+  'object',
+  'updatable'
+> {
   private updateFunction: ((deltaTime: number, elapsedTime: number) => void) | null = null;
   private wrappedObject: any = null;
 

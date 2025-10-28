@@ -3,7 +3,10 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class InverseLerpNode extends BaseThreeNode {
+export class InverseLerpNode extends BaseThreeNode<
+  'x' | 'y' | 'value',
+  'result'
+> {
   constructor(id: string) {
     super(id, 'InverseLerpNode', 'Inverse Lerp');
     this.addInput({ name: 'x', type: PortType.Number, defaultValue: 0 });

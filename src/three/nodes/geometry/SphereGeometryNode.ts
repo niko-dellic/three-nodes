@@ -3,7 +3,10 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class SphereGeometryNode extends BaseThreeNode {
+export class SphereGeometryNode extends BaseThreeNode<
+  'radius' | 'widthSegments' | 'heightSegments',
+  'geometry'
+> {
   constructor(id: string) {
     super(id, 'SphereGeometryNode', 'Sphere Geometry');
     this.addInput({ name: 'radius', type: PortType.Number, defaultValue: 1 });

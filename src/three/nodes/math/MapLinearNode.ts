@@ -3,7 +3,10 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class MapLinearNode extends BaseThreeNode {
+export class MapLinearNode extends BaseThreeNode<
+  'x' | 'a1' | 'a2' | 'b1' | 'b2',
+  'result'
+> {
   constructor(id: string) {
     super(id, 'MapLinearNode', 'Map Linear');
     this.addInput({ name: 'x', type: PortType.Number, defaultValue: 0.5 });
