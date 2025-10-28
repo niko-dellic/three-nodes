@@ -42,11 +42,8 @@ graph.connect(heightNode.outputs.get('result')!, boxGeoNode.inputs.get('height')
 graph.connect(depthNode.outputs.get('result')!, boxGeoNode.inputs.get('depth')!);
 
 // 3. Create color for material
-const colorNode = registry.createNode('ColorNode', 'color-node')!;
+const colorNode = registry.createNode('ColorPickerNode', 'color-picker')!;
 colorNode.position = { x: 300, y: 400 };
-colorNode.inputs.get('r')!.value = 0.3;
-colorNode.inputs.get('g')!.value = 0.6;
-colorNode.inputs.get('b')!.value = 0.9;
 graph.addNode(colorNode);
 
 // 4. Create material
@@ -105,14 +102,14 @@ graph.connect(sceneNode.outputs.get('scene')!, addAmbientNode.inputs.get('scene'
 graph.connect(ambientLightNode.outputs.get('light')!, addAmbientNode.inputs.get('object')!);
 
 const directionalLightPos = registry.createNode('Vector3Node', 'dir-light-pos')!;
-directionalLightPos.position = { x: 300, y: 50 };
+directionalLightPos.position = { x: 300, y: -25 };
 directionalLightPos.inputs.get('x')!.value = 5;
 directionalLightPos.inputs.get('y')!.value = 5;
 directionalLightPos.inputs.get('z')!.value = 5;
 graph.addNode(directionalLightPos);
 
 const directionalLightNode = registry.createNode('DirectionalLightNode', 'dir-light')!;
-directionalLightNode.position = { x: 550, y: 50 };
+directionalLightNode.position = { x: 550, y: -50 };
 directionalLightNode.inputs.get('intensity')!.value = 1;
 graph.addNode(directionalLightNode);
 
@@ -128,14 +125,23 @@ graph.addNode(addDirLightNode);
 graph.connect(sceneNode.outputs.get('scene')!, addDirLightNode.inputs.get('scene')!);
 graph.connect(directionalLightNode.outputs.get('light')!, addDirLightNode.inputs.get('object')!);
 
-// 9. Scene output node
+// 9. Add update toggle
+const updateToggle = registry.createNode('BooleanInputNode', 'update-toggle')!;
+updateToggle.position = { x: 1050, y: 350 };
+updateToggle.label = 'Update Scene';
+// Set initial value to true so scene renders by default
+(updateToggle as any).setValue(true);
+graph.addNode(updateToggle);
+
+// 10. Scene output node
 const sceneOutputNode = registry.createNode('SceneOutputNode', 'scene-output')!;
 sceneOutputNode.position = { x: 1300, y: 250 };
 graph.addNode(sceneOutputNode);
 
-// Connect scene and camera to output
+// Connect scene, camera, and update toggle to output
 graph.connect(addMeshNode.outputs.get('scene')!, sceneOutputNode.inputs.get('scene')!);
 graph.connect(cameraNode.outputs.get('camera')!, sceneOutputNode.inputs.get('camera')!);
+graph.connect(updateToggle.outputs.get('value')!, sceneOutputNode.inputs.get('update')!);
 
 // Initialize UI - Create containers programmatically
 const appContainer = document.getElementById('app')! as HTMLElement;

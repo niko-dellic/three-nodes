@@ -7,6 +7,7 @@ export class Port {
   public type: PortType;
   public node: Node;
   public isInput: boolean;
+  public connections: any[] = []; // Track connected edges
   private _value: PortValue = undefined;
   private _defaultValue: PortValue;
 

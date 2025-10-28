@@ -1,12 +1,17 @@
 import { NodeRegistry } from '@/three/NodeRegistry';
 import { NodeMetadata } from '@/types';
+import { Pane } from 'tweakpane';
 
 export class ContextMenu {
   private element: HTMLElement;
+  private pane: Pane | null = null;
   private registry: NodeRegistry;
   private isVisible = false;
   private position: { x: number; y: number } = { x: 0, y: 0 };
   private onNodeSelect: ((nodeType: string, x: number, y: number) => void) | null = null;
+  private searchInput: HTMLInputElement | null = null;
+  private navigableButtons: HTMLButtonElement[] = [];
+  private selectedButtonIndex: number = -1;
 
   constructor(container: HTMLElement, registry: NodeRegistry) {
     this.registry = registry;
@@ -30,10 +35,37 @@ export class ContextMenu {
       }
     });
 
-    // Close menu on escape
+    // Keyboard navigation and escape
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.isVisible) {
+      if (!this.isVisible) return;
+
+      if (e.key === 'Escape') {
         this.hide();
+        return;
+      }
+
+      // Don't handle arrow keys if typing in search
+      if (document.activeElement === this.searchInput) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          this.navigateButtons(1);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          this.navigateButtons(-1);
+        }
+        return;
+      }
+
+      // Arrow key navigation
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        this.navigateButtons(1);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        this.navigateButtons(-1);
+      } else if (e.key === 'Enter' && this.selectedButtonIndex >= 0) {
+        e.preventDefault();
+        this.navigableButtons[this.selectedButtonIndex]?.click();
       }
     });
   }
@@ -68,10 +100,24 @@ export class ContextMenu {
   hide(): void {
     this.isVisible = false;
     this.element.style.display = 'none';
+    this.selectedButtonIndex = -1;
+
+    // Dispose of Tweakpane instance
+    if (this.pane) {
+      this.pane.dispose();
+      this.pane = null;
+    }
   }
 
   private buildMenu(): void {
     this.element.innerHTML = '';
+    this.navigableButtons = [];
+    this.selectedButtonIndex = -1;
+
+    // Dispose old pane if exists
+    if (this.pane) {
+      this.pane.dispose();
+    }
 
     // Get all node types grouped by category
     const allTypes = this.registry.getAllTypes();
@@ -89,141 +135,189 @@ export class ContextMenu {
       a[0].localeCompare(b[0])
     );
 
-    // Add search input
+    // Add search input (outside of Tweakpane)
     const searchContainer = document.createElement('div');
     searchContainer.classList.add('context-menu-search');
-    const searchInput = document.createElement('input');
-    searchInput.type = 'text';
-    searchInput.placeholder = 'Search nodes...';
-    searchInput.classList.add('context-menu-search-input');
-    searchContainer.appendChild(searchInput);
+    this.searchInput = document.createElement('input');
+    this.searchInput.type = 'text';
+    this.searchInput.placeholder = 'Search nodes...';
+    this.searchInput.classList.add('context-menu-search-input');
+    searchContainer.appendChild(this.searchInput);
     this.element.appendChild(searchContainer);
 
-    // Create scrollable content area
-    const contentArea = document.createElement('div');
-    contentArea.classList.add('context-menu-content');
+    // Create Tweakpane container
+    const paneContainer = document.createElement('div');
+    paneContainer.classList.add('context-menu-pane');
+    this.element.appendChild(paneContainer);
 
-    // Build categories
+    // Create Tweakpane instance
+    this.pane = new Pane({
+      container: paneContainer,
+      title: 'Add Node',
+    });
+
+    // Build categories as folders
+    const folders: any[] = [];
+    const buttonMetadataMap = new Map<HTMLButtonElement, NodeMetadata>();
+
     for (const [category, nodes] of sortedCategories) {
-      const categoryElement = this.createCategory(category, nodes);
-      contentArea.appendChild(categoryElement);
+      const folder = this.pane.addFolder({
+        title: category,
+        expanded: false, // Start collapsed
+      });
+      folders.push({ folder, category, nodes });
+
+      // Add buttons for each node
+      for (const metadata of nodes) {
+        const button = folder.addButton({
+          title: `${metadata.icon ? metadata.icon + ' ' : ''}${metadata.label}`,
+        });
+
+        button.on('click', () => {
+          this.handleNodeSelection(metadata.type);
+        });
+
+        // Get the actual button element for navigation
+        const buttonElement = this.findButtonElement(button);
+        if (buttonElement) {
+          this.navigableButtons.push(buttonElement);
+          buttonMetadataMap.set(buttonElement, metadata);
+
+          // Add data attributes for filtering
+          buttonElement.setAttribute('data-node-type', metadata.type);
+          buttonElement.setAttribute('data-label', metadata.label.toLowerCase());
+        }
+      }
     }
 
-    // Add "Custom Node" option at the bottom
-    const customSection = document.createElement('div');
-    customSection.classList.add('context-menu-category');
+    // Add Advanced folder with Custom Node
+    const advancedFolder = this.pane.addFolder({
+      title: 'Advanced',
+      expanded: false,
+    });
 
-    const customHeader = document.createElement('div');
-    customHeader.classList.add('context-menu-category-header');
-    customHeader.textContent = 'Advanced';
-    customSection.appendChild(customHeader);
+    const customButton = advancedFolder.addButton({
+      title: '✨ Custom Node',
+    });
 
-    const customItem = document.createElement('div');
-    customItem.classList.add('context-menu-item', 'custom-node');
-    customItem.innerHTML =
-      '<span class="item-icon">✨</span><span class="item-label">Custom Node</span>';
-    customItem.addEventListener('click', () => {
+    customButton.on('click', () => {
       this.handleCustomNode();
     });
-    customSection.appendChild(customItem);
 
-    contentArea.appendChild(customSection);
-
-    this.element.appendChild(contentArea);
+    const customButtonElement = this.findButtonElement(customButton);
+    if (customButtonElement) {
+      this.navigableButtons.push(customButtonElement);
+    }
 
     // Setup search functionality
-    searchInput.addEventListener('input', (e) => {
+    this.searchInput.addEventListener('input', (e) => {
       const query = (e.target as HTMLInputElement).value.toLowerCase();
-      this.filterNodes(contentArea, query);
+      this.filterNodes(query, folders);
     });
 
     // Focus search input
-    requestAnimationFrame(() => searchInput.focus());
+    requestAnimationFrame(() => this.searchInput?.focus());
   }
 
-  private createCategory(category: string, nodes: NodeMetadata[]): HTMLElement {
-    const categoryElement = document.createElement('div');
-    categoryElement.classList.add('context-menu-category');
-    categoryElement.setAttribute('data-category', category);
+  private findButtonElement(_tweakpaneButton: any): HTMLButtonElement | null {
+    // Tweakpane buttons are in the DOM, we need to find them
+    // The button is created inside the pane's container
+    const paneElement = this.pane?.element;
+    if (!paneElement) return null;
 
-    // Category header (collapsible)
-    const header = document.createElement('div');
-    header.classList.add('context-menu-category-header');
-    header.textContent = category;
-    categoryElement.appendChild(header);
+    // Get all buttons and find the most recently added one
+    const buttons = paneElement.querySelectorAll('button.tp-btnv_b');
+    return (buttons[buttons.length - 1] as HTMLButtonElement) || null;
+  }
 
-    // Node items
-    const itemsContainer = document.createElement('div');
-    itemsContainer.classList.add('context-menu-items');
+  private filterNodes(query: string, folders: any[]): void {
+    this.selectedButtonIndex = -1;
 
-    for (const node of nodes) {
-      const item = this.createMenuItem(node);
-      itemsContainer.appendChild(item);
+    if (!query) {
+      // Show all folders and buttons
+      folders.forEach(({ folder }) => {
+        folder.hidden = false;
+        folder.expanded = false; // Collapse when clearing search
+      });
+      this.navigableButtons.forEach((btn) => {
+        btn.style.display = '';
+        btn.parentElement!.style.display = '';
+      });
+      return;
     }
 
-    categoryElement.appendChild(itemsContainer);
+    // Filter buttons and folders
+    folders.forEach(({ folder, nodes }) => {
+      let hasVisibleNodes = false;
 
-    // Toggle collapse on header click
-    header.addEventListener('click', () => {
-      categoryElement.classList.toggle('collapsed');
-    });
+      // Check each button in this folder
+      this.navigableButtons.forEach((btn) => {
+        const label = btn.getAttribute('data-label') || '';
+        const nodeType = btn.getAttribute('data-node-type') || '';
 
-    return categoryElement;
-  }
+        // Check if this button belongs to this folder's nodes
+        const belongsToFolder = nodes.some((n: NodeMetadata) => n.type === nodeType);
 
-  private createMenuItem(metadata: NodeMetadata): HTMLElement {
-    const item = document.createElement('div');
-    item.classList.add('context-menu-item');
-    item.setAttribute('data-node-type', metadata.type);
-    item.setAttribute('data-label', metadata.label.toLowerCase());
-
-    // Icon (using emoji or first letter)
-    const icon = document.createElement('span');
-    icon.classList.add('item-icon');
-    icon.textContent = metadata.icon || metadata.label.charAt(0);
-    item.appendChild(icon);
-
-    // Label
-    const label = document.createElement('span');
-    label.classList.add('item-label');
-    label.textContent = metadata.label;
-    item.appendChild(label);
-
-    // Description (tooltip)
-    if (metadata.description) {
-      item.title = metadata.description;
-    }
-
-    // Click handler
-    item.addEventListener('click', () => {
-      this.handleNodeSelection(metadata.type);
-    });
-
-    return item;
-  }
-
-  private filterNodes(contentArea: HTMLElement, query: string): void {
-    const categories = contentArea.querySelectorAll('.context-menu-category');
-
-    categories.forEach((category) => {
-      const items = category.querySelectorAll('.context-menu-item');
-      let visibleCount = 0;
-
-      items.forEach((item) => {
-        const label = item.getAttribute('data-label') || '';
-        const nodeType = item.getAttribute('data-node-type') || '';
-
-        if (label.includes(query) || nodeType.toLowerCase().includes(query)) {
-          (item as HTMLElement).style.display = 'flex';
-          visibleCount++;
-        } else {
-          (item as HTMLElement).style.display = 'none';
+        if (belongsToFolder) {
+          if (label.includes(query) || nodeType.toLowerCase().includes(query)) {
+            btn.style.display = '';
+            btn.parentElement!.style.display = '';
+            hasVisibleNodes = true;
+          } else {
+            btn.style.display = 'none';
+            btn.parentElement!.style.display = 'none';
+          }
         }
       });
 
-      // Hide category if no visible items
-      (category as HTMLElement).style.display = visibleCount > 0 ? 'block' : 'none';
+      // Show/hide folder based on visible nodes
+      folder.hidden = !hasVisibleNodes;
+      if (hasVisibleNodes) {
+        folder.expanded = true; // Expand folders with matches
+      }
     });
+  }
+
+  private navigateButtons(direction: number): void {
+    // Get only visible buttons
+    const visibleButtons = this.navigableButtons.filter((btn) => {
+      const btnStyle = window.getComputedStyle(btn);
+      const parentStyle = window.getComputedStyle(btn.parentElement!);
+      return btnStyle.display !== 'none' && parentStyle.display !== 'none';
+    });
+
+    if (visibleButtons.length === 0) return;
+
+    // Remove highlight from previous button
+    if (this.selectedButtonIndex >= 0 && this.selectedButtonIndex < this.navigableButtons.length) {
+      this.navigableButtons[this.selectedButtonIndex]?.classList.remove('tp-btn-selected');
+    }
+
+    // Calculate new index
+    if (this.selectedButtonIndex === -1) {
+      this.selectedButtonIndex = direction > 0 ? 0 : visibleButtons.length - 1;
+    } else {
+      // Find current button in visible list
+      const currentVisibleIndex = visibleButtons.indexOf(
+        this.navigableButtons[this.selectedButtonIndex]
+      );
+      let newVisibleIndex = currentVisibleIndex + direction;
+
+      // Wrap around
+      if (newVisibleIndex < 0) newVisibleIndex = visibleButtons.length - 1;
+      if (newVisibleIndex >= visibleButtons.length) newVisibleIndex = 0;
+
+      // Get actual button
+      const newButton = visibleButtons[newVisibleIndex];
+      this.selectedButtonIndex = this.navigableButtons.indexOf(newButton);
+    }
+
+    // Highlight new button
+    const selectedButton = this.navigableButtons[this.selectedButtonIndex];
+    if (selectedButton) {
+      selectedButton.classList.add('tp-btn-selected');
+      selectedButton.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
   }
 
   private handleNodeSelection(nodeType: string): void {

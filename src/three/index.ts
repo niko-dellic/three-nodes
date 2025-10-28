@@ -12,6 +12,9 @@ import { PointInputNode } from './nodes/data/PointInputNode';
 import { ListInputNode } from './nodes/data/ListInputNode';
 import { TextInputNode } from './nodes/data/TextInputNode';
 
+// Input nodes (interactive controls)
+import { ButtonNode } from './nodes/input/ButtonNode';
+
 // Monitor nodes
 import { NumberMonitorNode } from './nodes/monitor/NumberMonitorNode';
 import { TextMonitorNode } from './nodes/monitor/TextMonitorNode';
@@ -53,6 +56,7 @@ export { BooleanInputNode } from './nodes/data/BooleanInputNode';
 export { PointInputNode } from './nodes/data/PointInputNode';
 export { ListInputNode } from './nodes/data/ListInputNode';
 export { TextInputNode } from './nodes/data/TextInputNode';
+export { ButtonNode } from './nodes/input/ButtonNode';
 export { NumberMonitorNode } from './nodes/monitor/NumberMonitorNode';
 export { TextMonitorNode } from './nodes/monitor/TextMonitorNode';
 export { BoxGeometryNode } from './nodes/geometry/BoxGeometryNode';
@@ -122,6 +126,14 @@ export function createDefaultRegistry(): NodeRegistry {
     label: 'Boolean Input',
     description: 'Interactive checkbox input',
     icon: '☑️',
+  });
+
+  registry.register(ButtonNode, {
+    type: 'ButtonNode',
+    category: 'Input',
+    label: 'Button',
+    description: 'Trigger button that outputs true when clicked',
+    icon: '🔘',
   });
 
   registry.register(PointInputNode, {

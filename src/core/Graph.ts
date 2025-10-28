@@ -56,8 +56,21 @@ export class Graph {
       const edge = new Edge(sourcePort, targetPort);
       this.edges.set(edge.id, edge);
 
+      // Track connections on ports
+      sourcePort.connections.push(edge);
+      targetPort.connections.push(edge);
+
       // Mark target node as dirty
       targetPort.node.markDirty();
+
+      // Refresh controls if the node supports it (for dynamic Tweakpane updates)
+      if (
+        'refreshControls' in targetPort.node &&
+        typeof (targetPort.node as any).refreshControls === 'function'
+      ) {
+        (targetPort.node as any).refreshControls();
+      }
+
       this.notifyChange();
 
       return edge;
@@ -71,7 +84,26 @@ export class Graph {
   removeEdge(edgeId: string): void {
     const edge = this.edges.get(edgeId);
     if (edge) {
+      // Remove connection from ports
+      const sourceIndex = edge.source.connections.indexOf(edge);
+      if (sourceIndex > -1) {
+        edge.source.connections.splice(sourceIndex, 1);
+      }
+      const targetIndex = edge.target.connections.indexOf(edge);
+      if (targetIndex > -1) {
+        edge.target.connections.splice(targetIndex, 1);
+      }
+
       edge.target.node.markDirty();
+
+      // Refresh controls if the node supports it (for dynamic Tweakpane updates)
+      if (
+        'refreshControls' in edge.target.node &&
+        typeof (edge.target.node as any).refreshControls === 'function'
+      ) {
+        (edge.target.node as any).refreshControls();
+      }
+
       this.edges.delete(edgeId);
       this.notifyChange();
     }
