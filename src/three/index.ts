@@ -6,6 +6,15 @@ import { Vector3Node } from './nodes/data/Vector3Node';
 import { ColorNode } from './nodes/data/ColorNode';
 import { NumberSliderNode } from './nodes/data/NumberSliderNode';
 import { ColorPickerNode } from './nodes/data/ColorPickerNode';
+import { StringInputNode } from './nodes/data/StringInputNode';
+import { BooleanInputNode } from './nodes/data/BooleanInputNode';
+import { PointInputNode } from './nodes/data/PointInputNode';
+import { ListInputNode } from './nodes/data/ListInputNode';
+import { TextInputNode } from './nodes/data/TextInputNode';
+
+// Monitor nodes
+import { NumberMonitorNode } from './nodes/monitor/NumberMonitorNode';
+import { TextMonitorNode } from './nodes/monitor/TextMonitorNode';
 
 // Geometry nodes
 import { BoxGeometryNode } from './nodes/geometry/BoxGeometryNode';
@@ -30,6 +39,7 @@ import { SceneOutputNode } from './nodes/output/SceneOutputNode';
 
 export { NodeRegistry } from './NodeRegistry';
 export { BaseThreeNode } from './BaseThreeNode';
+export { TweakpaneNode } from './TweakpaneNode';
 
 // Export node types
 export { NumberNode } from './nodes/data/NumberNode';
@@ -37,6 +47,13 @@ export { Vector3Node } from './nodes/data/Vector3Node';
 export { ColorNode } from './nodes/data/ColorNode';
 export { NumberSliderNode } from './nodes/data/NumberSliderNode';
 export { ColorPickerNode } from './nodes/data/ColorPickerNode';
+export { StringInputNode } from './nodes/data/StringInputNode';
+export { BooleanInputNode } from './nodes/data/BooleanInputNode';
+export { PointInputNode } from './nodes/data/PointInputNode';
+export { ListInputNode } from './nodes/data/ListInputNode';
+export { TextInputNode } from './nodes/data/TextInputNode';
+export { NumberMonitorNode } from './nodes/monitor/NumberMonitorNode';
+export { TextMonitorNode } from './nodes/monitor/TextMonitorNode';
 export { BoxGeometryNode } from './nodes/geometry/BoxGeometryNode';
 export { SphereGeometryNode } from './nodes/geometry/SphereGeometryNode';
 export { MeshStandardMaterialNode } from './nodes/material/MeshStandardMaterialNode';
@@ -87,6 +104,63 @@ export function createDefaultRegistry(): NodeRegistry {
     label: 'Color Picker',
     description: 'Interactive color picker',
     icon: '🎨',
+  });
+
+  registry.register(StringInputNode, {
+    type: 'StringInputNode',
+    category: 'Input',
+    label: 'String Input',
+    description: 'Interactive text input',
+    icon: '📝',
+  });
+
+  registry.register(BooleanInputNode, {
+    type: 'BooleanInputNode',
+    category: 'Input',
+    label: 'Boolean Input',
+    description: 'Interactive checkbox input',
+    icon: '☑️',
+  });
+
+  registry.register(PointInputNode, {
+    type: 'PointInputNode',
+    category: 'Input',
+    label: 'Point Input',
+    description: 'Interactive 2D point input',
+    icon: '📍',
+  });
+
+  registry.register(ListInputNode, {
+    type: 'ListInputNode',
+    category: 'Input',
+    label: 'List Input',
+    description: 'Interactive dropdown list',
+    icon: '📋',
+  });
+
+  registry.register(TextInputNode, {
+    type: 'TextInputNode',
+    category: 'Input',
+    label: 'Text Input',
+    description: 'Interactive multiline text input',
+    icon: '📄',
+  });
+
+  // Register monitor nodes
+  registry.register(NumberMonitorNode, {
+    type: 'NumberMonitorNode',
+    category: 'Monitor',
+    label: 'Number Monitor',
+    description: 'Displays a number value with optional graph',
+    icon: '📊',
+  });
+
+  registry.register(TextMonitorNode, {
+    type: 'TextMonitorNode',
+    category: 'Monitor',
+    label: 'Text Monitor',
+    description: 'Displays multiline text',
+    icon: '📺',
   });
 
   // Register geometry nodes

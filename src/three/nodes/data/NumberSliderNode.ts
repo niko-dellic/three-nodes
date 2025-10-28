@@ -1,9 +1,10 @@
-import { BaseThreeNode } from '../../BaseThreeNode';
+import { TweakpaneNode } from '../../TweakpaneNode';
 import { PortType } from '@/types';
 import { EvaluationContext } from '@/core/types';
 
-export class NumberSliderNode extends BaseThreeNode {
+export class NumberSliderNode extends TweakpaneNode {
   private currentValue: number = 0;
+  private params = { value: 0 };
 
   constructor(id: string) {
     super(id, 'NumberSliderNode', 'Number Slider');
@@ -19,6 +20,27 @@ export class NumberSliderNode extends BaseThreeNode {
 
     // Initialize with default value
     this.currentValue = 0;
+  }
+
+  protected setupTweakpaneControls(): void {
+    if (!this.pane) return;
+
+    const minValue = this.getMin();
+    const maxValue = this.getMax();
+    const stepValue = this.getStep();
+
+    this.params.value = this.currentValue;
+
+    this.pane
+      .addBinding(this.params, 'value', {
+        min: minValue,
+        max: maxValue,
+        step: stepValue,
+      })
+      .on('change', (ev) => {
+        this.currentValue = ev.value;
+        this.onTweakpaneChange();
+      });
   }
 
   evaluate(_context: EvaluationContext): void {
@@ -40,6 +62,9 @@ export class NumberSliderNode extends BaseThreeNode {
 
   setValue(value: number): void {
     this.currentValue = value;
+    this.params.value = value;
+    // Don't call refresh here - it will be called by the NodeRenderer if needed
+    // Calling refresh here can cause infinite loops
     this.markDirty();
   }
 

@@ -9,6 +9,8 @@ export abstract class Node {
   public inputs: Map<string, Port> = new Map();
   public outputs: Map<string, Port> = new Map();
   public position: { x: number; y: number } = { x: 0, y: 0 };
+  public customWidth?: number; // Optional custom width set by user resize
+  public customHeight?: number; // Optional custom height set by user resize
 
   // Dirty flag for incremental evaluation
   private _isDirty = true;

@@ -1,5 +1,6 @@
 import { Graph } from '@/core/Graph';
 import { Evaluator } from '@/core/Evaluator';
+import { Port } from '@/core/Port';
 import { Viewport } from './Viewport';
 import { NodeRenderer } from './NodeRenderer';
 import { EdgeRenderer } from './EdgeRenderer';
@@ -46,9 +47,12 @@ export class GraphEditor {
     this.transformGroup.classList.add('transform-group');
     this.svg.appendChild(this.transformGroup);
 
+    // Initialize history manager first (needed by NodeRenderer)
+    this.historyManager = new HistoryManager(graph, registry, this.selectionManager);
+
     // Initialize renderers - they add their groups to the transform group
     this.edgeRenderer = new EdgeRenderer(this.transformGroup);
-    this.nodeRenderer = new NodeRenderer(this.transformGroup, graph);
+    this.nodeRenderer = new NodeRenderer(this.transformGroup, graph, this.historyManager);
 
     // Initialize context menu
     this.contextMenu = new ContextMenu(container, registry);
@@ -56,9 +60,8 @@ export class GraphEditor {
       this.addNodeAtScreenPosition(nodeType, screenX, screenY);
     });
 
-    // Initialize clipboard and history managers
+    // Initialize clipboard manager
     this.clipboardManager = new ClipboardManager(graph, this.selectionManager, registry);
-    this.historyManager = new HistoryManager(graph, registry, this.selectionManager);
 
     // Initialize interaction
     this.interactionManager = new InteractionManager(
@@ -127,8 +130,34 @@ export class GraphEditor {
       dragConnection
     );
 
-    // Render nodes with selection
-    this.nodeRenderer.render(this.graph, this.selectionManager.getSelectedNodes());
+    // Determine which port is being hovered during connection drag
+    let hoveringPortId: string | undefined = undefined;
+    if (dragState.type === 'connection') {
+      const currentMouse = this.interactionManager.getCurrentMousePos();
+      if (currentMouse) {
+        // Find the element at the current mouse position
+        const element = document.elementFromPoint(currentMouse.x, currentMouse.y);
+        if (element) {
+          // Check if we're hovering over a port
+          const portElement = element.classList.contains('port')
+            ? element
+            : element.closest('.port');
+          if (portElement) {
+            const portId = portElement.getAttribute('data-port-id');
+            if (portId) {
+              // Get the port to check compatibility
+              const hoverPort = this.findPort(portId);
+              if (hoverPort && dragState.port.canConnectTo(hoverPort)) {
+                hoveringPortId = portId;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Render nodes with selection and hovering port for visual feedback
+    this.nodeRenderer.render(this.graph, this.selectionManager.getSelectedNodes(), hoveringPortId);
   }
 
   private handleResize(): void {
@@ -137,6 +166,18 @@ export class GraphEditor {
     // Update SVG dimensions
     this.svg.setAttribute('width', rect.width.toString());
     this.svg.setAttribute('height', rect.height.toString());
+  }
+
+  private findPort(portId: string): Port | null {
+    for (const node of this.graph.nodes.values()) {
+      for (const port of node.inputs.values()) {
+        if (port.id === portId) return port;
+      }
+      for (const port of node.outputs.values()) {
+        if (port.id === portId) return port;
+      }
+    }
+    return null;
   }
 
   private addNodeAtScreenPosition(nodeType: string, screenX: number, screenY: number): void {

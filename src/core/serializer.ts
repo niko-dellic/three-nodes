@@ -18,13 +18,23 @@ export function serializeGraph(graph: Graph): SerializedGraph {
       }
     }
 
-    nodes.push({
+    const serializedNode: SerializedNode = {
       id: node.id,
       type: node.type,
       label: node.label,
       position: { ...node.position },
       inputs,
-    });
+    };
+
+    // Include custom dimensions if set
+    if (node.customWidth !== undefined) {
+      serializedNode.customWidth = node.customWidth;
+    }
+    if (node.customHeight !== undefined) {
+      serializedNode.customHeight = node.customHeight;
+    }
+
+    nodes.push(serializedNode);
   }
 
   // Serialize edges

@@ -1,10 +1,11 @@
-import { BaseThreeNode } from '../../BaseThreeNode';
+import { TweakpaneNode } from '../../TweakpaneNode';
 import { PortType } from '@/types';
 import { EvaluationContext } from '@/core/types';
 import * as THREE from 'three';
 
-export class ColorPickerNode extends BaseThreeNode {
+export class ColorPickerNode extends TweakpaneNode {
   private currentColor: THREE.Color;
+  private params = { color: '#ffffff' };
 
   constructor(id: string) {
     super(id, 'ColorPickerNode', 'Color Picker');
@@ -21,6 +22,27 @@ export class ColorPickerNode extends BaseThreeNode {
 
     // Initialize with default color (white)
     this.currentColor = new THREE.Color(1, 1, 1);
+    this.params.color = this.getColorHex();
+  }
+
+  protected setupTweakpaneControls(): void {
+    if (!this.pane) return;
+
+    this.params.color = this.getColorHex();
+
+    this.pane
+      .addBinding(this.params, 'color', {
+        expanded: true, // Always show the color space picker
+        picker: 'inline', // Show picker inline, not in a popup
+      })
+      .on('change', (ev) => {
+        this.currentColor.set(ev.value);
+        this.onTweakpaneChange();
+      });
+  }
+
+  getControlHeight(): number {
+    return 160; // Expanded color picker needs more height
   }
 
   evaluate(_context: EvaluationContext): void {
@@ -29,6 +51,7 @@ export class ColorPickerNode extends BaseThreeNode {
     // On first evaluation, use default
     if (this.outputs.get('color')?.value === undefined && defaultColor) {
       this.currentColor = defaultColor.clone();
+      this.params.color = this.getColorHex();
     }
 
     this.setOutputValue('color', this.currentColor);
@@ -36,6 +59,8 @@ export class ColorPickerNode extends BaseThreeNode {
 
   setColor(color: THREE.Color): void {
     this.currentColor = color.clone();
+    this.params.color = this.getColorHex();
+    // Don't call refresh here to avoid infinite loops
     this.markDirty();
   }
 
@@ -49,6 +74,8 @@ export class ColorPickerNode extends BaseThreeNode {
 
   setColorFromHex(hex: string): void {
     this.currentColor.set(hex);
+    this.params.color = hex;
+    // Don't call refresh here to avoid infinite loops
     this.markDirty();
   }
 }

@@ -15,6 +15,8 @@ export class HistoryManager {
   private currentIndex = -1;
   private maxHistorySize = 50;
   private isApplyingHistory = false;
+  private isInteracting = false; // Flag to suppress recording during active interactions
+  private pendingRecordAfterInteraction = false; // Flag to record after interaction ends
 
   constructor(
     private graph: Graph,
@@ -27,9 +29,38 @@ export class HistoryManager {
     // Listen to graph changes
     this.graph.onChange(() => {
       if (!this.isApplyingHistory) {
-        this.recordState();
+        if (this.isInteracting) {
+          // During interaction, just mark that we need to record when done
+          this.pendingRecordAfterInteraction = true;
+        } else {
+          // Not interacting, record immediately
+          this.recordState();
+        }
       }
     });
+  }
+
+  /**
+   * Mark the start of a user interaction (e.g., mouse down on slider)
+   * Suppresses history recording until interaction ends
+   */
+  beginInteraction(): void {
+    this.isInteracting = true;
+    this.pendingRecordAfterInteraction = false;
+  }
+
+  /**
+   * Mark the end of a user interaction (e.g., mouse up on slider)
+   * Records history if any changes occurred during the interaction
+   */
+  endInteraction(): void {
+    this.isInteracting = false;
+
+    // If changes occurred during the interaction, record them now
+    if (this.pendingRecordAfterInteraction) {
+      this.recordState();
+      this.pendingRecordAfterInteraction = false;
+    }
   }
 
   /**
@@ -159,6 +190,8 @@ export class HistoryManager {
   clear(): void {
     this.history = [];
     this.currentIndex = -1;
+    this.isInteracting = false;
+    this.pendingRecordAfterInteraction = false;
     this.recordState();
   }
 

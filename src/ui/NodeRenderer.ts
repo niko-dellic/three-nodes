@@ -2,8 +2,8 @@ import { Graph } from '@/core/Graph';
 import { Node } from '@/core/Node';
 import { Port } from '@/core/Port';
 import { PortType } from '@/types';
-import { NumberSliderNode } from '@/three/nodes/data/NumberSliderNode';
-import { ColorPickerNode } from '@/three/nodes/data/ColorPickerNode';
+import { TweakpaneNode } from '@/three/TweakpaneNode';
+import { HistoryManager } from './HistoryManager';
 
 const PORT_COLORS: Record<PortType, string> = {
   [PortType.Number]: '#3b82f6',
@@ -19,6 +19,7 @@ const PORT_COLORS: Record<PortType, string> = {
   [PortType.Scene]: '#6366f1',
   [PortType.Camera]: '#a855f7',
   [PortType.Light]: '#fbbf24',
+  [PortType.Point2D]: '#d946ef',
   [PortType.Any]: '#6b7280',
 };
 
@@ -37,17 +38,19 @@ export class NodeRenderer {
   private container: SVGGElement;
   private nodeElements: Map<string, SVGGElement> = new Map();
   private graph: Graph;
+  private historyManager: HistoryManager;
 
-  constructor(parentGroup: SVGGElement, graph: Graph) {
+  constructor(parentGroup: SVGGElement, graph: Graph, historyManager: HistoryManager) {
     // Store reference to parent for querySelector operations
     this.svg = parentGroup.ownerSVGElement!;
     this.graph = graph;
+    this.historyManager = historyManager;
     this.container = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     this.container.classList.add('nodes');
     parentGroup.appendChild(this.container);
   }
 
-  render(graph: Graph, selectedNodes: Set<string> = new Set()): void {
+  render(graph: Graph, selectedNodes: Set<string> = new Set(), hoveringPortId?: string): void {
     // Remove nodes that no longer exist
     const currentNodeIds = new Set(graph.nodes.keys());
     for (const [id, element] of this.nodeElements) {
@@ -66,7 +69,7 @@ export class NodeRenderer {
         this.nodeElements.set(node.id, nodeElement);
       }
       const isSelected = selectedNodes.has(node.id);
-      this.updateNodeElement(nodeElement, node, isSelected);
+      this.updateNodeElement(nodeElement, node, isSelected, hoveringPortId);
     }
   }
 
@@ -101,7 +104,12 @@ export class NodeRenderer {
     return g;
   }
 
-  private updateNodeElement(element: SVGGElement, node: Node, isSelected: boolean = false): void {
+  private updateNodeElement(
+    element: SVGGElement,
+    node: Node,
+    isSelected: boolean = false,
+    hoveringPortId?: string
+  ): void {
     element.setAttribute('transform', `translate(${node.position.x}, ${node.position.y})`);
 
     // Update selection visual
@@ -111,19 +119,25 @@ export class NodeRenderer {
       element.classList.remove('selected');
     }
 
-    // Check if this node has interactive controls
-    const hasControls = node instanceof NumberSliderNode || node instanceof ColorPickerNode;
-    const controlHeight = hasControls ? 35 : 0;
+    // Check if this node has interactive controls (is a TweakpaneNode)
+    const hasControls = node instanceof TweakpaneNode;
+    const controlHeight = hasControls ? (node as TweakpaneNode).getControlHeight() + 10 : 0; // +10 for padding
 
-    // Calculate height based on ports and controls
+    // Calculate dimensions based on ports and controls (or use custom dimensions if set)
     const maxPorts = Math.max(node.inputs.size, node.outputs.size);
-    const height = 40 + controlHeight + maxPorts * 25;
+    const calculatedHeight = 40 + controlHeight + maxPorts * 25;
+    const calculatedWidth = 200; // Default node width
+
+    const width = node.customWidth ?? calculatedWidth;
+    const height = node.customHeight ?? calculatedHeight;
 
     const bg = element.querySelector('.node-bg') as SVGRectElement;
+    bg.setAttribute('width', width.toString());
     bg.setAttribute('height', height.toString());
 
-    // Set header color based on category
+    // Set header color and width based on category
     const header = element.querySelector('.node-header') as SVGRectElement;
+    header.setAttribute('width', width.toString());
     const category = node.type
       .replace('Node', '')
       .replace(/([A-Z])/g, ' $1')
@@ -132,113 +146,115 @@ export class NodeRenderer {
     header.setAttribute('fill', CATEGORY_COLORS[category] || '#6b7280');
 
     // Add interactive controls if needed
-    this.updateInteractiveControls(element, node);
+    this.updateInteractiveControls(element, node, width);
 
     // Update ports (with offset for controls)
-    this.updatePorts(element, node, 40 + controlHeight);
+    this.updatePorts(element, node, 40 + controlHeight, width, hoveringPortId);
+
+    // Add or update resize handle
+    this.updateResizeHandle(element, node, width, height);
   }
 
-  private updateInteractiveControls(element: SVGGElement, node: Node): void {
-    // Remove old controls
-    element.querySelectorAll('.node-control').forEach((c) => c.remove());
+  private updateInteractiveControls(element: SVGGElement, node: Node, width: number): void {
+    if (node instanceof TweakpaneNode) {
+      // Check if control already exists
+      let controlElement = element.querySelector('.node-control');
 
-    if (node instanceof NumberSliderNode) {
-      this.createSliderControl(element, node);
-    } else if (node instanceof ColorPickerNode) {
-      this.createColorPickerControl(element, node);
+      if (!controlElement) {
+        // Create new control only if it doesn't exist
+        this.createTweakpaneControl(element, node, width);
+      } else {
+        // Update width of existing control
+        controlElement.setAttribute('width', (width - 20).toString());
+
+        // Just refresh the existing Tweakpane if it's initialized
+        if (node.isTweakpaneInitialized()) {
+          const pane = node.getPaneInstance();
+          if (pane) {
+            pane.refresh();
+          }
+        }
+      }
+    } else {
+      // Remove controls for non-Tweakpane nodes
+      element.querySelectorAll('.node-control').forEach((c) => c.remove());
     }
   }
 
-  private createSliderControl(element: SVGGElement, node: NumberSliderNode): void {
+  private createTweakpaneControl(element: SVGGElement, node: TweakpaneNode, width: number): void {
+    const controlHeight = node.getControlHeight();
+
     const foreignObject = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
     foreignObject.setAttribute('x', '10');
     foreignObject.setAttribute('y', '35');
-    foreignObject.setAttribute('width', '180');
-    foreignObject.setAttribute('height', '30');
+    foreignObject.setAttribute('width', (width - 20).toString()); // width - padding
+    foreignObject.setAttribute('height', controlHeight.toString());
     foreignObject.classList.add('node-control');
 
-    // Stop pointer events from propagating to node drag handler
-    foreignObject.addEventListener('pointerdown', (e) => e.stopPropagation());
-    foreignObject.addEventListener('pointermove', (e) => e.stopPropagation());
-    foreignObject.addEventListener('pointerup', (e) => e.stopPropagation());
-
-    const div = document.createElement('div');
-    div.style.cssText = 'display: flex; align-items: center; gap: 5px; height: 100%;';
-
-    const input = document.createElement('input');
-    input.type = 'range';
-    input.min = node.getMin().toString();
-    input.max = node.getMax().toString();
-    input.step = node.getStep().toString();
-    input.value = node.getValue().toString();
-    input.style.cssText = 'flex: 1; cursor: pointer;';
-
-    const valueDisplay = document.createElement('span');
-    valueDisplay.textContent = node.getValue().toFixed(2);
-    valueDisplay.style.cssText =
-      'color: #ccc; font-size: 11px; min-width: 40px; text-align: right;';
-
-    input.addEventListener('input', (e) => {
-      const value = parseFloat((e.target as HTMLInputElement).value);
-      node.setValue(value);
-      valueDisplay.textContent = value.toFixed(2);
-      // Mark downstream nodes as dirty
-      this.markDownstreamDirty(node);
-      // Trigger graph evaluation to update downstream nodes and Three.js scene
-      this.graph.triggerChange();
+    // Track interaction for history recording
+    foreignObject.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      // Begin interaction - suppress history recording until pointerup
+      this.historyManager.beginInteraction();
     });
 
-    div.appendChild(input);
-    div.appendChild(valueDisplay);
-    foreignObject.appendChild(div);
-    element.appendChild(foreignObject);
-  }
-
-  private createColorPickerControl(element: SVGGElement, node: ColorPickerNode): void {
-    const foreignObject = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
-    foreignObject.setAttribute('x', '10');
-    foreignObject.setAttribute('y', '35');
-    foreignObject.setAttribute('width', '180');
-    foreignObject.setAttribute('height', '30');
-    foreignObject.classList.add('node-control');
-
-    // Stop pointer events from propagating to node drag handler
-    foreignObject.addEventListener('pointerdown', (e) => e.stopPropagation());
     foreignObject.addEventListener('pointermove', (e) => e.stopPropagation());
-    foreignObject.addEventListener('pointerup', (e) => e.stopPropagation());
-    // Also prevent click from triggering node selection
+
+    foreignObject.addEventListener('pointerup', (e) => {
+      e.stopPropagation();
+      // End interaction - record history if changes occurred
+      this.historyManager.endInteraction();
+    });
+
+    // Also handle case where pointer leaves while dragging
+    foreignObject.addEventListener('pointerleave', (e) => {
+      // Only end interaction if button is not pressed (not mid-drag)
+      if (e.buttons === 0) {
+        this.historyManager.endInteraction();
+      }
+    });
+
     foreignObject.addEventListener('click', (e) => e.stopPropagation());
 
     const div = document.createElement('div');
-    div.style.cssText = 'display: flex; align-items: center; gap: 8px; height: 100%;';
+    div.style.cssText = 'width: 100%; height: 100%;';
 
-    const input = document.createElement('input');
-    input.type = 'color';
-    input.value = node.getColorHex();
-    input.style.cssText =
-      'width: 40px; height: 20px; cursor: pointer; border: 1px solid #444; border-radius: 2px;';
-
-    const valueDisplay = document.createElement('span');
-    valueDisplay.textContent = node.getColorHex().toUpperCase();
-    valueDisplay.style.cssText = 'color: #ccc; font-size: 11px; flex: 1;';
-
-    input.addEventListener('input', (e) => {
-      const hex = (e.target as HTMLInputElement).value;
-      node.setColorFromHex(hex);
-      valueDisplay.textContent = hex.toUpperCase();
-      // Mark downstream nodes as dirty
-      this.markDownstreamDirty(node);
-      // Trigger graph evaluation to update downstream nodes and Three.js scene
-      this.graph.triggerChange();
-    });
-
-    div.appendChild(input);
-    div.appendChild(valueDisplay);
     foreignObject.appendChild(div);
     element.appendChild(foreignObject);
+
+    // Initialize Tweakpane with the container (only if not already initialized)
+    if (!node.isTweakpaneInitialized()) {
+      node.initializeTweakpane(div);
+
+      // Set up the callback for graph updates (only once)
+      this.setupTweakpaneCallback(node);
+    }
   }
 
-  private updatePorts(element: SVGGElement, node: Node, yOffset: number = 40): void {
+  private setupTweakpaneCallback(node: TweakpaneNode): void {
+    // Store the original onTweakpaneChange to call downstream updates
+    const originalOnChange = node['onTweakpaneChange'].bind(node);
+
+    // Override with our version that includes graph updates
+    node['onTweakpaneChange'] = (callback?: () => void) => {
+      // Call original (which marks node dirty)
+      originalOnChange(callback);
+
+      // Mark downstream nodes as dirty
+      this.markDownstreamDirty(node);
+
+      // Trigger graph evaluation
+      this.graph.triggerChange();
+    };
+  }
+
+  private updatePorts(
+    element: SVGGElement,
+    node: Node,
+    yOffset: number = 40,
+    width: number = 200,
+    hoveringPortId?: string
+  ): void {
     // Remove old ports
     element.querySelectorAll('.port').forEach((p) => p.remove());
     element.querySelectorAll('.port-label').forEach((p) => p.remove());
@@ -247,7 +263,7 @@ export class NodeRenderer {
 
     // Input ports (left side)
     for (const port of node.inputs.values()) {
-      this.createPortElement(element, port, 0, inputYOffset, 'input');
+      this.createPortElement(element, port, 0, inputYOffset, 'input', width, hoveringPortId);
       inputYOffset += 25;
     }
 
@@ -255,7 +271,7 @@ export class NodeRenderer {
 
     // Output ports (right side)
     for (const port of node.outputs.values()) {
-      this.createPortElement(element, port, 200, outputYOffset, 'output');
+      this.createPortElement(element, port, width, outputYOffset, 'output', width, hoveringPortId);
       outputYOffset += 25;
     }
   }
@@ -265,14 +281,33 @@ export class NodeRenderer {
     port: Port,
     x: number,
     y: number,
-    side: 'input' | 'output'
+    side: 'input' | 'output',
+    width: number = 200,
+    hoveringPortId?: string
   ): void {
+    // Determine if this specific port is being hovered over
+    const isHovering = hoveringPortId === port.id;
+
     // Port circle
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     circle.setAttribute('cx', x.toString());
     circle.setAttribute('cy', y.toString());
     circle.setAttribute('r', '6');
-    circle.setAttribute('fill', PORT_COLORS[port.type] || '#6b7280');
+
+    // Get base color
+    const baseColor = PORT_COLORS[port.type] || '#6b7280';
+
+    // Apply visual feedback for hovered port
+    if (isHovering) {
+      // Brighten the color and add outline for hovered port
+      circle.setAttribute('fill', this.brightenColor(baseColor, 1.5));
+      circle.setAttribute('stroke', '#ffffff');
+      circle.setAttribute('stroke-width', '2');
+      circle.setAttribute('filter', 'brightness(1.5)');
+    } else {
+      circle.setAttribute('fill', baseColor);
+    }
+
     circle.setAttribute('data-port-id', port.id);
     circle.setAttribute('data-port-name', port.name);
     circle.classList.add('port');
@@ -288,11 +323,26 @@ export class NodeRenderer {
       label.setAttribute('x', '15');
       label.setAttribute('text-anchor', 'start');
     } else {
-      label.setAttribute('x', '185');
+      label.setAttribute('x', (width - 15).toString());
       label.setAttribute('text-anchor', 'end');
     }
 
     parent.appendChild(label);
+  }
+
+  private brightenColor(hex: string, factor: number): string {
+    // Convert hex to RGB
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+
+    // Brighten
+    const newR = Math.min(255, Math.floor(r * factor));
+    const newG = Math.min(255, Math.floor(g * factor));
+    const newB = Math.min(255, Math.floor(b * factor));
+
+    // Convert back to hex
+    return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
   }
 
   private markDownstreamDirty(node: Node): void {
@@ -338,5 +388,102 @@ export class NodeRenderer {
   getNodeAt(_x: number, _y: number): Node | null {
     // This is simplified - in production you'd do proper hit testing
     return null;
+  }
+
+  private updateResizeHandle(
+    element: SVGGElement,
+    node: Node,
+    width: number,
+    height: number
+  ): void {
+    const handleClass = 'resize-handle';
+    let handle = element.querySelector(`.${handleClass}`) as SVGPathElement;
+
+    if (!handle) {
+      // Create corner resize handle (triangle shape)
+      handle = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      handle.classList.add(handleClass);
+      handle.setAttribute('fill', 'rgba(255, 255, 255, 0.2)');
+      handle.setAttribute('cursor', 'nwse-resize');
+
+      // Add hover effect
+      handle.addEventListener('mouseenter', () => {
+        handle.setAttribute('fill', 'rgba(255, 255, 255, 0.4)');
+      });
+      handle.addEventListener('mouseleave', () => {
+        handle.setAttribute('fill', 'rgba(255, 255, 255, 0.2)');
+      });
+
+      // Set up resize drag handlers
+      let startX = 0;
+      let startY = 0;
+      let startWidth = 0;
+      let startHeight = 0;
+      let isResizing = false;
+
+      const onPointerDown = (e: PointerEvent) => {
+        e.stopPropagation();
+        isResizing = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        startWidth = node.customWidth ?? width;
+        startHeight = node.customHeight ?? height;
+
+        // Begin interaction for history
+        this.historyManager.beginInteraction();
+
+        handle.setPointerCapture(e.pointerId);
+      };
+
+      const onPointerMove = (e: PointerEvent) => {
+        if (!isResizing) return;
+        e.stopPropagation();
+
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+
+        // Calculate minimum dimensions based on node content
+        const hasControls = node instanceof TweakpaneNode;
+        const controlHeight = hasControls ? (node as TweakpaneNode).getControlHeight() + 10 : 0;
+        const maxPorts = Math.max(node.inputs.size, node.outputs.size);
+
+        // Minimum height: header + controls + all ports
+        const minHeight = 40 + controlHeight + maxPorts * 25;
+        // Minimum width: enough for controls and port labels
+        const minWidth = 150;
+
+        const newWidth = Math.max(minWidth, startWidth + deltaX);
+        const newHeight = Math.max(minHeight, startHeight + deltaY);
+
+        node.customWidth = newWidth;
+        node.customHeight = newHeight;
+
+        // Update visually - trigger full re-render for proper port positioning
+        this.graph.triggerChange();
+      };
+
+      const onPointerUp = (e: PointerEvent) => {
+        if (!isResizing) return;
+        e.stopPropagation();
+        isResizing = false;
+
+        // End interaction for history
+        this.historyManager.endInteraction();
+
+        handle.releasePointerCapture(e.pointerId);
+      };
+
+      handle.addEventListener('pointerdown', onPointerDown);
+      handle.addEventListener('pointermove', onPointerMove);
+      handle.addEventListener('pointerup', onPointerUp);
+      handle.addEventListener('pointercancel', onPointerUp);
+
+      element.appendChild(handle);
+    }
+
+    // Update handle position and shape (bottom-right corner triangle)
+    const handleSize = 12;
+    const path = `M ${width} ${height - handleSize} L ${width} ${height} L ${width - handleSize} ${height} Z`;
+    handle.setAttribute('d', path);
   }
 }

@@ -17,6 +17,14 @@ export function deserializeGraph(data: SerializedGraph, registry: NodeRegistry):
       node.label = nodeData.label;
       node.position = nodeData.position;
 
+      // Restore custom dimensions if set
+      if (nodeData.customWidth !== undefined) {
+        node.customWidth = nodeData.customWidth;
+      }
+      if (nodeData.customHeight !== undefined) {
+        node.customHeight = nodeData.customHeight;
+      }
+
       // Set input default values
       for (const [name, value] of Object.entries(nodeData.inputs)) {
         const port = node.inputs.get(name);

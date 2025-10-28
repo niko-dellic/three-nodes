@@ -22,6 +22,8 @@ export interface SerializedNode {
   label: string;
   position: { x: number; y: number };
   inputs: Record<string, PortValue>;
+  customWidth?: number; // Optional custom width set by user
+  customHeight?: number; // Optional custom height set by user
 }
 
 export interface SerializedEdge {

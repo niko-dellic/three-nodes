@@ -15,7 +15,14 @@ export enum PortType {
   Scene = 'scene',
   Camera = 'camera',
   Light = 'light',
+  Point2D = 'point2d',
   Any = 'any',
+}
+
+// 2D Point type
+export interface Point2D {
+  x: number;
+  y: number;
 }
 
 // Runtime value types
@@ -33,6 +40,7 @@ export type PortValue =
   | THREE.Scene
   | THREE.Camera
   | THREE.Light
+  | Point2D
   | SceneOutput
   | null
   | undefined;
