@@ -21,7 +21,15 @@ export type DragState =
       removedEdge?: Edge;
       shiftPressed: boolean;
     }
-  | { type: 'marquee'; startX: number; startY: number; currentX: number; currentY: number };
+  | {
+      type: 'marquee';
+      startX: number;
+      startY: number;
+      currentX: number;
+      currentY: number;
+      shiftPressed: boolean;
+      initialSelection: Set<string>;
+    };
 
 export class InteractionManager {
   private graph: Graph;
@@ -40,6 +48,11 @@ export class InteractionManager {
   private rightClickStartPos: { x: number; y: number } | null = null;
   private readonly CLICK_THRESHOLD = 5; // pixels
   private shiftPressed: boolean = false;
+  private capturedPointerId: number | null = null;
+
+  // Bound event handlers for document-level events during drag
+  private boundOnPointerMove: ((e: PointerEvent) => void) | null = null;
+  private boundOnPointerUp: ((e: PointerEvent) => void) | null = null;
 
   constructor(
     graph: Graph,
@@ -63,6 +76,10 @@ export class InteractionManager {
     // Find the transform group that contains the nodes
     this.transformGroup = svg.querySelector('.transform-group');
 
+    // Bind handlers that will be attached/detached during drag operations
+    this.boundOnPointerMove = this.onPointerMove.bind(this);
+    this.boundOnPointerUp = this.onPointerUp.bind(this);
+
     this.setupEventListeners();
     this.createMarqueeElement();
   }
@@ -70,8 +87,12 @@ export class InteractionManager {
   private setupEventListeners(): void {
     // Mouse events on SVG (for nodes/ports)
     this.svg.addEventListener('pointerdown', this.onPointerDown.bind(this));
-    this.svg.addEventListener('pointermove', this.onPointerMove.bind(this));
-    this.svg.addEventListener('pointerup', this.onPointerUp.bind(this));
+
+    // Note: pointermove and pointerup are attached to document during drag
+    // to ensure they aren't interrupted by hovering over UI elements
+
+    // Double-click to open context menu
+    this.svg.addEventListener('dblclick', this.onDoubleClick.bind(this));
 
     // Wheel event for zoom
     this.svg.addEventListener('wheel', this.onWheel.bind(this), { passive: false });
@@ -96,6 +117,42 @@ export class InteractionManager {
       this.transformGroup.appendChild(this.marqueeElement);
     } else {
       this.svg.appendChild(this.marqueeElement);
+    }
+  }
+
+  private attachDocumentDragListeners(pointerId: number): void {
+    // Capture the pointer to ensure all events come to the SVG even over other UI elements
+    this.svg.setPointerCapture(pointerId);
+    this.capturedPointerId = pointerId;
+
+    // Add dragging class to body to prevent text selection
+    document.body.classList.add('dragging');
+
+    // Also attach to document as backup
+    if (this.boundOnPointerMove && this.boundOnPointerUp) {
+      document.addEventListener('pointermove', this.boundOnPointerMove);
+      document.addEventListener('pointerup', this.boundOnPointerUp);
+    }
+  }
+
+  private detachDocumentDragListeners(): void {
+    // Release pointer capture
+    if (this.capturedPointerId !== null) {
+      try {
+        this.svg.releasePointerCapture(this.capturedPointerId);
+      } catch (e) {
+        // Ignore errors if pointer capture was already released
+      }
+      this.capturedPointerId = null;
+    }
+
+    // Remove dragging class to re-enable text selection
+    document.body.classList.remove('dragging');
+
+    // Remove document listeners
+    if (this.boundOnPointerMove && this.boundOnPointerUp) {
+      document.removeEventListener('pointermove', this.boundOnPointerMove);
+      document.removeEventListener('pointerup', this.boundOnPointerUp);
     }
   }
 
@@ -144,6 +201,7 @@ export class InteractionManager {
               removedEdge,
               shiftPressed: this.shiftPressed,
             };
+            this.attachDocumentDragListeners(e.pointerId);
             e.stopPropagation();
             return;
           }
@@ -182,6 +240,7 @@ export class InteractionManager {
               offsetX: worldPos.x - node.position.x,
               offsetY: worldPos.y - node.position.y,
             };
+            this.attachDocumentDragListeners(e.pointerId);
           }
 
           e.stopPropagation();
@@ -200,20 +259,31 @@ export class InteractionManager {
         startX: e.clientX,
         startY: e.clientY,
       };
+      this.attachDocumentDragListeners(e.pointerId);
     } else if (e.button === 0) {
       // Left mouse button = marquee select
       const worldPos = this.viewport.screenToWorld(e.clientX, e.clientY);
+
+      // Capture initial selection if Shift is pressed
+      const initialSelection = e.shiftKey
+        ? new Set(this.selectionManager.getSelectedNodes())
+        : new Set<string>();
+
       this.dragState = {
         type: 'marquee',
         startX: worldPos.x,
         startY: worldPos.y,
         currentX: worldPos.x,
         currentY: worldPos.y,
+        shiftPressed: e.shiftKey,
+        initialSelection,
       };
+
       if (!e.shiftKey) {
         this.selectionManager.clearSelection();
       }
       this.updateMarqueeVisual();
+      this.attachDocumentDragListeners(e.pointerId);
     }
   }
 
@@ -294,13 +364,52 @@ export class InteractionManager {
       }
     }
 
+    // Detach document listeners when drag ends
+    this.detachDocumentDragListeners();
+
     this.rightClickStartPos = null;
     this.dragState = { type: 'none' };
   }
 
   private onWheel(e: WheelEvent): void {
     e.preventDefault();
-    this.viewport.zoom(-e.deltaY, e.clientX, e.clientY);
+
+    // Detect if this is likely a mouse wheel or trackpad
+    // Mouse wheels typically have deltaMode > 0 or larger discrete delta values
+    const isLikelyMouseWheel = e.deltaMode > 0 || Math.abs(e.deltaY) > 50;
+
+    if (e.ctrlKey || e.metaKey) {
+      // Zoom behavior
+      if (isLikelyMouseWheel) {
+        // Mouse wheel + Ctrl/Meta - quarter sensitivity, no damping
+        this.viewport.zoomImmediate(-e.deltaY * 0.25, e.clientX, e.clientY);
+      } else {
+        // Trackpad pinch zoom - 1.5x sensitivity, no damping
+        this.viewport.zoomImmediate(-e.deltaY * 1.5, e.clientX, e.clientY);
+      }
+    } else {
+      // Pan behavior (no modifier keys)
+      if (isLikelyMouseWheel) {
+        // Mouse wheel scroll - pan vertically
+        this.viewport.pan(0, -e.deltaY);
+      } else {
+        // Trackpad two-finger scroll - pan horizontally and vertically
+        this.viewport.pan(-e.deltaX, -e.deltaY);
+      }
+    }
+  }
+
+  private onDoubleClick(e: MouseEvent): void {
+    const target = e.target as Element;
+
+    // Only open context menu if double-clicking on empty canvas (not on nodes or ports)
+    const isNode = target.closest('.node');
+    const isPort = target.classList.contains('port');
+
+    if (!isNode && !isPort) {
+      // Open context menu at double-click position
+      this.contextMenu.show(e.clientX, e.clientY);
+    }
   }
 
   private onKeyDown(e: KeyboardEvent): void {
@@ -420,7 +529,7 @@ export class InteractionManager {
   private updateMarqueeSelection(): void {
     if (this.dragState.type !== 'marquee') return;
 
-    const { startX, startY, currentX, currentY } = this.dragState;
+    const { startX, startY, currentX, currentY, shiftPressed, initialSelection } = this.dragState;
     const minX = Math.min(startX, currentX);
     const maxX = Math.max(startX, currentX);
     const minY = Math.min(startY, currentY);
@@ -441,8 +550,14 @@ export class InteractionManager {
       }
     }
 
-    // Add intersecting nodes to selection
-    this.selectionManager.selectNodes(intersectingNodes, 'add');
+    // If Shift was pressed, combine initial selection with intersecting nodes
+    // Otherwise, replace selection with only intersecting nodes
+    if (shiftPressed) {
+      const combinedSelection = new Set([...initialSelection, ...intersectingNodes]);
+      this.selectionManager.selectNodes(Array.from(combinedSelection), 'replace');
+    } else {
+      this.selectionManager.selectNodes(intersectingNodes, 'replace');
+    }
   }
 
   private hideMarquee(): void {

@@ -40,6 +40,8 @@ export class GraphEditor {
     registry: NodeRegistry,
     appContainer?: HTMLElement
   ) {
+    this.preventDefaultZoom();
+
     this.container = container;
     this.appContainer = appContainer || container.parentElement || document.body;
     this.graph = graph;
@@ -129,6 +131,44 @@ export class GraphEditor {
     this.handleResize();
   }
 
+  private preventDefaultZoom(): void {
+    // Prevent default pinch zoom on the entire page (Safari gesture events)
+    document.addEventListener('gesturestart', (e) => e.preventDefault());
+    document.addEventListener('gesturechange', (e) => e.preventDefault());
+    document.addEventListener('gestureend', (e) => e.preventDefault());
+
+    // Prevent pinch zoom via touch events (for touch devices)
+    // The canvas handles its own zoom via wheel events in InteractionManager
+    document.addEventListener(
+      'touchmove',
+      (e) => {
+        if (e.touches.length === 2) {
+          e.preventDefault(); // Prevent pinch zoom
+        }
+      },
+      { passive: false }
+    );
+
+    // Prevent browser zoom via Ctrl+wheel (Chrome/Firefox on trackpad pinch)
+    // But allow it on the canvas (handled by InteractionManager)
+    document.addEventListener(
+      'wheel',
+      (e) => {
+        if (e.ctrlKey || e.metaKey) {
+          // Check if the event target is within the graph SVG canvas
+          const target = e.target as Element;
+          const isCanvas = target.closest('.graph-svg') || target.closest('svg.graph-svg');
+
+          if (!isCanvas) {
+            // Prevent browser zoom on non-canvas elements
+            e.preventDefault();
+          }
+        }
+      },
+      { passive: false }
+    );
+  }
+
   private startRenderLoop(): void {
     const animate = () => {
       this.render();
@@ -138,6 +178,9 @@ export class GraphEditor {
   }
 
   private render(): void {
+    // Update viewport damping
+    this.viewport.update();
+
     // Apply viewport transform to SVG
     this.viewport.applyToSVG(this.svg);
 

@@ -3,10 +3,7 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core/types';
 import * as THREE from 'three';
 
-export class ColorPickerNode extends TweakpaneNode<
-  never,
-  'color'
-> {
+export class ColorPickerNode extends TweakpaneNode<never, 'color'> {
   private currentColor: THREE.Color;
   private params = { color: '#ffffff' };
 

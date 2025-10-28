@@ -18,6 +18,16 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
   background: #1a1a1a;
+  /* Prevent pinch zoom on the website */
+  touch-action: pan-x pan-y;
+}
+
+/* Prevent text selection during drag operations */
+body.dragging {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 #app {
