@@ -8,19 +8,41 @@ export class ViewModeManager {
   private liveViewport: LiveViewport;
   private editorContainer: HTMLElement;
   private toggleButton: HTMLButtonElement;
+  private appContainer: HTMLElement;
 
   constructor(
     _graphEditor: GraphEditor,
     liveViewport: LiveViewport,
     editorContainer: HTMLElement,
-    toggleButton: HTMLButtonElement
+    appContainer: HTMLElement
   ) {
     this.liveViewport = liveViewport;
     this.editorContainer = editorContainer;
-    this.toggleButton = toggleButton;
+    this.appContainer = appContainer;
+
+    // Create toggle button
+    this.toggleButton = this.createToggleButton();
 
     this.setupEventListeners();
     this.updateMode();
+  }
+
+  private createToggleButton(): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.className = 'toolbar-button';
+    button.id = 'toggle-button';
+    button.textContent = 'View 3D';
+
+    // Find the toggle button container in the toolbar
+    const container = document.getElementById('toggle-button-container');
+    if (container) {
+      container.appendChild(button);
+    } else {
+      // Fallback to appContainer if toolbar not found
+      this.appContainer.appendChild(button);
+    }
+
+    return button;
   }
 
   private setupEventListeners(): void {

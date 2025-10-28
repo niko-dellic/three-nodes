@@ -1,5 +1,5 @@
 import { Port } from './Port';
-import { PortSchema, EvaluationContext } from './types';
+import { PortSchema, EvaluationContext, PropertyConfig, NodeProperty } from './types';
 import { PortValue } from '@/types';
 
 export abstract class Node {
@@ -8,6 +8,7 @@ export abstract class Node {
   public label: string;
   public inputs: Map<string, Port> = new Map();
   public outputs: Map<string, Port> = new Map();
+  public properties: Map<string, NodeProperty> = new Map();
   public position: { x: number; y: number } = { x: 0, y: 0 };
   public customWidth?: number; // Optional custom width set by user resize
   public customHeight?: number; // Optional custom height set by user resize
@@ -32,6 +33,33 @@ export abstract class Node {
     const port = new Port(schema.name, schema.type, this, false, schema.defaultValue);
     this.outputs.set(schema.name, port);
     return port;
+  }
+
+  protected addProperty(config: PropertyConfig): void {
+    const property: NodeProperty = {
+      name: config.name,
+      type: config.type,
+      value: config.value,
+      label: config.label,
+      min: config.min,
+      max: config.max,
+      step: config.step,
+      options: config.options,
+    };
+    this.properties.set(config.name, property);
+  }
+
+  getProperty(name: string): any {
+    const property = this.properties.get(name);
+    return property ? property.value : undefined;
+  }
+
+  setProperty(name: string, value: any): void {
+    const property = this.properties.get(name);
+    if (property) {
+      property.value = value;
+      this.markDirty();
+    }
   }
 
   // Abstract method that subclasses must implement

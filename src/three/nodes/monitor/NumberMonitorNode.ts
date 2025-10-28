@@ -11,7 +11,9 @@ export class NumberMonitorNode extends TweakpaneNode {
 
     // Input value to monitor
     this.addInput({ name: 'value', type: PortType.Number, defaultValue: 0 });
-    this.addInput({ name: 'showGraph', type: PortType.Boolean, defaultValue: false });
+
+    // Properties for configuration
+    this.addProperty({ name: 'showGraph', type: 'boolean', value: false, label: 'Show Graph' });
 
     // Passthrough output
     this.addOutput({ name: 'value', type: PortType.Number });
@@ -23,7 +25,7 @@ export class NumberMonitorNode extends TweakpaneNode {
   protected setupTweakpaneControls(): void {
     if (!this.pane) return;
 
-    const showGraph = this.getInputValue<boolean>('showGraph') ?? false;
+    const showGraph = this.getProperty('showGraph') ?? false;
 
     this.pane.addBinding(this.params, 'value', {
       readonly: true,
@@ -56,7 +58,7 @@ export class NumberMonitorNode extends TweakpaneNode {
   }
 
   getControlHeight(): number {
-    const showGraph = this.getInputValue<boolean>('showGraph') ?? false;
+    const showGraph = this.getProperty('showGraph') ?? false;
     // Graph view needs more height than text view
     return showGraph ? 80 : 30;
   }

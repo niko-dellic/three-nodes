@@ -9,6 +9,7 @@ import { SelectionManager } from './SelectionManager';
 import { ContextMenu } from './ContextMenu';
 import { ClipboardManager } from './ClipboardManager';
 import { HistoryManager } from './HistoryManager';
+import { PropertiesPanel } from './PropertiesPanel';
 import { NodeRegistry } from '@/three/NodeRegistry';
 
 export class GraphEditor {
@@ -22,15 +23,25 @@ export class GraphEditor {
   private contextMenu: ContextMenu;
   private clipboardManager: ClipboardManager;
   private historyManager: HistoryManager;
+  private propertiesPanel: PropertiesPanel;
   private registry: NodeRegistry;
 
   private svg: SVGSVGElement;
   private transformGroup: SVGGElement;
   private container: HTMLElement;
+  private appContainer: HTMLElement;
+  private toolbar: HTMLElement;
+  private infoOverlay: HTMLElement;
   private animationId: number | null = null;
 
-  constructor(container: HTMLElement, graph: Graph, registry: NodeRegistry) {
+  constructor(
+    container: HTMLElement,
+    graph: Graph,
+    registry: NodeRegistry,
+    appContainer?: HTMLElement
+  ) {
     this.container = container;
+    this.appContainer = appContainer || container.parentElement || document.body;
     this.graph = graph;
     this.registry = registry;
     this.evaluator = new Evaluator(graph);
@@ -63,6 +74,19 @@ export class GraphEditor {
     // Initialize clipboard manager
     this.clipboardManager = new ClipboardManager(graph, this.selectionManager, registry);
 
+    // Create toolbar with all controls
+    this.toolbar = this.createToolbar();
+    this.infoOverlay = this.createInfoOverlay();
+
+    // Initialize properties panel
+    this.propertiesPanel = new PropertiesPanel(container);
+
+    // Wire up selection changes to properties panel
+    this.selectionManager.onChange(() => {
+      const selectedNodes = this.selectionManager.getSelectedNodeObjects();
+      this.propertiesPanel.setSelectedNodes(selectedNodes);
+    });
+
     // Initialize interaction
     this.interactionManager = new InteractionManager(
       this.graph,
@@ -79,6 +103,21 @@ export class GraphEditor {
     this.graph.onChange(() => {
       this.evaluator.evaluate();
       this.render();
+      // Update data flow in properties panel
+      this.propertiesPanel.updateDataFlow();
+    });
+
+    // Set up keyboard shortcut for properties panel (T key)
+    window.addEventListener('keydown', (e) => {
+      // Only handle if not typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      if (e.key === 't' || e.key === 'T') {
+        e.preventDefault();
+        this.propertiesPanel.toggle();
+      }
     });
 
     // Initial render
@@ -166,6 +205,92 @@ export class GraphEditor {
     // Update SVG dimensions
     this.svg.setAttribute('width', rect.width.toString());
     this.svg.setAttribute('height', rect.height.toString());
+  }
+
+  private createToolbar(): HTMLElement {
+    const toolbar = document.createElement('div');
+    toolbar.className = 'toolbar';
+
+    // Info button
+    const infoButton = document.createElement('button');
+    infoButton.className = 'toolbar-button info-button';
+    infoButton.textContent = '?';
+    infoButton.title = 'Keyboard shortcuts';
+    infoButton.addEventListener('click', () => {
+      this.infoOverlay.classList.toggle('visible');
+    });
+    toolbar.appendChild(infoButton);
+
+    // Separator
+    const separator1 = document.createElement('div');
+    separator1.className = 'toolbar-separator';
+    toolbar.appendChild(separator1);
+
+    // This will be populated by ViewModeManager
+    const toggleButtonPlaceholder = document.createElement('div');
+    toggleButtonPlaceholder.id = 'toggle-button-container';
+    toolbar.appendChild(toggleButtonPlaceholder);
+
+    // Separator
+    const separator2 = document.createElement('div');
+    separator2.className = 'toolbar-separator';
+    toolbar.appendChild(separator2);
+
+    // Preview controls section (will be populated by main.ts)
+    const previewSection = document.createElement('div');
+    previewSection.className = 'toolbar-section preview-controls';
+    toolbar.appendChild(previewSection);
+
+    // Separator
+    const separator3 = document.createElement('div');
+    separator3.className = 'toolbar-separator';
+    toolbar.appendChild(separator3);
+
+    // Properties button
+    const propertiesButton = document.createElement('button');
+    propertiesButton.className = 'toolbar-button';
+    propertiesButton.id = 'properties-button';
+    propertiesButton.textContent = 'Properties';
+    propertiesButton.addEventListener('click', () => {
+      this.propertiesPanel.toggle();
+    });
+    toolbar.appendChild(propertiesButton);
+
+    this.appContainer.appendChild(toolbar);
+    return toolbar;
+  }
+
+  private createInfoOverlay(): HTMLElement {
+    const overlay = document.createElement('div');
+    overlay.className = 'info';
+    overlay.innerHTML = `
+      <p><strong>Controls:</strong></p>
+      <p>Tab - Toggle between editor and 3D view</p>
+      <p>T - Toggle properties panel</p>
+      <p>Space/Right-click - Context menu</p>
+      <p>Ctrl/Cmd+C - Copy selected nodes</p>
+      <p>Ctrl/Cmd+X - Cut selected nodes</p>
+      <p>Ctrl/Cmd+V - Paste nodes</p>
+      <p>Ctrl/Cmd+Z - Undo</p>
+      <p>Ctrl/Cmd+Shift+Z / Ctrl/Cmd+Y - Redo</p>
+      <p>Ctrl/Cmd+A - Select all</p>
+      <p>V - Toggle node visibility (Preview All mode)</p>
+      <p>Delete - Remove selected nodes</p>
+    `;
+    this.appContainer.appendChild(overlay);
+    return overlay;
+  }
+
+  getToolbar(): HTMLElement {
+    return this.toolbar;
+  }
+
+  getSelectionManager(): SelectionManager {
+    return this.selectionManager;
+  }
+
+  setPreviewManager(previewManager: any): void {
+    this.nodeRenderer.setPreviewManager(previewManager);
   }
 
   private findPort(portId: string): Port | null {

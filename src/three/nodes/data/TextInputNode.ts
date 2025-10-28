@@ -9,9 +9,17 @@ export class TextInputNode extends TweakpaneNode {
   constructor(id: string) {
     super(id, 'TextInputNode', 'Text Input');
 
-    // Default text input
-    this.addInput({ name: 'default', type: PortType.String, defaultValue: '' });
-    this.addInput({ name: 'rows', type: PortType.Number, defaultValue: 3 });
+    // Default text properties
+    this.addProperty({ name: 'default', type: 'string', value: '', label: 'Default' });
+    this.addProperty({
+      name: 'rows',
+      type: 'number',
+      value: 3,
+      label: 'Rows',
+      min: 1,
+      max: 20,
+      step: 1,
+    });
 
     // Output
     this.addOutput({ name: 'value', type: PortType.String });
@@ -24,7 +32,7 @@ export class TextInputNode extends TweakpaneNode {
     if (!this.pane) return;
 
     this.params.value = this.currentValue;
-    const rows = this.getInputValue<number>('rows') ?? 3;
+    const rows = this.getProperty('rows') ?? 3;
 
     this.pane
       .addBinding(this.params, 'value', {
@@ -38,7 +46,7 @@ export class TextInputNode extends TweakpaneNode {
   }
 
   evaluate(_context: EvaluationContext): void {
-    const defaultValue = this.getInputValue<string>('default') ?? '';
+    const defaultValue = this.getProperty('default') ?? '';
 
     // On first evaluation, use default
     if (this.outputs.get('value')?.value === undefined) {
@@ -59,7 +67,7 @@ export class TextInputNode extends TweakpaneNode {
   }
 
   getControlHeight(): number {
-    const rows = this.getInputValue<number>('rows') ?? 3;
+    const rows = this.getProperty('rows') ?? 3;
     // Each row is approximately 20px + padding
     return Math.max(60, rows * 20 + 20);
   }

@@ -9,9 +9,9 @@ export class PointInputNode extends TweakpaneNode {
   constructor(id: string) {
     super(id, 'PointInputNode', 'Point Input');
 
-    // Default point inputs
-    this.addInput({ name: 'defaultX', type: PortType.Number, defaultValue: 0 });
-    this.addInput({ name: 'defaultY', type: PortType.Number, defaultValue: 0 });
+    // Default point properties
+    this.addProperty({ name: 'defaultX', type: 'number', value: 0, label: 'Default X', step: 0.1 });
+    this.addProperty({ name: 'defaultY', type: 'number', value: 0, label: 'Default Y', step: 0.1 });
 
     // Output
     this.addOutput({ name: 'point', type: PortType.Point2D });
@@ -32,8 +32,8 @@ export class PointInputNode extends TweakpaneNode {
   }
 
   evaluate(_context: EvaluationContext): void {
-    const defaultX = this.getInputValue<number>('defaultX') ?? 0;
-    const defaultY = this.getInputValue<number>('defaultY') ?? 0;
+    const defaultX = this.getProperty('defaultX') ?? 0;
+    const defaultY = this.getProperty('defaultY') ?? 0;
 
     // On first evaluation, use default
     if (this.outputs.get('point')?.value === undefined) {

@@ -25,6 +25,13 @@ export function deserializeGraph(data: SerializedGraph, registry: NodeRegistry):
         node.customHeight = nodeData.customHeight;
       }
 
+      // Restore properties if they exist
+      if (nodeData.properties) {
+        for (const [name, value] of Object.entries(nodeData.properties)) {
+          node.setProperty(name, value);
+        }
+      }
+
       // Set input default values
       for (const [name, value] of Object.entries(nodeData.inputs)) {
         const port = node.inputs.get(name);

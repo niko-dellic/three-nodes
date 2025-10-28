@@ -10,12 +10,8 @@ export class ColorPickerNode extends TweakpaneNode {
   constructor(id: string) {
     super(id, 'ColorPickerNode', 'Color Picker');
 
-    // Default color input
-    this.addInput({
-      name: 'default',
-      type: PortType.Color,
-      defaultValue: new THREE.Color(1, 1, 1),
-    });
+    // Default color property
+    this.addProperty({ name: 'default', type: 'color', value: '#ffffff', label: 'Default Color' });
 
     // Output
     this.addOutput({ name: 'color', type: PortType.Color });
@@ -46,11 +42,11 @@ export class ColorPickerNode extends TweakpaneNode {
   }
 
   evaluate(_context: EvaluationContext): void {
-    const defaultColor = this.getInputValue<THREE.Color>('default');
+    const defaultColorHex = this.getProperty('default');
 
     // On first evaluation, use default
-    if (this.outputs.get('color')?.value === undefined && defaultColor) {
-      this.currentColor = defaultColor.clone();
+    if (this.outputs.get('color')?.value === undefined && defaultColorHex) {
+      this.currentColor.set(defaultColorHex);
       this.params.color = this.getColorHex();
     }
 

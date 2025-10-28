@@ -18,6 +18,12 @@ export function serializeGraph(graph: Graph): SerializedGraph {
       }
     }
 
+    // Serialize properties
+    const properties: Record<string, any> = {};
+    for (const [name, property] of node.properties) {
+      properties[name] = property.value;
+    }
+
     const serializedNode: SerializedNode = {
       id: node.id,
       type: node.type,
@@ -25,6 +31,11 @@ export function serializeGraph(graph: Graph): SerializedGraph {
       position: { ...node.position },
       inputs,
     };
+
+    // Include properties if any exist
+    if (Object.keys(properties).length > 0) {
+      serializedNode.properties = properties;
+    }
 
     // Include custom dimensions if set
     if (node.customWidth !== undefined) {

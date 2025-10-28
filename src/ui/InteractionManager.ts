@@ -1,6 +1,7 @@
 import { Graph } from '@/core/Graph';
 import { Node } from '@/core/Node';
 import { Port } from '@/core/Port';
+import { Edge } from '@/core/Edge';
 import { Viewport } from './Viewport';
 import { NodeRenderer } from './NodeRenderer';
 import { SelectionManager } from './SelectionManager';
@@ -12,7 +13,7 @@ export type DragState =
   | { type: 'none' }
   | { type: 'pan'; startX: number; startY: number }
   | { type: 'nodes'; referenceNode: Node; offsetX: number; offsetY: number }
-  | { type: 'connection'; port: Port; startX: number; startY: number }
+  | { type: 'connection'; port: Port; startX: number; startY: number; removedEdge?: Edge }
   | { type: 'marquee'; startX: number; startY: number; currentX: number; currentY: number };
 
 export class InteractionManager {
@@ -101,11 +102,37 @@ export class InteractionManager {
         if (port) {
           const pos = this.nodeRenderer.getPortWorldPosition(portId);
           if (pos) {
+            // Check if this port has an existing connection
+            let removedEdge: Edge | undefined = undefined;
+            let dragFromPort = port;
+            let dragFromPos = pos;
+
+            if (port.isInput) {
+              // Input port - check if it has a connection
+              const existingEdge = this.graph.getEdgeToPort(port);
+              if (existingEdge) {
+                // Remove the connection to this input
+                this.graph.removeEdge(existingEdge.id);
+                removedEdge = existingEdge;
+
+                // Switch to dragging from the OUTPUT port that was connected
+                dragFromPort = existingEdge.source; // The output port
+                const outputPos = this.nodeRenderer.getPortWorldPosition(dragFromPort.id);
+                if (outputPos) {
+                  dragFromPos = outputPos;
+                }
+              }
+            } else {
+              // Output port - we can drag from it to create new connections
+              // (output ports can have multiple connections, so we don't remove them)
+            }
+
             this.dragState = {
               type: 'connection',
-              port,
-              startX: pos.x,
-              startY: pos.y,
+              port: dragFromPort,
+              startX: dragFromPos.x,
+              startY: dragFromPos.y,
+              removedEdge,
             };
             e.stopPropagation();
             return;

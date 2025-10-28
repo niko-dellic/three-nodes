@@ -2,7 +2,6 @@ import './style.css';
 import { Graph } from '@/core/Graph';
 import { createDefaultRegistry } from '@/three';
 import { GraphEditor, LiveViewport, ViewModeManager, PreviewManager } from '@/ui';
-import * as THREE from 'three';
 
 // Create the node registry
 const registry = createDefaultRegistry();
@@ -66,14 +65,16 @@ graph.connect(boxGeoNode.outputs.get('geometry')!, meshNode.inputs.get('geometry
 graph.connect(materialNode.outputs.get('material')!, meshNode.inputs.get('material')!);
 
 // 6. Create scene
-const scene = new THREE.Scene();
+const sceneNode = registry.createNode('SceneNode', 'scene')!;
+sceneNode.position = { x: 800, y: 50 };
+graph.addNode(sceneNode);
 
 // Add mesh to scene
 const addMeshNode = registry.createNode('AddToSceneNode', 'add-mesh')!;
 addMeshNode.position = { x: 1050, y: 250 };
-addMeshNode.inputs.get('scene')!.value = scene;
 graph.addNode(addMeshNode);
 
+graph.connect(sceneNode.outputs.get('scene')!, addMeshNode.inputs.get('scene')!);
 graph.connect(meshNode.outputs.get('mesh')!, addMeshNode.inputs.get('object')!);
 
 // 7. Create camera
@@ -97,10 +98,10 @@ ambientLightNode.inputs.get('intensity')!.value = 0.5;
 graph.addNode(ambientLightNode);
 
 const addAmbientNode = registry.createNode('AddToSceneNode', 'add-ambient')!;
-addAmbientNode.position = { x: 800, y: 100 };
-addAmbientNode.inputs.get('scene')!.value = scene;
+addAmbientNode.position = { x: 1050, y: 100 };
 graph.addNode(addAmbientNode);
 
+graph.connect(sceneNode.outputs.get('scene')!, addAmbientNode.inputs.get('scene')!);
 graph.connect(ambientLightNode.outputs.get('light')!, addAmbientNode.inputs.get('object')!);
 
 const directionalLightPos = registry.createNode('Vector3Node', 'dir-light-pos')!;
@@ -121,91 +122,57 @@ graph.connect(
 );
 
 const addDirLightNode = registry.createNode('AddToSceneNode', 'add-dir-light')!;
-addDirLightNode.position = { x: 800, y: 50 };
-addDirLightNode.inputs.get('scene')!.value = scene;
+addDirLightNode.position = { x: 1050, y: 50 };
 graph.addNode(addDirLightNode);
 
+graph.connect(sceneNode.outputs.get('scene')!, addDirLightNode.inputs.get('scene')!);
 graph.connect(directionalLightNode.outputs.get('light')!, addDirLightNode.inputs.get('object')!);
 
 // 9. Scene output node
 const sceneOutputNode = registry.createNode('SceneOutputNode', 'scene-output')!;
 sceneOutputNode.position = { x: 1300, y: 250 };
-sceneOutputNode.inputs.get('scene')!.value = scene;
 graph.addNode(sceneOutputNode);
 
+// Connect scene and camera to output
+graph.connect(addMeshNode.outputs.get('scene')!, sceneOutputNode.inputs.get('scene')!);
 graph.connect(cameraNode.outputs.get('camera')!, sceneOutputNode.inputs.get('camera')!);
 
-// Initialize UI
-const viewportContainer = document.getElementById('viewport')! as HTMLElement;
-const editorContainer = document.getElementById('editor')! as HTMLElement;
-const toggleButton = document.getElementById('toggle-button')! as HTMLButtonElement;
-const previewModeSelect = document.getElementById('preview-mode')! as HTMLSelectElement;
-const previewMaterialButton = document.getElementById(
-  'preview-material-button'
-)! as HTMLButtonElement;
+// Initialize UI - Create containers programmatically
+const appContainer = document.getElementById('app')! as HTMLElement;
 
-// Create graph editor (pass registry for node creation)
-const graphEditor = new GraphEditor(editorContainer, graph, registry);
+// Create viewport container (3D view - background layer)
+const viewportContainer = document.createElement('div');
+viewportContainer.id = 'viewport';
+appContainer.appendChild(viewportContainer);
+
+// Create editor container (node editor - overlay layer)
+const editorContainer = document.createElement('div');
+editorContainer.id = 'editor';
+appContainer.appendChild(editorContainer);
+
+// Create graph editor (pass registry and app container for UI creation)
+const graphEditor = new GraphEditor(editorContainer, graph, registry, appContainer);
 
 // Create live viewport
 const liveViewport = new LiveViewport(viewportContainer, graph);
 
-// Create preview manager
-const previewManager = new PreviewManager(graph, graphEditor['selectionManager']);
+// Create preview manager and initialize its UI
+const previewManager = new PreviewManager(graph, graphEditor.getSelectionManager());
 liveViewport.setPreviewManager(previewManager);
+graphEditor.setPreviewManager(previewManager); // Connect preview manager to node renderer
 
-// Create view mode manager
+// Initialize preview controls in toolbar
+const toolbar = graphEditor.getToolbar();
+const previewControls = toolbar.querySelector('.preview-controls') as HTMLElement;
+previewManager.initializeUI(previewControls);
+
+// Create view mode manager (it will create its own toggle button)
 const viewModeManager = new ViewModeManager(
   graphEditor,
   liveViewport,
   editorContainer,
-  toggleButton
+  appContainer
 );
-
-// Setup preview mode selector
-previewModeSelect.addEventListener('change', (e) => {
-  const mode = (e.target as HTMLSelectElement).value as 'none' | 'selected' | 'all';
-  previewManager.setPreviewMode(mode);
-});
-
-// Setup preview material button with cycling materials
-let materialIndex = 0;
-const previewMaterials = [
-  new THREE.MeshStandardMaterial({
-    color: 0x00ff00,
-    wireframe: true,
-    transparent: true,
-    opacity: 0.7,
-  }),
-  new THREE.MeshNormalMaterial({ wireframe: false }),
-  new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    metalness: 0.5,
-    roughness: 0.5,
-  }),
-  new THREE.MeshBasicMaterial({ color: 0xff9900, wireframe: false }),
-];
-
-previewMaterialButton.addEventListener('click', () => {
-  materialIndex = (materialIndex + 1) % previewMaterials.length;
-  previewManager.setPreviewMaterial(previewMaterials[materialIndex]);
-
-  const materialNames = ['Wireframe', 'Normal', 'Standard', 'Basic'];
-  previewMaterialButton.textContent = `Material: ${materialNames[materialIndex]}`;
-});
-
-// V key to toggle visibility in "preview all" mode
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'v' || e.key === 'V') {
-    if (previewManager.getPreviewMode() === 'all') {
-      // Toggle visibility of selected nodes
-      const selectedNodes = graphEditor['selectionManager'].getSelectedNodes();
-      for (const nodeId of selectedNodes) {
-        previewManager.toggleNodeVisibility(nodeId);
-      }
-    }
-  }
-});
 
 // Expose to window for debugging
 (window as any).graph = graph;

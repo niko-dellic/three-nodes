@@ -9,8 +9,8 @@ export class StringInputNode extends TweakpaneNode {
   constructor(id: string) {
     super(id, 'StringInputNode', 'String Input');
 
-    // Default string input
-    this.addInput({ name: 'default', type: PortType.String, defaultValue: '' });
+    // Default string property
+    this.addProperty({ name: 'default', type: 'string', value: '', label: 'Default' });
 
     // Output
     this.addOutput({ name: 'value', type: PortType.String });
@@ -31,7 +31,7 @@ export class StringInputNode extends TweakpaneNode {
   }
 
   evaluate(_context: EvaluationContext): void {
-    const defaultValue = this.getInputValue<string>('default') ?? '';
+    const defaultValue = this.getProperty('default') ?? '';
 
     // On first evaluation, use default
     if (this.outputs.get('value')?.value === undefined) {

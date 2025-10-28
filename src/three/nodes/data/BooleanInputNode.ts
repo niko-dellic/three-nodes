@@ -9,8 +9,8 @@ export class BooleanInputNode extends TweakpaneNode {
   constructor(id: string) {
     super(id, 'BooleanInputNode', 'Boolean Input');
 
-    // Default boolean input
-    this.addInput({ name: 'default', type: PortType.Boolean, defaultValue: false });
+    // Default boolean property
+    this.addProperty({ name: 'default', type: 'boolean', value: false, label: 'Default' });
 
     // Output
     this.addOutput({ name: 'value', type: PortType.Boolean });
@@ -31,7 +31,7 @@ export class BooleanInputNode extends TweakpaneNode {
   }
 
   evaluate(_context: EvaluationContext): void {
-    const defaultValue = this.getInputValue<boolean>('default') ?? false;
+    const defaultValue = this.getProperty('default') ?? false;
 
     // On first evaluation, use default
     if (this.outputs.get('value')?.value === undefined) {

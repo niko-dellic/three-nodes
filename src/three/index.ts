@@ -24,6 +24,7 @@ import { SphereGeometryNode } from './nodes/geometry/SphereGeometryNode';
 import { MeshStandardMaterialNode } from './nodes/material/MeshStandardMaterialNode';
 
 // Scene nodes
+import { SceneNode } from './nodes/scene/SceneNode';
 import { CreateMeshNode } from './nodes/scene/CreateMeshNode';
 import { AddToSceneNode } from './nodes/scene/AddToSceneNode';
 
@@ -57,6 +58,7 @@ export { TextMonitorNode } from './nodes/monitor/TextMonitorNode';
 export { BoxGeometryNode } from './nodes/geometry/BoxGeometryNode';
 export { SphereGeometryNode } from './nodes/geometry/SphereGeometryNode';
 export { MeshStandardMaterialNode } from './nodes/material/MeshStandardMaterialNode';
+export { SceneNode } from './nodes/scene/SceneNode';
 export { CreateMeshNode } from './nodes/scene/CreateMeshNode';
 export { AddToSceneNode } from './nodes/scene/AddToSceneNode';
 export { PerspectiveCameraNode } from './nodes/camera/PerspectiveCameraNode';
@@ -187,6 +189,14 @@ export function createDefaultRegistry(): NodeRegistry {
   });
 
   // Register scene nodes
+  registry.register(SceneNode, {
+    type: 'SceneNode',
+    category: 'Scene',
+    label: 'Scene',
+    description: 'Creates a Three.js scene',
+    icon: '🎬',
+  });
+
   registry.register(CreateMeshNode, {
     type: 'CreateMeshNode',
     category: 'Scene',

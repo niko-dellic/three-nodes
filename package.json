@@ -8,7 +8,8 @@
     "preview": "vite preview",
     "test": "vitest",
     "lint": "eslint src --ext .ts",
-    "format": "prettier --write \"src/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\"",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "three": "^0.180.0",

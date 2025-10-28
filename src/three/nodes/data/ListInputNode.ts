@@ -5,17 +5,20 @@ import { EvaluationContext } from '@/core/types';
 export class ListInputNode extends TweakpaneNode {
   private currentValue: string = '';
   private params = { value: '' };
-  private options: Record<string, string> = {
-    Option1: 'option1',
-    Option2: 'option2',
-    Option3: 'option3',
-  };
 
   constructor(id: string) {
     super(id, 'ListInputNode', 'List Input');
 
-    // Default value
-    this.addInput({ name: 'default', type: PortType.String, defaultValue: 'option1' });
+    // Default value property
+    this.addProperty({ name: 'default', type: 'string', value: 'option1', label: 'Default' });
+
+    // Options property
+    this.addProperty({
+      name: 'options',
+      type: 'list',
+      value: { Option1: 'option1', Option2: 'option2', Option3: 'option3' },
+      label: 'Options',
+    });
 
     // Output
     this.addOutput({ name: 'value', type: PortType.String });
@@ -28,10 +31,11 @@ export class ListInputNode extends TweakpaneNode {
     if (!this.pane) return;
 
     this.params.value = this.currentValue;
+    const options = this.getProperty('options') ?? { Option1: 'option1' };
 
     this.pane
       .addBinding(this.params, 'value', {
-        options: this.options,
+        options: options,
       })
       .on('change', (ev) => {
         this.currentValue = ev.value;
@@ -40,7 +44,7 @@ export class ListInputNode extends TweakpaneNode {
   }
 
   evaluate(_context: EvaluationContext): void {
-    const defaultValue = this.getInputValue<string>('default') ?? 'option1';
+    const defaultValue = this.getProperty('default') ?? 'option1';
 
     // On first evaluation, use default
     if (this.outputs.get('value')?.value === undefined) {
@@ -61,7 +65,7 @@ export class ListInputNode extends TweakpaneNode {
   }
 
   setOptions(options: Record<string, string>): void {
-    this.options = options;
+    this.setProperty('options', options);
     // Re-initialize Tweakpane if already set up
     if (this.pane) {
       this.pane.dispose();
@@ -72,6 +76,6 @@ export class ListInputNode extends TweakpaneNode {
   }
 
   getOptions(): Record<string, string> {
-    return this.options;
+    return this.getProperty('options') ?? {};
   }
 }

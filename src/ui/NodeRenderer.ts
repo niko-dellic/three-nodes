@@ -39,6 +39,8 @@ export class NodeRenderer {
   private nodeElements: Map<string, SVGGElement> = new Map();
   private graph: Graph;
   private historyManager: HistoryManager;
+  private previewManager: any = null; // Will be set later to avoid circular dependency
+  private previewMode: string = 'none';
 
   constructor(parentGroup: SVGGElement, graph: Graph, historyManager: HistoryManager) {
     // Store reference to parent for querySelector operations
@@ -48,6 +50,18 @@ export class NodeRenderer {
     this.container = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     this.container.classList.add('nodes');
     parentGroup.appendChild(this.container);
+  }
+
+  setPreviewManager(previewManager: any): void {
+    this.previewManager = previewManager;
+    // Listen to preview mode changes
+    if (previewManager) {
+      previewManager.onChange(() => {
+        this.previewMode = previewManager.getPreviewMode();
+        // Re-render nodes to update visibility icons
+        this.render(this.graph);
+      });
+    }
   }
 
   render(graph: Graph, selectedNodes: Set<string> = new Set(), hoveringPortId?: string): void {
@@ -153,6 +167,9 @@ export class NodeRenderer {
 
     // Add or update resize handle
     this.updateResizeHandle(element, node, width, height);
+
+    // Add or update visibility icon (only in 'all' preview mode)
+    this.updateVisibilityIcon(element, node, width);
   }
 
   private updateInteractiveControls(element: SVGGElement, node: Node, width: number): void {
@@ -485,5 +502,102 @@ export class NodeRenderer {
     const handleSize = 12;
     const path = `M ${width} ${height - handleSize} L ${width} ${height} L ${width - handleSize} ${height} Z`;
     handle.setAttribute('d', path);
+  }
+
+  private updateVisibilityIcon(element: SVGGElement, node: Node, width: number): void {
+    const iconClass = 'visibility-icon';
+    let icon = element.querySelector(`.${iconClass}`) as SVGGElement;
+
+    // Only show visibility icon when preview mode is 'all'
+    if (this.previewMode !== 'all') {
+      // Remove icon if it exists
+      if (icon) {
+        icon.remove();
+      }
+      return;
+    }
+
+    if (!icon) {
+      // Create visibility icon group
+      icon = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      icon.classList.add(iconClass);
+      icon.setAttribute('cursor', 'pointer');
+
+      // Create circle background
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('r', '8');
+      circle.setAttribute('fill', 'rgba(255, 255, 255, 0.1)');
+      circle.classList.add('visibility-bg');
+      icon.appendChild(circle);
+
+      // Create eye icon (using path for better control)
+      const eyePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      eyePath.classList.add('eye-path');
+      eyePath.setAttribute('stroke', '#ffffff');
+      eyePath.setAttribute('stroke-width', '1.5');
+      eyePath.setAttribute('fill', 'none');
+      icon.appendChild(eyePath);
+
+      // Add pupil (small circle)
+      const pupil = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      pupil.classList.add('eye-pupil');
+      pupil.setAttribute('r', '1.5');
+      pupil.setAttribute('fill', '#ffffff');
+      icon.appendChild(pupil);
+
+      // Add slash for "hidden" state
+      const slash = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      slash.classList.add('eye-slash');
+      slash.setAttribute('x1', '-6');
+      slash.setAttribute('y1', '-6');
+      slash.setAttribute('x2', '6');
+      slash.setAttribute('y2', '6');
+      slash.setAttribute('stroke', '#ef4444');
+      slash.setAttribute('stroke-width', '2');
+      slash.setAttribute('stroke-linecap', 'round');
+      slash.setAttribute('opacity', '0');
+      icon.appendChild(slash);
+
+      // Hover effects
+      icon.addEventListener('mouseenter', () => {
+        circle.setAttribute('fill', 'rgba(255, 255, 255, 0.2)');
+      });
+      icon.addEventListener('mouseleave', () => {
+        circle.setAttribute('fill', 'rgba(255, 255, 255, 0.1)');
+      });
+
+      // Click to toggle visibility
+      icon.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this.previewManager) {
+          this.previewManager.toggleNodeVisibility(node.id);
+        }
+      });
+
+      element.appendChild(icon);
+    }
+
+    // Position icon in top-right corner of node
+    icon.setAttribute('transform', `translate(${width - 20}, 15)`);
+
+    // Update visibility state
+    const isVisible = !this.previewManager || this.previewManager.isNodeVisible(node.id);
+    const slash = icon.querySelector('.eye-slash') as SVGLineElement;
+    const eyePath = icon.querySelector('.eye-path') as SVGPathElement;
+    const pupil = icon.querySelector('.eye-pupil') as SVGCircleElement;
+
+    if (isVisible) {
+      // Show eye (no slash)
+      slash.setAttribute('opacity', '0');
+      eyePath.setAttribute('d', 'M -5 0 Q -5 -3 0 -3 Q 5 -3 5 0 Q 5 3 0 3 Q -5 3 -5 0');
+      pupil.setAttribute('cx', '0');
+      pupil.setAttribute('cy', '0');
+    } else {
+      // Show eye with slash
+      slash.setAttribute('opacity', '1');
+      eyePath.setAttribute('d', 'M -5 0 Q -5 -3 0 -3 Q 5 -3 5 0 Q 5 3 0 3 Q -5 3 -5 0');
+      pupil.setAttribute('cx', '0');
+      pupil.setAttribute('cy', '0');
+    }
   }
 }

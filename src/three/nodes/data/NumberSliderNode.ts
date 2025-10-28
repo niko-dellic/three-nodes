@@ -9,11 +9,19 @@ export class NumberSliderNode extends TweakpaneNode {
   constructor(id: string) {
     super(id, 'NumberSliderNode', 'Number Slider');
 
-    // Slider configuration inputs
-    this.addInput({ name: 'min', type: PortType.Number, defaultValue: -10 });
-    this.addInput({ name: 'max', type: PortType.Number, defaultValue: 10 });
-    this.addInput({ name: 'step', type: PortType.Number, defaultValue: 0.1 });
-    this.addInput({ name: 'default', type: PortType.Number, defaultValue: 0 });
+    // Slider configuration properties
+    this.addProperty({ name: 'min', type: 'number', value: -10, label: 'Min', step: 1 });
+    this.addProperty({ name: 'max', type: 'number', value: 10, label: 'Max', step: 1 });
+    this.addProperty({
+      name: 'step',
+      type: 'number',
+      value: 0.1,
+      label: 'Step',
+      min: 0.01,
+      max: 10,
+      step: 0.01,
+    });
+    this.addProperty({ name: 'default', type: 'number', value: 0, label: 'Default', step: 0.1 });
 
     // Output
     this.addOutput({ name: 'value', type: PortType.Number });
@@ -44,9 +52,9 @@ export class NumberSliderNode extends TweakpaneNode {
   }
 
   evaluate(_context: EvaluationContext): void {
-    const minValue = this.getInputValue<number>('min') ?? -10;
-    const maxValue = this.getInputValue<number>('max') ?? 10;
-    const defaultValue = this.getInputValue<number>('default') ?? 0;
+    const minValue = this.getProperty('min') ?? -10;
+    const maxValue = this.getProperty('max') ?? 10;
+    const defaultValue = this.getProperty('default') ?? 0;
 
     // Clamp current value to range
     if (this.currentValue < minValue) this.currentValue = minValue;
@@ -73,14 +81,14 @@ export class NumberSliderNode extends TweakpaneNode {
   }
 
   getMin(): number {
-    return this.getInputValue<number>('min') ?? -10;
+    return this.getProperty('min') ?? -10;
   }
 
   getMax(): number {
-    return this.getInputValue<number>('max') ?? 10;
+    return this.getProperty('max') ?? 10;
   }
 
   getStep(): number {
-    return this.getInputValue<number>('step') ?? 0.1;
+    return this.getProperty('step') ?? 0.1;
   }
 }

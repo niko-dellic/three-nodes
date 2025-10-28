@@ -15,18 +15,38 @@ export class PreviewManager {
   private hiddenNodes: Set<string> = new Set();
   private onChangeCallbacks: Set<() => void> = new Set();
 
+  // Preview materials for cycling through different visualization modes
+  private previewMaterials: THREE.Material[];
+  private currentMaterialIndex: number = 0;
+
+  // UI elements
+  private previewModeSelect: HTMLSelectElement | null = null;
+  private previewMaterialSelect: HTMLSelectElement | null = null;
+
   constructor(graph: Graph, selectionManager: SelectionManager) {
     this.graph = graph;
     this.selectionManager = selectionManager;
     this.previewScene = new THREE.Scene();
 
+    // Initialize preview materials
+    this.previewMaterials = [
+      new THREE.MeshStandardMaterial({
+        color: 0x00ff00,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.7,
+      }),
+      new THREE.MeshNormalMaterial({ wireframe: false }),
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        metalness: 0.5,
+        roughness: 0.5,
+      }),
+      new THREE.MeshBasicMaterial({ color: 0xff9900 }),
+    ];
+
     // Default preview material - wireframe for geometry visualization
-    this.previewMaterial = new THREE.MeshStandardMaterial({
-      color: 0x00ff00,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.7,
-    });
+    this.previewMaterial = this.previewMaterials[0];
 
     // Listen to graph changes
     this.graph.onChange(() => this.updatePreview());
@@ -35,6 +55,78 @@ export class PreviewManager {
     this.selectionManager.onChange(() => {
       if (this.previewMode === 'selected') {
         this.updatePreview();
+      }
+    });
+
+    // Set up keyboard shortcuts
+    this.setupKeyboardShortcuts();
+  }
+
+  /**
+   * Initialize the preview UI controls in the provided container
+   */
+  initializeUI(container: HTMLElement): void {
+    // Create preview mode label
+    const previewModeLabel = document.createElement('label');
+    previewModeLabel.textContent = 'Preview:';
+    container.appendChild(previewModeLabel);
+
+    // Create preview mode selector
+    this.previewModeSelect = document.createElement('select');
+    this.previewModeSelect.id = 'preview-mode';
+    this.previewModeSelect.innerHTML = `
+      <option value="none">None</option>
+      <option value="selected">Selected</option>
+      <option value="all">All</option>
+    `;
+    container.appendChild(this.previewModeSelect);
+
+    // Wire up preview mode change
+    this.previewModeSelect.addEventListener('change', (e) => {
+      const mode = (e.target as HTMLSelectElement).value as PreviewMode;
+      this.setPreviewMode(mode);
+    });
+
+    // Create preview material label
+    const materialLabel = document.createElement('label');
+    materialLabel.textContent = 'Material:';
+    container.appendChild(materialLabel);
+
+    // Create preview material selector
+    this.previewMaterialSelect = document.createElement('select');
+    this.previewMaterialSelect.id = 'preview-material-select';
+    this.previewMaterialSelect.innerHTML = `
+      <option value="0">Wireframe</option>
+      <option value="1">Normal</option>
+      <option value="2">Standard</option>
+      <option value="3">Basic</option>
+    `;
+    container.appendChild(this.previewMaterialSelect);
+
+    // Wire up material selection
+    this.previewMaterialSelect.addEventListener('change', (e) => {
+      const index = parseInt((e.target as HTMLSelectElement).value);
+      this.setMaterialByIndex(index);
+    });
+  }
+
+  private setupKeyboardShortcuts(): void {
+    // V key to toggle visibility in "preview all" mode
+    document.addEventListener('keydown', (e) => {
+      // Only handle if not typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      if (e.key === 'v' || e.key === 'V') {
+        if (this.previewMode === 'all') {
+          e.preventDefault();
+          // Toggle visibility of selected nodes
+          const selectedNodes = this.selectionManager.getSelectedNodes();
+          for (const nodeId of selectedNodes) {
+            this.toggleNodeVisibility(nodeId);
+          }
+        }
       }
     });
   }
@@ -56,6 +148,30 @@ export class PreviewManager {
 
   getPreviewMaterial(): THREE.Material {
     return this.previewMaterial;
+  }
+
+  setMaterialByIndex(index: number): void {
+    if (index >= 0 && index < this.previewMaterials.length) {
+      this.currentMaterialIndex = index;
+      this.previewMaterial = this.previewMaterials[index];
+      this.updatePreview();
+
+      // Update select if it exists
+      if (this.previewMaterialSelect) {
+        this.previewMaterialSelect.value = index.toString();
+      }
+    }
+  }
+
+  cyclePreviewMaterial(): string {
+    this.currentMaterialIndex = (this.currentMaterialIndex + 1) % this.previewMaterials.length;
+    this.setMaterialByIndex(this.currentMaterialIndex);
+    return this.getCurrentMaterialName();
+  }
+
+  getCurrentMaterialName(): string {
+    const materialNames = ['Wireframe', 'Normal', 'Standard', 'Basic'];
+    return materialNames[this.currentMaterialIndex];
   }
 
   toggleNodeVisibility(nodeId: string): void {

@@ -11,7 +11,17 @@ export class TextMonitorNode extends TweakpaneNode {
 
     // Input value to monitor
     this.addInput({ name: 'value', type: PortType.String, defaultValue: '' });
-    this.addInput({ name: 'lines', type: PortType.Number, defaultValue: 3 });
+
+    // Properties for configuration
+    this.addProperty({
+      name: 'lines',
+      type: 'number',
+      value: 3,
+      label: 'Lines',
+      min: 1,
+      max: 20,
+      step: 1,
+    });
 
     // Passthrough output
     this.addOutput({ name: 'value', type: PortType.String });
@@ -23,7 +33,7 @@ export class TextMonitorNode extends TweakpaneNode {
   protected setupTweakpaneControls(): void {
     if (!this.pane) return;
 
-    const lines = this.getInputValue<number>('lines') ?? 3;
+    const lines = this.getProperty('lines') ?? 3;
 
     this.pane.addBinding(this.params, 'value', {
       readonly: true,
@@ -52,7 +62,7 @@ export class TextMonitorNode extends TweakpaneNode {
   }
 
   getControlHeight(): number {
-    const lines = this.getInputValue<number>('lines') ?? 3;
+    const lines = this.getProperty('lines') ?? 3;
     // Each line is approximately 20px + padding
     return Math.max(60, lines * 20 + 20);
   }
