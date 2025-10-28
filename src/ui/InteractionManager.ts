@@ -5,6 +5,8 @@ import { Viewport } from './Viewport';
 import { NodeRenderer } from './NodeRenderer';
 import { SelectionManager } from './SelectionManager';
 import { ContextMenu } from './ContextMenu';
+import { ClipboardManager } from './ClipboardManager';
+import { HistoryManager } from './HistoryManager';
 
 export type DragState =
   | { type: 'none' }
@@ -20,6 +22,8 @@ export class InteractionManager {
   private svg: SVGSVGElement;
   private selectionManager: SelectionManager;
   private contextMenu: ContextMenu;
+  private clipboardManager: ClipboardManager;
+  private historyManager: HistoryManager;
   private transformGroup: SVGGElement | null = null;
 
   private dragState: DragState = { type: 'none' };
@@ -34,7 +38,9 @@ export class InteractionManager {
     nodeRenderer: NodeRenderer,
     svg: SVGSVGElement,
     selectionManager: SelectionManager,
-    contextMenu: ContextMenu
+    contextMenu: ContextMenu,
+    clipboardManager: ClipboardManager,
+    historyManager: HistoryManager
   ) {
     this.graph = graph;
     this.viewport = viewport;
@@ -42,6 +48,8 @@ export class InteractionManager {
     this.svg = svg;
     this.selectionManager = selectionManager;
     this.contextMenu = contextMenu;
+    this.clipboardManager = clipboardManager;
+    this.historyManager = historyManager;
 
     // Find the transform group that contains the nodes
     this.transformGroup = svg.querySelector('.transform-group');
@@ -264,6 +272,47 @@ export class InteractionManager {
       return;
     }
 
+    // Check for modifier + key combinations first
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'c' || e.key === 'C') {
+        // Copy
+        e.preventDefault();
+        this.clipboardManager.copy();
+      } else if (e.key === 'x' || e.key === 'X') {
+        // Cut
+        e.preventDefault();
+        this.clipboardManager.cut();
+      } else if (e.key === 'v' || e.key === 'V') {
+        // Paste
+        e.preventDefault();
+        const worldPos = this.currentMousePos
+          ? this.viewport.screenToWorld(this.currentMousePos.x, this.currentMousePos.y)
+          : undefined;
+        this.clipboardManager.paste(worldPos);
+      } else if (e.key === 'z' || e.key === 'Z') {
+        // Undo/Redo
+        e.preventDefault();
+        if (e.shiftKey) {
+          // Redo (Ctrl/Cmd + Shift + Z)
+          this.historyManager.redo();
+        } else {
+          // Undo (Ctrl/Cmd + Z)
+          this.historyManager.undo();
+        }
+      } else if (e.key === 'y' || e.key === 'Y') {
+        // Redo (alternative: Ctrl/Cmd + Y)
+        e.preventDefault();
+        this.historyManager.redo();
+      } else if (e.key === 'a' || e.key === 'A') {
+        // Select all nodes
+        e.preventDefault();
+        const allNodeIds = Array.from(this.graph.nodes.keys());
+        this.selectionManager.selectNodes(allNodeIds, 'replace');
+      }
+      return;
+    }
+
+    // Non-modifier keys
     if (e.key === ' ') {
       // Spacebar: Open context menu at cursor position
       e.preventDefault();
@@ -279,11 +328,6 @@ export class InteractionManager {
         e.preventDefault();
         this.selectionManager.deleteSelectedNodes();
       }
-    } else if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-      // Select all nodes
-      e.preventDefault();
-      const allNodeIds = Array.from(this.graph.nodes.keys());
-      this.selectionManager.selectNodes(allNodeIds, 'replace');
     }
   }
 

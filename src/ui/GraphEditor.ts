@@ -6,6 +6,8 @@ import { EdgeRenderer } from './EdgeRenderer';
 import { InteractionManager } from './InteractionManager';
 import { SelectionManager } from './SelectionManager';
 import { ContextMenu } from './ContextMenu';
+import { ClipboardManager } from './ClipboardManager';
+import { HistoryManager } from './HistoryManager';
 import { NodeRegistry } from '@/three/NodeRegistry';
 
 export class GraphEditor {
@@ -17,6 +19,8 @@ export class GraphEditor {
   private interactionManager: InteractionManager;
   private selectionManager: SelectionManager;
   private contextMenu: ContextMenu;
+  private clipboardManager: ClipboardManager;
+  private historyManager: HistoryManager;
   private registry: NodeRegistry;
 
   private svg: SVGSVGElement;
@@ -44,13 +48,17 @@ export class GraphEditor {
 
     // Initialize renderers - they add their groups to the transform group
     this.edgeRenderer = new EdgeRenderer(this.transformGroup);
-    this.nodeRenderer = new NodeRenderer(this.transformGroup);
+    this.nodeRenderer = new NodeRenderer(this.transformGroup, graph);
 
     // Initialize context menu
     this.contextMenu = new ContextMenu(container, registry);
     this.contextMenu.onNodeSelectCallback((nodeType, screenX, screenY) => {
       this.addNodeAtScreenPosition(nodeType, screenX, screenY);
     });
+
+    // Initialize clipboard and history managers
+    this.clipboardManager = new ClipboardManager(graph, this.selectionManager, registry);
+    this.historyManager = new HistoryManager(graph, registry, this.selectionManager);
 
     // Initialize interaction
     this.interactionManager = new InteractionManager(
@@ -59,7 +67,9 @@ export class GraphEditor {
       this.nodeRenderer,
       this.svg,
       this.selectionManager,
-      this.contextMenu
+      this.contextMenu,
+      this.clipboardManager,
+      this.historyManager
     );
 
     // Listen to graph changes

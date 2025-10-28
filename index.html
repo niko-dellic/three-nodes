@@ -16,12 +16,32 @@
       <!-- Toggle button -->
       <button id="toggle-button">View 3D</button>
 
+      <!-- Preview controls -->
+      <div class="preview-controls">
+        <div class="preview-mode-selector">
+          <label>Preview Mode:</label>
+          <select id="preview-mode">
+            <option value="none">No Preview</option>
+            <option value="selected">Preview Selected</option>
+            <option value="all">Preview All</option>
+          </select>
+        </div>
+        <button id="preview-material-button">Preview Material</button>
+      </div>
+
       <!-- Info overlay -->
       <div class="info">
         <p><strong>Controls:</strong></p>
         <p>Tab - Toggle between editor and 3D view</p>
-        <p>Editor Mode: Drag nodes, connect ports, scroll to zoom</p>
-        <p>Viewport Mode: Orbit camera with mouse</p>
+        <p>Space/Right-click - Context menu</p>
+        <p>Ctrl/Cmd+C - Copy selected nodes</p>
+        <p>Ctrl/Cmd+X - Cut selected nodes</p>
+        <p>Ctrl/Cmd+V - Paste nodes</p>
+        <p>Ctrl/Cmd+Z - Undo</p>
+        <p>Ctrl/Cmd+Shift+Z / Ctrl/Cmd+Y - Redo</p>
+        <p>Ctrl/Cmd+A - Select all</p>
+        <p>V - Toggle node visibility (Preview All mode)</p>
+        <p>Delete - Remove selected nodes</p>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

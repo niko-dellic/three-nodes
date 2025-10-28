@@ -36,10 +36,12 @@ export class NodeRenderer {
   private svg: SVGSVGElement;
   private container: SVGGElement;
   private nodeElements: Map<string, SVGGElement> = new Map();
+  private graph: Graph;
 
-  constructor(parentGroup: SVGGElement) {
+  constructor(parentGroup: SVGGElement, graph: Graph) {
     // Store reference to parent for querySelector operations
     this.svg = parentGroup.ownerSVGElement!;
+    this.graph = graph;
     this.container = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     this.container.classList.add('nodes');
     parentGroup.appendChild(this.container);
@@ -180,6 +182,10 @@ export class NodeRenderer {
       const value = parseFloat((e.target as HTMLInputElement).value);
       node.setValue(value);
       valueDisplay.textContent = value.toFixed(2);
+      // Mark downstream nodes as dirty
+      this.markDownstreamDirty(node);
+      // Trigger graph evaluation to update downstream nodes and Three.js scene
+      this.graph.triggerChange();
     });
 
     div.appendChild(input);
@@ -220,6 +226,10 @@ export class NodeRenderer {
       const hex = (e.target as HTMLInputElement).value;
       node.setColorFromHex(hex);
       valueDisplay.textContent = hex.toUpperCase();
+      // Mark downstream nodes as dirty
+      this.markDownstreamDirty(node);
+      // Trigger graph evaluation to update downstream nodes and Three.js scene
+      this.graph.triggerChange();
     });
 
     div.appendChild(input);
@@ -283,6 +293,20 @@ export class NodeRenderer {
     }
 
     parent.appendChild(label);
+  }
+
+  private markDownstreamDirty(node: Node): void {
+    // Get all output ports
+    for (const outputPort of node.outputs.values()) {
+      // Find all edges connected to this output
+      const edges = this.graph.getEdgesFromPort(outputPort);
+      for (const edge of edges) {
+        // Mark the target node dirty
+        edge.target.node.markDirty();
+        // Recursively mark downstream nodes
+        this.markDownstreamDirty(edge.target.node);
+      }
+    }
   }
 
   getPortWorldPosition(portId: string): { x: number; y: number } | null {

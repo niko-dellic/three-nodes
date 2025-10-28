@@ -1,7 +1,7 @@
 import './style.css';
 import { Graph } from '@/core/Graph';
 import { createDefaultRegistry } from '@/three';
-import { GraphEditor, LiveViewport, ViewModeManager } from '@/ui';
+import { GraphEditor, LiveViewport, ViewModeManager, PreviewManager } from '@/ui';
 import * as THREE from 'three';
 
 // Create the node registry
@@ -139,12 +139,20 @@ graph.connect(cameraNode.outputs.get('camera')!, sceneOutputNode.inputs.get('cam
 const viewportContainer = document.getElementById('viewport')! as HTMLElement;
 const editorContainer = document.getElementById('editor')! as HTMLElement;
 const toggleButton = document.getElementById('toggle-button')! as HTMLButtonElement;
+const previewModeSelect = document.getElementById('preview-mode')! as HTMLSelectElement;
+const previewMaterialButton = document.getElementById(
+  'preview-material-button'
+)! as HTMLButtonElement;
 
 // Create graph editor (pass registry for node creation)
 const graphEditor = new GraphEditor(editorContainer, graph, registry);
 
 // Create live viewport
 const liveViewport = new LiveViewport(viewportContainer, graph);
+
+// Create preview manager
+const previewManager = new PreviewManager(graph, graphEditor['selectionManager']);
+liveViewport.setPreviewManager(previewManager);
 
 // Create view mode manager
 const viewModeManager = new ViewModeManager(
@@ -154,7 +162,53 @@ const viewModeManager = new ViewModeManager(
   toggleButton
 );
 
+// Setup preview mode selector
+previewModeSelect.addEventListener('change', (e) => {
+  const mode = (e.target as HTMLSelectElement).value as 'none' | 'selected' | 'all';
+  previewManager.setPreviewMode(mode);
+});
+
+// Setup preview material button with cycling materials
+let materialIndex = 0;
+const previewMaterials = [
+  new THREE.MeshStandardMaterial({
+    color: 0x00ff00,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.7,
+  }),
+  new THREE.MeshNormalMaterial({ wireframe: false }),
+  new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    metalness: 0.5,
+    roughness: 0.5,
+  }),
+  new THREE.MeshBasicMaterial({ color: 0xff9900, wireframe: false }),
+];
+
+previewMaterialButton.addEventListener('click', () => {
+  materialIndex = (materialIndex + 1) % previewMaterials.length;
+  previewManager.setPreviewMaterial(previewMaterials[materialIndex]);
+
+  const materialNames = ['Wireframe', 'Normal', 'Standard', 'Basic'];
+  previewMaterialButton.textContent = `Material: ${materialNames[materialIndex]}`;
+});
+
+// V key to toggle visibility in "preview all" mode
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'v' || e.key === 'V') {
+    if (previewManager.getPreviewMode() === 'all') {
+      // Toggle visibility of selected nodes
+      const selectedNodes = graphEditor['selectionManager'].getSelectedNodes();
+      for (const nodeId of selectedNodes) {
+        previewManager.toggleNodeVisibility(nodeId);
+      }
+    }
+  }
+});
+
 // Expose to window for debugging
 (window as any).graph = graph;
 (window as any).registry = registry;
 (window as any).viewModeManager = viewModeManager;
+(window as any).previewManager = previewManager;

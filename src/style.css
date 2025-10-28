@@ -293,6 +293,69 @@ body {
   transform: translateY(1px);
 }
 
+/* Preview controls */
+.preview-controls {
+  position: absolute;
+  top: 75px;
+  right: 20px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(30, 30, 30, 0.95);
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid #3a3a3a;
+}
+
+.preview-mode-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.preview-mode-selector label {
+  color: #ccc;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+#preview-mode {
+  padding: 8px 12px;
+  background: #1e1e1e;
+  color: white;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+}
+
+#preview-mode:hover {
+  border-color: #4a4a4a;
+}
+
+#preview-mode:focus {
+  border-color: #3b82f6;
+}
+
+#preview-material-button {
+  padding: 10px 16px;
+  background: #2a2a2a;
+  color: white;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+#preview-material-button:hover {
+  background: #3a3a3a;
+  border-color: #4a4a4a;
+}
+
 /* Info overlay */
 .info {
   position: absolute;

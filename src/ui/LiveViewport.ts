@@ -2,16 +2,18 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Graph } from '@/core/Graph';
 import { SceneOutput } from '@/types';
+import { PreviewManager } from './PreviewManager';
 
 export class LiveViewport {
   private container: HTMLElement;
   private renderer: THREE.WebGLRenderer;
   private controls: OrbitControls;
   private graph: Graph;
+  private previewManager: PreviewManager | null = null;
   private animationId: number | null = null;
 
   private currentScene: THREE.Scene | null = null;
-  private currentCamera: THREE.Camera | null = null;
+  private defaultCamera: THREE.PerspectiveCamera;
 
   constructor(container: HTMLElement, graph: Graph) {
     this.container = container;
@@ -24,11 +26,11 @@ export class LiveViewport {
     container.appendChild(this.renderer.domElement);
 
     // Create default camera for controls
-    const defaultCamera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-    defaultCamera.position.set(0, 0, 5);
+    this.defaultCamera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+    this.defaultCamera.position.set(0, 0, 5);
 
     // Create orbit controls
-    this.controls = new OrbitControls(defaultCamera, this.renderer.domElement);
+    this.controls = new OrbitControls(this.defaultCamera, this.renderer.domElement);
     this.controls.enableDamping = true;
 
     // Listen to graph changes
@@ -53,24 +55,47 @@ export class LiveViewport {
         if (output && output.value) {
           const sceneOutput = output.value as unknown as SceneOutput;
           this.currentScene = sceneOutput.scene;
-          this.currentCamera = sceneOutput.camera;
 
-          // Update controls camera if we have a new camera
-          if (this.currentCamera) {
-            this.controls.object = this.currentCamera as THREE.PerspectiveCamera;
-          }
+          // Update controls camera (always uses default camera)
+          this.updateControlsCamera();
           return;
         }
       }
     }
   }
 
+  private updateControlsCamera(): void {
+    // Always use default camera for orbit controls
+    // This gives the user consistent control over the viewport regardless of preview mode
+    this.controls.object = this.defaultCamera;
+  }
+
+  setPreviewManager(previewManager: PreviewManager): void {
+    this.previewManager = previewManager;
+    this.previewManager.onChange(() => {
+      this.updateScene();
+      this.updateControlsCamera();
+    });
+    // Immediately update controls camera after setting preview manager
+    this.updateControlsCamera();
+  }
+
   private startRenderLoop(): void {
     const animate = () => {
       this.controls.update();
 
-      if (this.currentScene && this.currentCamera) {
-        this.renderer.render(this.currentScene, this.currentCamera);
+      // Determine what to render based on preview mode
+      const shouldRenderPreview =
+        this.previewManager && this.previewManager.getPreviewMode() !== 'none';
+
+      if (shouldRenderPreview && this.previewManager) {
+        // Render preview scene with default camera
+        const previewScene = this.previewManager.getPreviewScene();
+        this.renderer.render(previewScene, this.defaultCamera);
+      } else if (this.currentScene) {
+        // Render the actual scene from SceneOutputNode with default camera
+        // This ensures orbit controls always work properly
+        this.renderer.render(this.currentScene, this.defaultCamera);
       } else {
         // Render empty scene
         this.renderer.clear();
@@ -87,10 +112,9 @@ export class LiveViewport {
 
     this.renderer.setSize(width, height);
 
-    if (this.currentCamera && 'aspect' in this.currentCamera) {
-      (this.currentCamera as THREE.PerspectiveCamera).aspect = width / height;
-      (this.currentCamera as THREE.PerspectiveCamera).updateProjectionMatrix();
-    }
+    // Update default camera aspect ratio
+    this.defaultCamera.aspect = width / height;
+    this.defaultCamera.updateProjectionMatrix();
   }
 
   setControlsEnabled(enabled: boolean): void {

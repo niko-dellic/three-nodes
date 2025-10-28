@@ -113,6 +113,12 @@ export class Graph {
     this._listeners.forEach((listener) => listener(this));
   }
 
+  // Public method to manually trigger change notification
+  // (useful when node internal state changes without graph structure changes)
+  triggerChange(): void {
+    this.notifyChange();
+  }
+
   // Clear the entire graph
   clear(): void {
     this.edges.clear();

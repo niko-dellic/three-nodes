@@ -7,3 +7,6 @@ export { EdgeRenderer } from './EdgeRenderer';
 export { InteractionManager } from './InteractionManager';
 export { SelectionManager } from './SelectionManager';
 export { ContextMenu } from './ContextMenu';
+export { PreviewManager } from './PreviewManager';
+export { ClipboardManager } from './ClipboardManager';
+export { HistoryManager } from './HistoryManager';
