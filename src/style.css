@@ -540,12 +540,4 @@ body {
   scrollbar-color: var(--secondary-color) transparent;
   scrollbar-width: thin;
   /* overlay scrollbar */
-  &::-webkit-scrollbar {
-    width: 4px;
-    background-color: transparent;
-  }
-  &::-webkit-scrollbar-thumb {
-    background-color: var(--secondary-color);
-    border-radius: 2px;
-  }
 }
