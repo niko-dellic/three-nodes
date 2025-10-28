@@ -78,6 +78,11 @@ body {
   fill: none;
 }
 
+.edge-array {
+  stroke: #f97316;
+  stroke-width: 4;
+}
+
 .drag-connection {
   pointer-events: none;
   stroke: var(--primary-color);

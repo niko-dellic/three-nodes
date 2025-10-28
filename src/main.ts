@@ -13,10 +13,10 @@ const graph = new Graph();
 // Node positions are laid out left to right
 
 // 1. Create number inputs for box dimensions
-const widthNode = registry.createNode('NumberNode', 'width-node')!;
+
+const widthNode = registry.createNode('NumberSliderNode', 'width-node')!;
 widthNode.position = { x: 50, y: 100 };
 widthNode.label = 'Width';
-widthNode.inputs.get('value')!.value = 2;
 graph.addNode(widthNode);
 
 const heightNode = registry.createNode('NumberNode', 'height-node')!;
@@ -185,3 +185,25 @@ const viewModeManager = new ViewModeManager(
 (window as any).registry = registry;
 (window as any).viewModeManager = viewModeManager;
 (window as any).previewManager = previewManager;
+
+/*
+ * ARRAY SYSTEM USAGE:
+ *
+ * To create array connections:
+ * 1. Hold SHIFT while dragging a connection to an input port
+ * 2. This will ADD to existing connections instead of replacing
+ * 3. Array connections appear as thicker, orange edges
+ *
+ * Array manipulation nodes available:
+ * - Merge: Combine multiple values into an array
+ * - Split: Break an array into individual outputs
+ * - Index: Get a value at a specific index
+ * - Length: Get the array length
+ *
+ * Example:
+ * - Create 3 NumberSlider nodes with different values (e.g., 2, 3, 4)
+ * - Connect first slider to BoxGeometry width (normal drag)
+ * - Hold SHIFT and connect second slider to BoxGeometry width
+ * - Hold SHIFT and connect third slider to BoxGeometry width
+ * - Result: 3 box geometries with widths 2, 3, 4
+ */

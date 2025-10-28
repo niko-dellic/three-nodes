@@ -13,7 +13,14 @@ export type DragState =
   | { type: 'none' }
   | { type: 'pan'; startX: number; startY: number }
   | { type: 'nodes'; referenceNode: Node; offsetX: number; offsetY: number }
-  | { type: 'connection'; port: Port; startX: number; startY: number; removedEdge?: Edge }
+  | {
+      type: 'connection';
+      port: Port;
+      startX: number;
+      startY: number;
+      removedEdge?: Edge;
+      shiftPressed: boolean;
+    }
   | { type: 'marquee'; startX: number; startY: number; currentX: number; currentY: number };
 
 export class InteractionManager {
@@ -32,6 +39,7 @@ export class InteractionManager {
   private marqueeElement: SVGRectElement | null = null;
   private rightClickStartPos: { x: number; y: number } | null = null;
   private readonly CLICK_THRESHOLD = 5; // pixels
+  private shiftPressed: boolean = false;
 
   constructor(
     graph: Graph,
@@ -70,6 +78,7 @@ export class InteractionManager {
 
     // Keyboard events
     document.addEventListener('keydown', this.onKeyDown.bind(this));
+    document.addEventListener('keyup', this.onKeyUp.bind(this));
 
     // Prevent default context menu - we'll show it on pointer up if not dragging
     this.svg.addEventListener('contextmenu', (e) => {
@@ -133,6 +142,7 @@ export class InteractionManager {
               startX: dragFromPos.x,
               startY: dragFromPos.y,
               removedEdge,
+              shiftPressed: this.shiftPressed,
             };
             e.stopPropagation();
             return;
@@ -256,7 +266,7 @@ export class InteractionManager {
 
               // Make sure we're connecting output to input
               if (!sourcePort.isInput && inputPort.isInput) {
-                this.graph.connect(sourcePort, inputPort);
+                this.graph.connect(sourcePort, inputPort, this.dragState.shiftPressed);
               }
             } catch (err) {
               console.error('Failed to create connection:', err);
@@ -294,6 +304,11 @@ export class InteractionManager {
   }
 
   private onKeyDown(e: KeyboardEvent): void {
+    // Track shift key state for array connections
+    if (e.key === 'Shift') {
+      this.shiftPressed = true;
+    }
+
     // Don't handle keyboard shortcuts if context menu is open
     if (this.contextMenu.isOpen()) {
       return;
@@ -355,6 +370,13 @@ export class InteractionManager {
         e.preventDefault();
         this.selectionManager.deleteSelectedNodes();
       }
+    }
+  }
+
+  private onKeyUp(e: KeyboardEvent): void {
+    // Track shift key state for array connections
+    if (e.key === 'Shift') {
+      this.shiftPressed = false;
     }
   }
 

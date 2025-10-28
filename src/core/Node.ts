@@ -100,10 +100,56 @@ export abstract class Node {
     this._outputCache.clear();
   }
 
-  // Helper to get input value
+  // Helper to get input value (returns first value if multiple connections)
   protected getInputValue<T = PortValue>(name: string): T | undefined {
     const port = this.inputs.get(name);
-    return port?.value as T | undefined;
+    if (!port) return undefined;
+
+    // If port has multiple connections, return first value
+    if (port.hasMultipleConnections()) {
+      const values = port.getAllValues();
+      return values.length > 0 ? (values[0] as T) : undefined;
+    }
+
+    return port.value as T | undefined;
+  }
+
+  // Helper to get all input values (for array processing)
+  protected getInputValues<T = PortValue>(name: string): T[] {
+    const port = this.inputs.get(name);
+    if (!port) return [];
+
+    const values = port.getAllValues();
+    return values as T[];
+  }
+
+  // Helper to process arrays element-wise
+  protected processArrays<T>(
+    inputs: { [key: string]: any[] },
+    callback: (values: { [key: string]: any }, index: number) => T
+  ): T[] {
+    // Find the maximum length across all input arrays
+    const lengths = Object.values(inputs).map((arr) => arr.length);
+    const maxLength = Math.max(...lengths, 1);
+
+    const results: T[] = [];
+
+    for (let i = 0; i < maxLength; i++) {
+      const values: { [key: string]: any } = {};
+
+      // Get value at index i for each input, cycling if necessary
+      for (const [key, arr] of Object.entries(inputs)) {
+        if (arr.length === 0) {
+          values[key] = undefined;
+        } else {
+          values[key] = arr[i % arr.length];
+        }
+      }
+
+      results.push(callback(values, i));
+    }
+
+    return results;
   }
 
   // Helper to set output value

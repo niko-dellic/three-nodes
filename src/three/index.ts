@@ -41,6 +41,12 @@ import { DirectionalLightNode } from './nodes/lights/DirectionalLightNode';
 // Output nodes
 import { SceneOutputNode } from './nodes/output/SceneOutputNode';
 
+// Array nodes
+import { MergeNode } from './nodes/array/MergeNode';
+import { SplitNode } from './nodes/array/SplitNode';
+import { IndexNode } from './nodes/array/IndexNode';
+import { LengthNode } from './nodes/array/LengthNode';
+
 export { NodeRegistry } from './NodeRegistry';
 export { BaseThreeNode } from './BaseThreeNode';
 export { TweakpaneNode } from './TweakpaneNode';
@@ -69,6 +75,10 @@ export { PerspectiveCameraNode } from './nodes/camera/PerspectiveCameraNode';
 export { AmbientLightNode } from './nodes/lights/AmbientLightNode';
 export { DirectionalLightNode } from './nodes/lights/DirectionalLightNode';
 export { SceneOutputNode } from './nodes/output/SceneOutputNode';
+export { MergeNode } from './nodes/array/MergeNode';
+export { SplitNode } from './nodes/array/SplitNode';
+export { IndexNode } from './nodes/array/IndexNode';
+export { LengthNode } from './nodes/array/LengthNode';
 
 // Create and configure the default registry
 export function createDefaultRegistry(): NodeRegistry {
@@ -252,6 +262,39 @@ export function createDefaultRegistry(): NodeRegistry {
     category: 'Output',
     label: 'Scene Output',
     description: 'Outputs the final scene and camera',
+  });
+
+  // Register array nodes
+  registry.register(MergeNode, {
+    type: 'MergeNode',
+    category: 'Array',
+    label: 'Merge',
+    description: 'Combine multiple values into an array',
+    icon: '🔗',
+  });
+
+  registry.register(SplitNode, {
+    type: 'SplitNode',
+    category: 'Array',
+    label: 'Split',
+    description: 'Split an array into individual values',
+    icon: '✂️',
+  });
+
+  registry.register(IndexNode, {
+    type: 'IndexNode',
+    category: 'Array',
+    label: 'Index',
+    description: 'Get value at specific index from array',
+    icon: '🔢',
+  });
+
+  registry.register(LengthNode, {
+    type: 'LengthNode',
+    category: 'Array',
+    label: 'Length',
+    description: 'Get the length of an array',
+    icon: '📏',
   });
 
   return registry;

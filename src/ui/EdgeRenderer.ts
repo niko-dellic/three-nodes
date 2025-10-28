@@ -57,14 +57,26 @@ export class EdgeRenderer {
 
     let pathElement = this.edgeElements.get(edge.id);
 
+    // Check if target port has multiple connections (array connection)
+    const isArrayConnection = edge.target.hasMultipleConnections();
+
     if (!pathElement) {
       pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       pathElement.classList.add('edge');
       pathElement.setAttribute('fill', 'none');
-      pathElement.setAttribute('stroke', '#888');
-      pathElement.setAttribute('stroke-width', '2');
       this.edgesGroup.appendChild(pathElement);
       this.edgeElements.set(edge.id, pathElement);
+    }
+
+    // Update styling based on whether it's an array connection
+    if (isArrayConnection) {
+      pathElement.classList.add('edge-array');
+      pathElement.setAttribute('stroke', '#f97316');
+      pathElement.setAttribute('stroke-width', '4');
+    } else {
+      pathElement.classList.remove('edge-array');
+      pathElement.setAttribute('stroke', '#888');
+      pathElement.setAttribute('stroke-width', '2');
     }
 
     const pathData = this.createBezierPath(sourcePos.x, sourcePos.y, targetPos.x, targetPos.y);

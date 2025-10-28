@@ -36,7 +36,7 @@ export class Graph {
   }
 
   // Connect two ports
-  connect(sourcePort: Port, targetPort: Port): Edge | null {
+  connect(sourcePort: Port, targetPort: Port, keepExisting: boolean = false): Edge | null {
     // Check if connection already exists
     for (const edge of this.edges.values()) {
       if (edge.source === sourcePort && edge.target === targetPort) {
@@ -45,7 +45,8 @@ export class Graph {
     }
 
     // Remove any existing connection to the target port (inputs can only have one connection)
-    if (targetPort.isInput) {
+    // Unless keepExisting is true (shift+drag for array connections)
+    if (targetPort.isInput && !keepExisting) {
       const existingEdge = this.getEdgeToPort(targetPort);
       if (existingEdge) {
         this.removeEdge(existingEdge.id);

@@ -43,6 +43,28 @@ export class Port {
     this._value = this._defaultValue;
   }
 
+  // Check if port has multiple connections
+  hasMultipleConnections(): boolean {
+    return this.connections.length > 1;
+  }
+
+  // Get all values from connected edges (for array processing)
+  getAllValues(): PortValue[] {
+    if (!this.isInput) {
+      return [this._value];
+    }
+
+    const values: PortValue[] = [];
+    for (const edge of this.connections) {
+      const sourceValue = edge.source.value;
+      if (sourceValue !== undefined) {
+        values.push(sourceValue);
+      }
+    }
+
+    return values.length > 0 ? values : [this._defaultValue];
+  }
+
   // Check if types are compatible for connections
   canConnectTo(other: Port): boolean {
     if (this.isInput === other.isInput) return false;

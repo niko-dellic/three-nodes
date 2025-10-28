@@ -13,12 +13,33 @@ export class BoxGeometryNode extends BaseThreeNode {
   }
 
   evaluate(_context: EvaluationContext): void {
-    const width = this.getInputValue<number>('width') ?? 1;
-    const height = this.getInputValue<number>('height') ?? 1;
-    const depth = this.getInputValue<number>('depth') ?? 1;
+    // Get all input values (handles array connections)
+    const widths = this.getInputValues<number>('width');
+    const heights = this.getInputValues<number>('height');
+    const depths = this.getInputValues<number>('depth');
 
-    const geometry = new THREE.BoxGeometry(width, height, depth);
-    this.trackResource(geometry);
-    this.setOutputValue('geometry', geometry);
+    // If any input has multiple values, process element-wise
+    if (widths.length > 1 || heights.length > 1 || depths.length > 1) {
+      const geometries = this.processArrays<THREE.BufferGeometry>(
+        { width: widths, height: heights, depth: depths },
+        (values) => {
+          const w = values.width ?? 1;
+          const h = values.height ?? 1;
+          const d = values.depth ?? 1;
+          const geom = new THREE.BoxGeometry(w, h, d);
+          this.trackResource(geom);
+          return geom;
+        }
+      );
+      this.setOutputValue('geometry', geometries);
+    } else {
+      // Single value case
+      const width = widths[0] ?? 1;
+      const height = heights[0] ?? 1;
+      const depth = depths[0] ?? 1;
+      const geometry = new THREE.BoxGeometry(width, height, depth);
+      this.trackResource(geometry);
+      this.setOutputValue('geometry', geometry);
+    }
   }
 }

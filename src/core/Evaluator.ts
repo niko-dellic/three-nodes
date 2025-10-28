@@ -37,9 +37,18 @@ export class Evaluator {
   // Propagate values from source nodes through edges to target node
   private propagateInputs(node: Node): void {
     for (const inputPort of node.inputs.values()) {
-      const edge = this.graph.getEdgeToPort(inputPort);
-      if (edge) {
-        edge.propagate();
+      // Handle multiple connections (array inputs)
+      if (inputPort.connections.length > 1) {
+        // Propagate all edges to populate getAllValues()
+        for (const edge of inputPort.connections) {
+          edge.propagate();
+        }
+      } else {
+        // Single connection - use existing logic
+        const edge = this.graph.getEdgeToPort(inputPort);
+        if (edge) {
+          edge.propagate();
+        }
       }
     }
   }

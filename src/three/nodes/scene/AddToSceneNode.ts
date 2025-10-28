@@ -13,14 +13,36 @@ export class AddToSceneNode extends BaseThreeNode {
 
   evaluate(_context: EvaluationContext): void {
     const scene = this.getInputValue<THREE.Scene>('scene');
-    const object = this.getInputValue<THREE.Object3D>('object');
+    const objects = this.getInputValues<THREE.Object3D>('object');
 
-    if (scene && object) {
-      // Remove object from previous parent if it has one
-      if (object.parent) {
-        object.parent.remove(object);
+    if (scene && objects.length > 0) {
+      // Clear previous objects from scene (optional - might want to make this configurable)
+      // For now, just add new objects
+
+      for (const obj of objects) {
+        if (obj) {
+          // Handle both single objects and arrays
+          if (Array.isArray(obj)) {
+            // Object input is an array of objects
+            for (const o of obj) {
+              if (o) {
+                // Remove from previous parent if it has one
+                if (o.parent) {
+                  o.parent.remove(o);
+                }
+                scene.add(o);
+              }
+            }
+          } else {
+            // Single object
+            // Remove from previous parent if it has one
+            if (obj.parent) {
+              obj.parent.remove(obj);
+            }
+            scene.add(obj);
+          }
+        }
       }
-      scene.add(object);
     }
 
     this.setOutputValue('scene', scene);

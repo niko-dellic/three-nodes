@@ -13,12 +13,33 @@ export class SphereGeometryNode extends BaseThreeNode {
   }
 
   evaluate(_context: EvaluationContext): void {
-    const radius = this.getInputValue<number>('radius') ?? 1;
-    const widthSegments = this.getInputValue<number>('widthSegments') ?? 32;
-    const heightSegments = this.getInputValue<number>('heightSegments') ?? 16;
+    // Get all input values (handles array connections)
+    const radii = this.getInputValues<number>('radius');
+    const widthSegs = this.getInputValues<number>('widthSegments');
+    const heightSegs = this.getInputValues<number>('heightSegments');
 
-    const geometry = new THREE.SphereGeometry(radius, widthSegments, heightSegments);
-    this.trackResource(geometry);
-    this.setOutputValue('geometry', geometry);
+    // If any input has multiple values, process element-wise
+    if (radii.length > 1 || widthSegs.length > 1 || heightSegs.length > 1) {
+      const geometries = this.processArrays<THREE.BufferGeometry>(
+        { radius: radii, widthSegments: widthSegs, heightSegments: heightSegs },
+        (values) => {
+          const r = values.radius ?? 1;
+          const ws = Math.round(values.widthSegments ?? 32);
+          const hs = Math.round(values.heightSegments ?? 16);
+          const geom = new THREE.SphereGeometry(r, ws, hs);
+          this.trackResource(geom);
+          return geom;
+        }
+      );
+      this.setOutputValue('geometry', geometries);
+    } else {
+      // Single value case
+      const radius = radii[0] ?? 1;
+      const widthSegments = Math.round(widthSegs[0] ?? 32);
+      const heightSegments = Math.round(heightSegs[0] ?? 16);
+      const geometry = new THREE.SphereGeometry(radius, widthSegments, heightSegments);
+      this.trackResource(geometry);
+      this.setOutputValue('geometry', geometry);
+    }
   }
 }

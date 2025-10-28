@@ -25,8 +25,8 @@ export interface Point2D {
   y: number;
 }
 
-// Runtime value types
-export type PortValue =
+// Base value types
+export type BasePortValue =
   | number
   | boolean
   | string
@@ -44,6 +44,9 @@ export type PortValue =
   | SceneOutput
   | null
   | undefined;
+
+// Runtime value types (can be single values or arrays)
+export type PortValue = BasePortValue | BasePortValue[];
 
 // Node metadata for registry
 export interface NodeMetadata {
