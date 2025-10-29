@@ -34,6 +34,7 @@ export class GraphEditor {
   private appContainer: HTMLElement;
   private toolbar: HTMLElement;
   private infoOverlay: HTMLElement;
+  private fullscreenButton: HTMLButtonElement | null = null;
   private animationId: number | null = null;
 
   constructor(
@@ -125,6 +126,12 @@ export class GraphEditor {
       if (e.key === 't' || e.key === 'T') {
         e.preventDefault();
         this.propertiesPanel.toggle();
+      }
+
+      // Fullscreen (F key)
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        this.fullscreenButton?.click();
       }
 
       // Save (Ctrl/Cmd+S)
@@ -276,6 +283,37 @@ export class GraphEditor {
     });
     toolbar.appendChild(infoButton);
 
+    // Fullscreen button
+    this.fullscreenButton = document.createElement('button');
+    this.fullscreenButton.className = 'toolbar-button fullscreen-button';
+    this.fullscreenButton.innerHTML = '<i class="ph ph-arrows-out"></i>';
+    this.fullscreenButton.title = 'Toggle fullscreen (F)';
+
+    const updateFullscreenIcon = () => {
+      if (document.fullscreenElement) {
+        this.fullscreenButton!.innerHTML = '<i class="ph ph-arrows-in"></i>';
+      } else {
+        this.fullscreenButton!.innerHTML = '<i class="ph ph-arrows-out"></i>';
+      }
+    };
+
+    this.fullscreenButton.addEventListener('click', async () => {
+      try {
+        if (!document.fullscreenElement) {
+          await document.documentElement.requestFullscreen();
+        } else {
+          await document.exitFullscreen();
+        }
+      } catch (err) {
+        console.error('Error toggling fullscreen:', err);
+      }
+    });
+
+    // Listen for fullscreen changes (e.g., pressing ESC to exit)
+    document.addEventListener('fullscreenchange', updateFullscreenIcon);
+
+    toolbar.appendChild(this.fullscreenButton);
+
     // Separator
     const separator1 = document.createElement('div');
     separator1.className = 'toolbar-separator';
@@ -362,6 +400,7 @@ export class GraphEditor {
       <p><strong>Controls:</strong></p>
       <p>Tab - Toggle between editor and 3D view</p>
       <p>T - Toggle properties panel</p>
+      <p>F - Toggle fullscreen</p>
       <p>Space/Right-click - Context menu</p>
       <p>Ctrl/Cmd+S - Save graph</p>
       <p>Ctrl/Cmd+C - Copy selected nodes</p>

@@ -23,6 +23,10 @@ export class PreviewManager {
   private previewModeSelect: HTMLSelectElement | null = null;
   private previewMaterialSelect: HTMLSelectElement | null = null;
 
+  // Local storage keys
+  private readonly PREVIEW_MODE_KEY = 'three-nodes-preview-mode';
+  private readonly PREVIEW_MATERIAL_KEY = 'three-nodes-preview-material-index';
+
   constructor(graph: Graph, selectionManager: SelectionManager) {
     this.graph = graph;
     this.selectionManager = selectionManager;
@@ -52,6 +56,9 @@ export class PreviewManager {
     // Default preview material - BasicMaterial, semi-transparent green
     this.previewMaterial = this.previewMaterials[0];
 
+    // Load saved settings from local storage
+    this.loadSettings();
+
     // Listen to graph changes
     this.graph.onChange(() => this.updatePreview());
 
@@ -64,6 +71,53 @@ export class PreviewManager {
 
     // Set up keyboard shortcuts
     this.setupKeyboardShortcuts();
+  }
+
+  /**
+   * Load preview settings from local storage
+   */
+  private loadSettings(): void {
+    try {
+      // Load preview mode
+      const savedMode = localStorage.getItem(this.PREVIEW_MODE_KEY);
+      if (savedMode && (savedMode === 'none' || savedMode === 'selected' || savedMode === 'all')) {
+        this.previewMode = savedMode as PreviewMode;
+      }
+
+      // Load material index
+      const savedMaterialIndex = localStorage.getItem(this.PREVIEW_MATERIAL_KEY);
+      if (savedMaterialIndex !== null) {
+        const index = parseInt(savedMaterialIndex, 10);
+        if (!isNaN(index) && index >= 0 && index < this.previewMaterials.length) {
+          this.currentMaterialIndex = index;
+          this.previewMaterial = this.previewMaterials[index];
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load preview settings from local storage:', error);
+    }
+  }
+
+  /**
+   * Save preview mode to local storage
+   */
+  private savePreviewMode(): void {
+    try {
+      localStorage.setItem(this.PREVIEW_MODE_KEY, this.previewMode);
+    } catch (error) {
+      console.warn('Failed to save preview mode to local storage:', error);
+    }
+  }
+
+  /**
+   * Save material index to local storage
+   */
+  private saveMaterialIndex(): void {
+    try {
+      localStorage.setItem(this.PREVIEW_MATERIAL_KEY, this.currentMaterialIndex.toString());
+    } catch (error) {
+      console.warn('Failed to save material index to local storage:', error);
+    }
   }
 
   /**
@@ -80,9 +134,11 @@ export class PreviewManager {
     this.previewModeSelect.id = 'preview-mode';
     this.previewModeSelect.innerHTML = `
       <option value="none">None</option>
-      <option value="selected" selected>Selected</option>
+      <option value="selected">Selected</option>
       <option value="all">All</option>
     `;
+    // Set the selected option based on current preview mode
+    this.previewModeSelect.value = this.previewMode;
     container.appendChild(this.previewModeSelect);
 
     // Wire up preview mode change
@@ -100,11 +156,13 @@ export class PreviewManager {
     this.previewMaterialSelect = document.createElement('select');
     this.previewMaterialSelect.id = 'preview-material-select';
     this.previewMaterialSelect.innerHTML = `
-      <option value="0" selected>Basic (Green)</option>
+      <option value="0">Basic (Green)</option>
       <option value="1">Wireframe</option>
       <option value="2">Normal</option>
       <option value="3">Basic (Orange)</option>
     `;
+    // Set the selected option based on current material index
+    this.previewMaterialSelect.value = this.currentMaterialIndex.toString();
     container.appendChild(this.previewMaterialSelect);
 
     // Wire up material selection
@@ -137,6 +195,7 @@ export class PreviewManager {
 
   setPreviewMode(mode: PreviewMode): void {
     this.previewMode = mode;
+    this.savePreviewMode(); // Save to local storage
     this.updatePreview();
     this.notifyChange();
   }
@@ -158,6 +217,7 @@ export class PreviewManager {
     if (index >= 0 && index < this.previewMaterials.length) {
       this.currentMaterialIndex = index;
       this.previewMaterial = this.previewMaterials[index];
+      this.saveMaterialIndex(); // Save to local storage
       this.updatePreview();
 
       // Update select if it exists

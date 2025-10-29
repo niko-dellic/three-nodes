@@ -8,6 +8,7 @@ import { SelectionManager } from './SelectionManager';
 import { ContextMenu } from './ContextMenu';
 import { ClipboardManager } from './ClipboardManager';
 import { HistoryManager } from './HistoryManager';
+import { isTouchDevice } from '@/utils/deviceDetection';
 
 export type DragState =
   | { type: 'none' }
@@ -50,10 +51,17 @@ export class InteractionManager {
   private shiftPressed: boolean = false;
   private capturedPointerId: number | null = null;
 
+  // Device detection - available for future use to distinguish desktop vs mobile behavior
+  private readonly isTouchDevice: boolean;
+
   // Touch handling state
   private activeTouches: Map<number, Touch> = new Map();
   private initialTouchDistance: number | null = null;
   private initialZoomLevel: number | null = null;
+  private touchStartPos: { x: number; y: number } | null = null;
+  private touchMoved: boolean = false;
+  private hadMultipleFingers: boolean = false; // Track if gesture ever had 2+ fingers
+  private readonly TAP_THRESHOLD = 10; // pixels - max movement to count as a tap
 
   // Bound event handlers for document-level events during drag
   private boundOnPointerMove: ((e: PointerEvent) => void) | null = null;
@@ -77,6 +85,9 @@ export class InteractionManager {
     this.contextMenu = contextMenu;
     this.clipboardManager = clipboardManager;
     this.historyManager = historyManager;
+
+    // Detect device type
+    this.isTouchDevice = isTouchDevice();
 
     // Find the transform group that contains the nodes
     this.transformGroup = svg.querySelector('.transform-group');
@@ -168,6 +179,13 @@ export class InteractionManager {
   }
 
   private onPointerDown(e: PointerEvent): void {
+    // On touch devices, completely ignore touch pointer events
+    // Touch events will handle everything on the canvas
+    // UI elements outside the canvas will use their native click handlers
+    if (e.pointerType === 'touch' && this.isTouchDevice) {
+      return;
+    }
+
     this.currentMousePos = { x: e.clientX, y: e.clientY };
     const target = e.target as Element;
 
@@ -530,8 +548,50 @@ export class InteractionManager {
 
     // Handle based on number of active touches
     if (this.activeTouches.size === 1) {
-      // Single touch - start panning
+      // Single touch - check if touching a node
       const touch = Array.from(this.activeTouches.values())[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+
+      this.touchStartPos = { x: touch.clientX, y: touch.clientY };
+      this.touchMoved = false;
+      this.hadMultipleFingers = false; // Reset for new gesture
+
+      if (target) {
+        const nodeElement = target.closest('.node') as SVGGElement | null;
+        const isPort = target.classList.contains('port');
+        const isUIElement =
+          target.closest('[data-file-picker-button]') ||
+          target.closest('.node-control') ||
+          target.closest('.context-menu');
+
+        // If touching a node (not port or UI element), prepare to drag it
+        if (nodeElement && !isPort && !isUIElement) {
+          const nodeId = nodeElement.getAttribute('data-node-id');
+          if (nodeId) {
+            const node = this.graph.getNode(nodeId);
+            if (node) {
+              const worldPos = this.viewport.screenToWorld(touch.clientX, touch.clientY);
+
+              // Select the node if not already selected
+              if (!this.selectionManager.isSelected(nodeId)) {
+                this.selectionManager.selectNode(nodeId, 'replace');
+              }
+
+              // Start node drag
+              this.historyManager.beginInteraction();
+              this.dragState = {
+                type: 'nodes',
+                referenceNode: node,
+                offsetX: worldPos.x - node.position.x,
+                offsetY: worldPos.y - node.position.y,
+              };
+              return;
+            }
+          }
+        }
+      }
+
+      // Not touching a node - start canvas panning
       this.dragState = {
         type: 'pan',
         startX: touch.clientX,
@@ -543,8 +603,18 @@ export class InteractionManager {
       this.initialTouchDistance = this.getTouchDistance(touches[0], touches[1]);
       this.initialZoomLevel = this.viewport.getZoom();
 
-      // Cancel any existing pan drag
+      // Mark that this gesture has involved multiple fingers
+      this.hadMultipleFingers = true;
+
+      // Cancel any existing drag (but don't end interaction yet - we might return to single touch)
+      const wasNodeDrag = this.dragState.type === 'nodes';
       this.dragState = { type: 'none' };
+      this.touchMoved = true; // Prevent tap detection with 2 fingers
+
+      // If we were dragging a node, end that interaction
+      if (wasNodeDrag) {
+        this.historyManager.endInteraction();
+      }
     }
   }
 
@@ -559,19 +629,43 @@ export class InteractionManager {
       }
     }
 
-    if (this.activeTouches.size === 1 && this.dragState.type === 'pan') {
-      // Single touch panning
+    if (this.activeTouches.size === 1) {
       const touch = Array.from(this.activeTouches.values())[0];
-      const dx = touch.clientX - this.dragState.startX;
-      const dy = touch.clientY - this.dragState.startY;
 
-      this.viewport.panImmediate(dx, dy);
+      // Check if we've moved beyond the tap threshold
+      if (this.touchStartPos && !this.touchMoved) {
+        const dx = Math.abs(touch.clientX - this.touchStartPos.x);
+        const dy = Math.abs(touch.clientY - this.touchStartPos.y);
+        if (dx > this.TAP_THRESHOLD || dy > this.TAP_THRESHOLD) {
+          this.touchMoved = true;
+        }
+      }
 
-      this.dragState = {
-        type: 'pan',
-        startX: touch.clientX,
-        startY: touch.clientY,
-      };
+      if (this.dragState.type === 'nodes') {
+        // Node dragging
+        const worldPos = this.viewport.screenToWorld(touch.clientX, touch.clientY);
+
+        // Use SelectionManager to move all selected nodes together
+        this.selectionManager.setSelectedNodesPosition(
+          this.dragState.referenceNode.id,
+          worldPos.x,
+          worldPos.y,
+          this.dragState.offsetX,
+          this.dragState.offsetY
+        );
+      } else if (this.dragState.type === 'pan') {
+        // Canvas panning
+        const dx = touch.clientX - this.dragState.startX;
+        const dy = touch.clientY - this.dragState.startY;
+
+        this.viewport.panImmediate(dx, dy);
+
+        this.dragState = {
+          type: 'pan',
+          startX: touch.clientX,
+          startY: touch.clientY,
+        };
+      }
     } else if (
       this.activeTouches.size === 2 &&
       this.initialTouchDistance !== null &&
@@ -597,20 +691,95 @@ export class InteractionManager {
   private onTouchEnd(e: TouchEvent): void {
     e.preventDefault();
 
+    // Track how many touches we had before removing
+    const touchesBefore = this.activeTouches.size;
+
+    // Check if this was a tap (not a drag) - only if we NEVER had multiple fingers during this gesture
+    const wasTap = !this.touchMoved && !this.hadMultipleFingers && touchesBefore === 1;
+    const wasNodeDrag = this.dragState.type === 'nodes' && this.touchMoved;
+    let tapTarget: Element | null = null;
+
+    if (wasTap && e.changedTouches.length > 0) {
+      const touch = e.changedTouches[0];
+      tapTarget = document.elementFromPoint(touch.clientX, touch.clientY);
+    }
+
     // Remove ended touches
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
       this.activeTouches.delete(touch.identifier);
     }
 
-    // If no more touches, reset state
+    // Handle node drag completion - end interaction to record in history
+    if (wasNodeDrag) {
+      this.historyManager.endInteraction();
+    }
+
+    // Handle tap on empty canvas - deselect nodes
+    // Only if we never had multiple fingers (not ending a multi-touch gesture)
+    if (wasTap && tapTarget) {
+      const nodeElement = tapTarget.closest('.node') as SVGGElement | null;
+      const isPort = tapTarget.classList.contains('port');
+      const isUIElement =
+        tapTarget.closest('[data-file-picker-button]') ||
+        tapTarget.closest('.node-control') ||
+        tapTarget.closest('.context-menu');
+
+      // Only deselect if tapping on empty canvas (not on nodes, ports, or UI elements)
+      // Node selection is already handled in onTouchStart
+      if (!nodeElement && !isPort && !isUIElement) {
+        this.selectionManager.clearSelection();
+      }
+    }
+
+    // If no more touches, reset state completely
     if (this.activeTouches.size === 0) {
       this.dragState = { type: 'none' };
       this.initialTouchDistance = null;
       this.initialZoomLevel = null;
+      this.touchStartPos = null;
+      this.touchMoved = false;
+      this.hadMultipleFingers = false; // Reset multi-finger tracking
     } else if (this.activeTouches.size === 1) {
-      // Went from 2 touches to 1 - restart panning
+      // Went from 2 touches to 1 - check what's under the remaining touch
       const touch = Array.from(this.activeTouches.values())[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+
+      this.touchStartPos = { x: touch.clientX, y: touch.clientY };
+      // Don't reset touchMoved here - if we had multiple fingers, keep it as moved
+      // to prevent the final finger lift from being treated as a tap
+
+      if (target) {
+        const nodeElement = target.closest('.node') as SVGGElement | null;
+        const isPort = target.classList.contains('port');
+        const isUIElement =
+          target.closest('[data-file-picker-button]') ||
+          target.closest('.node-control') ||
+          target.closest('.context-menu');
+
+        // If remaining touch is on a node, prepare for node dragging
+        if (nodeElement && !isPort && !isUIElement) {
+          const nodeId = nodeElement.getAttribute('data-node-id');
+          if (nodeId) {
+            const node = this.graph.getNode(nodeId);
+            if (node) {
+              const worldPos = this.viewport.screenToWorld(touch.clientX, touch.clientY);
+              this.historyManager.beginInteraction();
+              this.dragState = {
+                type: 'nodes',
+                referenceNode: node,
+                offsetX: worldPos.x - node.position.x,
+                offsetY: worldPos.y - node.position.y,
+              };
+              this.initialTouchDistance = null;
+              this.initialZoomLevel = null;
+              return;
+            }
+          }
+        }
+      }
+
+      // Otherwise restart canvas panning
       this.dragState = {
         type: 'pan',
         startX: touch.clientX,
