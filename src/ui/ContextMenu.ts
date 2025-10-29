@@ -44,28 +44,19 @@ export class ContextMenu {
         return;
       }
 
-      // Don't handle arrow keys if typing in search
-      if (document.activeElement === this.searchInput) {
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          this.navigateButtons(1);
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          this.navigateButtons(-1);
-        }
-        return;
-      }
-
-      // Arrow key navigation
+      // Handle keyboard navigation (works both in search and outside)
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         this.navigateButtons(1);
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         this.navigateButtons(-1);
-      } else if (e.key === 'Enter' && this.selectedButtonIndex >= 0) {
-        e.preventDefault();
-        this.navigableButtons[this.selectedButtonIndex]?.click();
+      } else if (e.key === 'Enter') {
+        // Enter key: select highlighted button
+        if (this.selectedButtonIndex >= 0) {
+          e.preventDefault();
+          this.navigableButtons[this.selectedButtonIndex]?.click();
+        }
       }
     });
   }
@@ -279,11 +270,22 @@ export class ContextMenu {
   }
 
   private navigateButtons(direction: number): void {
-    // Get only visible buttons
+    // Get only truly visible buttons (not hidden by search or collapsed folders)
     const visibleButtons = this.navigableButtons.filter((btn) => {
-      const btnStyle = window.getComputedStyle(btn);
-      const parentStyle = window.getComputedStyle(btn.parentElement!);
-      return btnStyle.display !== 'none' && parentStyle.display !== 'none';
+      // Check if button itself is visible
+      if (!btn.offsetParent) return false; // Element is hidden (display:none or parent hidden)
+
+      // Check all ancestors up to the pane container for visibility
+      let element: HTMLElement | null = btn;
+      while (element && element !== this.pane?.element) {
+        const style = window.getComputedStyle(element);
+        if (style.display === 'none' || style.visibility === 'hidden') {
+          return false;
+        }
+        element = element.parentElement;
+      }
+
+      return true;
     });
 
     if (visibleButtons.length === 0) return;
@@ -295,21 +297,31 @@ export class ContextMenu {
 
     // Calculate new index
     if (this.selectedButtonIndex === -1) {
-      this.selectedButtonIndex = direction > 0 ? 0 : visibleButtons.length - 1;
+      // No selection yet - start at first or last visible button
+      const firstVisibleButton = visibleButtons[direction > 0 ? 0 : visibleButtons.length - 1];
+      this.selectedButtonIndex = this.navigableButtons.indexOf(firstVisibleButton);
     } else {
       // Find current button in visible list
-      const currentVisibleIndex = visibleButtons.indexOf(
-        this.navigableButtons[this.selectedButtonIndex]
-      );
-      let newVisibleIndex = currentVisibleIndex + direction;
+      const currentButton = this.navigableButtons[this.selectedButtonIndex];
+      const currentVisibleIndex = visibleButtons.indexOf(currentButton);
 
-      // Wrap around
-      if (newVisibleIndex < 0) newVisibleIndex = visibleButtons.length - 1;
-      if (newVisibleIndex >= visibleButtons.length) newVisibleIndex = 0;
+      if (currentVisibleIndex === -1) {
+        // Current button is no longer visible (e.g., folder collapsed or filtered out)
+        // Jump to first/last visible button
+        const firstVisibleButton = visibleButtons[direction > 0 ? 0 : visibleButtons.length - 1];
+        this.selectedButtonIndex = this.navigableButtons.indexOf(firstVisibleButton);
+      } else {
+        // Navigate within visible buttons
+        let newVisibleIndex = currentVisibleIndex + direction;
 
-      // Get actual button
-      const newButton = visibleButtons[newVisibleIndex];
-      this.selectedButtonIndex = this.navigableButtons.indexOf(newButton);
+        // Wrap around
+        if (newVisibleIndex < 0) newVisibleIndex = visibleButtons.length - 1;
+        if (newVisibleIndex >= visibleButtons.length) newVisibleIndex = 0;
+
+        // Get actual button
+        const newButton = visibleButtons[newVisibleIndex];
+        this.selectedButtonIndex = this.navigableButtons.indexOf(newButton);
+      }
     }
 
     // Highlight new button

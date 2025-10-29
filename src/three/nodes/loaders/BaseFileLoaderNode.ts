@@ -2,6 +2,7 @@ import { TweakpaneNode } from '../../TweakpaneNode';
 import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
+import { FilePickerHelper } from '../mixins/FilePickerMixin';
 
 /**
  * Base class for file loader nodes
@@ -10,9 +11,8 @@ import * as THREE from 'three';
 export abstract class BaseFileLoaderNode<
   TOutputs extends string = 'scene' | 'loaded',
 > extends TweakpaneNode<never, TOutputs> {
-  protected fileInput: HTMLInputElement | null = null;
+  protected filePicker: FilePickerHelper;
   protected loadedObject: THREE.Object3D | null = null;
-  protected isLoading: boolean = false;
 
   constructor(id: string, type: string, label: string, acceptedFileTypes: string) {
     super(id, type, label);
@@ -25,11 +25,16 @@ export abstract class BaseFileLoaderNode<
       label: 'File Path',
     });
 
-    this.addProperty({
-      name: 'acceptedTypes',
-      type: 'string',
-      value: acceptedFileTypes,
-      label: 'Accepted Types',
+    // Initialize file picker helper
+    this.filePicker = new FilePickerHelper({
+      acceptedFileTypes,
+      buttonLabel: 'Load File',
+      onFileSelected: async (file, url) => {
+        await this.handleFileSelected(file, url);
+      },
+      onFileCleared: () => {
+        this.clearFile();
+      },
     });
 
     this.addOutput({ name: 'scene', type: PortType.Scene }); // Scene is just an Object3D
@@ -39,55 +44,14 @@ export abstract class BaseFileLoaderNode<
   protected setupTweakpaneControls(): void {
     if (!this.pane) return;
 
-    const params = {
-      selectFile: () => this.openFilePicker(),
-      clearFile: () => this.clearFile(),
-    };
-
-    // Show current file name if loaded
+    // Add file picker controls using the helper
     const filePath = this.getProperty('filePath') || '';
-    const fileName = filePath
-      ? filePath.split('/').pop() || filePath.split('\\').pop() || 'No file'
-      : 'No file selected';
-
-    this.pane.addButton({ title: `📁 ${fileName}` }).on('click', params.selectFile);
-
-    if (filePath) {
-      this.pane.addButton({ title: '🗑️ Clear' }).on('click', params.clearFile);
-    }
+    this.filePicker.addFilePickerControls(this.pane, filePath);
   }
 
-  protected openFilePicker(): void {
-    // Create file input if it doesn't exist
-    if (!this.fileInput) {
-      this.fileInput = document.createElement('input');
-      this.fileInput.type = 'file';
-      this.fileInput.accept = this.getProperty('acceptedTypes') || '*';
-      this.fileInput.style.display = 'none';
-      document.body.appendChild(this.fileInput);
-
-      this.fileInput.addEventListener('change', (e) => {
-        const target = e.target as HTMLInputElement;
-        if (target.files && target.files.length > 0) {
-          const file = target.files[0];
-          this.handleFileSelected(file);
-        }
-      });
-    }
-
-    // Trigger file picker
-    this.fileInput.click();
-  }
-
-  protected async handleFileSelected(file: File): Promise<void> {
+  protected async handleFileSelected(file: File, url: string): Promise<void> {
     // Store file path (or name since we can't get real path in browser)
     this.setProperty('filePath', file.name);
-
-    // Create URL for the file
-    const url = URL.createObjectURL(file);
-
-    // Mark as loading
-    this.isLoading = true;
     this.markDirty();
 
     try {
@@ -100,8 +64,6 @@ export abstract class BaseFileLoaderNode<
         this.initializeTweakpane(this.container);
       }
 
-      // Mark as loaded
-      this.isLoading = false;
       this.markDirty();
 
       // Force graph change notification to trigger evaluation
@@ -115,7 +77,6 @@ export abstract class BaseFileLoaderNode<
       }
     } catch (error) {
       console.error(`Error loading file ${file.name}:`, error);
-      this.isLoading = false;
       this.setProperty('filePath', '');
       if (this.pane && this.container) {
         this.pane.dispose();
@@ -126,9 +87,7 @@ export abstract class BaseFileLoaderNode<
       if (this.graph) {
         this.graph.triggerChange();
       }
-    } finally {
-      // Clean up object URL
-      URL.revokeObjectURL(url);
+      throw error; // Re-throw so the helper knows it failed
     }
   }
 
@@ -168,10 +127,7 @@ export abstract class BaseFileLoaderNode<
   }
 
   dispose(): void {
-    if (this.fileInput) {
-      this.fileInput.remove();
-      this.fileInput = null;
-    }
+    this.filePicker.dispose();
     if (this.loadedObject) {
       this.loadedObject = null;
     }

@@ -13,6 +13,8 @@
     "add-node-types": "python3 scripts/add_type_safety.py"
   },
   "dependencies": {
+    "@phosphor-icons/web": "^2.1.2",
+    "@tweakpane/plugin-essentials": "^0.2.1",
     "three": "^0.180.0",
     "tweakpane": "^4.0.5"
   },

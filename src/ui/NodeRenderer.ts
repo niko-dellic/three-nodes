@@ -272,9 +272,10 @@ export class NodeRenderer {
     width: number = 200,
     hoveringPortId?: string
   ): void {
-    // Remove old ports
+    // Remove old ports and file picker buttons
     element.querySelectorAll('.port').forEach((p) => p.remove());
     element.querySelectorAll('.port-label').forEach((p) => p.remove());
+    element.querySelectorAll('.file-picker-button-container').forEach((p) => p.remove());
 
     let inputYOffset = yOffset;
 
@@ -345,6 +346,170 @@ export class NodeRenderer {
     }
 
     parent.appendChild(label);
+
+    // Add file picker button for texture input ports that have no connections
+    if (side === 'input' && port.type === PortType.Texture && port.connections.length === 0) {
+      this.addFilePickerButton(parent, port, y, width);
+    }
+  }
+
+  private addFilePickerButton(parent: SVGGElement, port: Port, y: number, width: number): void {
+    const node = port.node;
+    const hasTexture =
+      typeof (node as any).hasLoadedTexture === 'function'
+        ? (node as any).hasLoadedTexture(port.name)
+        : false;
+
+    // Create a foreignObject to embed HTML buttons
+    const foreignObject = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+    foreignObject.setAttribute('x', (width - (hasTexture ? 58 : 40)).toString());
+    foreignObject.setAttribute('y', (y - 8).toString());
+    foreignObject.setAttribute('width', hasTexture ? '44' : '20');
+    foreignObject.setAttribute('height', '16');
+    foreignObject.setAttribute('data-file-picker-button', 'true');
+    foreignObject.classList.add('file-picker-button-container'); // Add class for cleanup
+    foreignObject.style.pointerEvents = 'auto';
+
+    // Create container for buttons
+    const container = document.createElement('div');
+    container.style.cssText = `
+      display: flex;
+      gap: 2px;
+      align-items: center;
+    `;
+
+    // Create load/folder button
+    const loadButton = document.createElement('button');
+    const folderIcon = document.createElement('i');
+    folderIcon.className = 'ph ph-folder';
+    folderIcon.setAttribute('data-file-picker-button', 'true');
+    folderIcon.style.pointerEvents = 'none';
+    loadButton.appendChild(folderIcon);
+    loadButton.className = 'port-file-picker-button';
+    loadButton.title = `Load ${port.name} texture`;
+    loadButton.setAttribute('data-file-picker-button', 'true');
+    loadButton.style.cssText = `
+      width: 18px;
+      height: 16px;
+      padding: 0;
+      font-size: 12px;
+      border: 1px solid ${hasTexture ? '#4ade80' : '#555'};
+      background: ${hasTexture ? '#166534' : '#2a2a2a'};
+      color: ${hasTexture ? '#4ade80' : '#999'};
+      border-radius: 3px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+      position: relative;
+      z-index: 1000;
+    `;
+
+    loadButton.addEventListener('pointerup', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      this.handleFilePickerClick(port);
+    });
+
+    loadButton.addEventListener('mouseenter', () => {
+      if (hasTexture) {
+        loadButton.style.background = '#15803d';
+        loadButton.style.color = '#86efac';
+      } else {
+        loadButton.style.background = '#3a3a3a';
+        loadButton.style.color = '#fff';
+      }
+    });
+
+    loadButton.addEventListener('mouseleave', () => {
+      if (hasTexture) {
+        loadButton.style.background = '#166534';
+        loadButton.style.color = '#4ade80';
+      } else {
+        loadButton.style.background = '#2a2a2a';
+        loadButton.style.color = '#999';
+      }
+    });
+
+    container.appendChild(loadButton);
+
+    // Add clear button if texture is loaded
+    if (hasTexture) {
+      const clearButton = document.createElement('button');
+      const clearIcon = document.createElement('i');
+      clearIcon.className = 'ph ph-x';
+      clearIcon.setAttribute('data-file-picker-button', 'true');
+      clearIcon.style.pointerEvents = 'none';
+      clearButton.appendChild(clearIcon);
+      clearButton.className = 'port-file-picker-button';
+      clearButton.title = `Clear ${port.name} texture`;
+      clearButton.setAttribute('data-file-picker-button', 'true');
+      clearButton.style.cssText = `
+        width: 18px;
+        height: 16px;
+        padding: 0;
+        font-size: 10px;
+        border: 1px solid #555;
+        background: #2a2a2a;
+        color: #999;
+        border-radius: 3px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
+        position: relative;
+        z-index: 1000;
+      `;
+
+      clearButton.addEventListener('pointerup', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        this.handleClearTexture(port);
+      });
+
+      clearButton.addEventListener('mouseenter', () => {
+        clearButton.style.background = '#7f1d1d';
+        clearButton.style.color = '#fca5a5';
+      });
+
+      clearButton.addEventListener('mouseleave', () => {
+        clearButton.style.background = '#2a2a2a';
+        clearButton.style.color = '#999';
+      });
+
+      container.appendChild(clearButton);
+    }
+
+    foreignObject.appendChild(container);
+    parent.appendChild(foreignObject);
+  }
+
+  private handleFilePickerClick(port: Port): void {
+    const node = port.node;
+
+    // Check if node has a getFilePicker method
+    if (typeof (node as any).getFilePicker === 'function') {
+      const picker = (node as any).getFilePicker(port.name);
+      if (picker && typeof picker.openFilePicker === 'function') {
+        picker.openFilePicker();
+      }
+    }
+  }
+
+  private handleClearTexture(port: Port): void {
+    const node = port.node;
+
+    // Check if node has a getFilePicker method
+    if (typeof (node as any).getFilePicker === 'function') {
+      const picker = (node as any).getFilePicker(port.name);
+      if (picker && typeof (picker as any).clearFile === 'function') {
+        (picker as any).clearFile();
+        // The node's clearTexture method will call graph.triggerChange()
+        // which will trigger a re-render and update the buttons
+      }
+    }
   }
 
   private brightenColor(hex: string, factor: number): string {

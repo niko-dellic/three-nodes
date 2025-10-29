@@ -224,15 +224,6 @@ export class PropertiesPanel {
           prop.value = ev.value;
           node.markDirty();
         }
-
-        // If this is a TweakpaneNode, reinitialize its controls if needed
-        if (node instanceof TweakpaneNode) {
-          const container = node.getPaneInstance()?.element.parentElement;
-          if (container && node.isTweakpaneInitialized()) {
-            node.dispose();
-            node.initializeTweakpane(container);
-          }
-        }
       });
 
       // Check if this property has a corresponding connected input port

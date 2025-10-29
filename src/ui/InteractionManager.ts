@@ -160,6 +160,14 @@ export class InteractionManager {
     this.currentMousePos = { x: e.clientX, y: e.clientY };
     const target = e.target as Element;
 
+    // Ignore clicks on file picker buttons
+    if (
+      target.hasAttribute('data-file-picker-button') ||
+      target.closest('[data-file-picker-button]')
+    ) {
+      return;
+    }
+
     // Check if clicking on a port
     if (target.classList.contains('port')) {
       const portId = target.getAttribute('data-port-id');
@@ -320,26 +328,29 @@ export class InteractionManager {
 
   private onPointerUp(e: PointerEvent): void {
     if (this.dragState.type === 'connection') {
-      const target = e.target as Element;
-      // Check if we're hovering over a port (could be the circle or the container)
-      const portElement = target.classList.contains('port') ? target : target.closest('.port');
+      // With pointer capture, e.target is the captured element (SVG), not the element under cursor
+      // Use elementFromPoint to find the actual element under the cursor
+      const element = document.elementFromPoint(e.clientX, e.clientY);
+      if (element) {
+        const portElement = element.classList.contains('port') ? element : element.closest('.port');
 
-      if (portElement) {
-        const portId = portElement.getAttribute('data-port-id');
-        if (portId) {
-          const targetPort = this.findPort(portId);
-          if (targetPort && this.dragState.port.canConnectTo(targetPort)) {
-            try {
-              // Determine source and target - output connects to input
-              const sourcePort = this.dragState.port.isInput ? targetPort : this.dragState.port;
-              const inputPort = this.dragState.port.isInput ? this.dragState.port : targetPort;
+        if (portElement) {
+          const portId = portElement.getAttribute('data-port-id');
+          if (portId) {
+            const targetPort = this.findPort(portId);
+            if (targetPort && this.dragState.port.canConnectTo(targetPort)) {
+              try {
+                // Determine source and target - output connects to input
+                const sourcePort = this.dragState.port.isInput ? targetPort : this.dragState.port;
+                const inputPort = this.dragState.port.isInput ? this.dragState.port : targetPort;
 
-              // Make sure we're connecting output to input
-              if (!sourcePort.isInput && inputPort.isInput) {
-                this.graph.connect(sourcePort, inputPort, this.dragState.shiftPressed);
+                // Make sure we're connecting output to input
+                if (!sourcePort.isInput && inputPort.isInput) {
+                  this.graph.connect(sourcePort, inputPort, this.dragState.shiftPressed);
+                }
+              } catch (err) {
+                console.error('Failed to create connection:', err);
               }
-            } catch (err) {
-              console.error('Failed to create connection:', err);
             }
           }
         }
@@ -354,12 +365,15 @@ export class InteractionManager {
 
       if (distance < this.CLICK_THRESHOLD) {
         // It was a click, not a drag - show context menu
-        const target = e.target as Element;
-        const isNode = target.closest('.node');
-        const isPort = target.classList.contains('port');
+        // Use elementFromPoint since we have pointer capture
+        const element = document.elementFromPoint(e.clientX, e.clientY);
+        if (element) {
+          const isNode = element.closest('.node');
+          const isPort = element.classList.contains('port');
 
-        if (!isNode && !isPort) {
-          this.contextMenu.show(e.clientX, e.clientY);
+          if (!isNode && !isPort) {
+            this.contextMenu.show(e.clientX, e.clientY);
+          }
         }
       }
     }

@@ -1,4 +1,5 @@
 import './style.css';
+import '@phosphor-icons/web/regular';
 import { Graph } from '@/core/Graph';
 import {
   createDefaultRegistry,
@@ -15,8 +16,11 @@ import {
   SceneOutputNode,
   ButtonNode,
   Vector3DecomposeNode,
+  NumberSliderNode,
+  MeshMatcapMaterialNode,
 } from '@/three';
 import { GraphEditor, LiveViewport, ViewModeManager, PreviewManager } from '@/ui';
+import { MeshMatcapMaterial } from 'three';
 
 // Create the node registry
 const registry = createDefaultRegistry();
@@ -56,7 +60,7 @@ colorNode.position = { x: 300, y: 400 };
 graph.addNode(colorNode);
 
 // 4. Create material
-const materialNode = registry.insertNode(MeshStandardMaterialNode, 'material');
+const materialNode = registry.insertNode(MeshMatcapMaterialNode, 'material');
 materialNode.position = { x: 550, y: 350 };
 graph.addNode(materialNode);
 
@@ -101,12 +105,18 @@ directionalLightPos.position = { x: 300, y: -25 };
 directionalLightPos.setVector(10, 10, 10);
 graph.addNode(directionalLightPos);
 
+const directionaLightIntensity = registry.insertNode(NumberSliderNode, 'dir-light-intensity');
+directionaLightIntensity.position = { x: 300, y: -150 };
+directionaLightIntensity.setValue(100);
+graph.addNode(directionaLightIntensity);
+
 const directionalLightNode = registry.insertNode(DirectionalLightNode, 'dir-light');
 directionalLightNode.position = { x: 550, y: -50 };
 directionalLightNode.input('intensity').value = 1;
 graph.addNode(directionalLightNode);
 
 graph.connect(directionalLightPos.output('vector'), directionalLightNode.input('position'));
+graph.connect(directionaLightIntensity.output('value'), directionalLightNode.input('intensity'));
 
 // 9. Scene Compiler - Collects all objects and camera for the scene
 const sceneCompiler = registry.insertNode(SceneCompilerNode, 'scene-compiler');
