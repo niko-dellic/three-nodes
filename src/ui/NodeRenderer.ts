@@ -436,7 +436,7 @@ export class NodeRenderer {
 
     // Add clear button if texture is loaded
     if (hasTexture) {
-      const clearButton = document.createElement('button');
+      const clearButton = document.createElement('div');
       const clearIcon = document.createElement('i');
       clearIcon.className = 'ph ph-x';
       clearIcon.setAttribute('data-file-picker-button', 'true');

@@ -1255,6 +1255,8 @@ body:not(#touch-device) .properties-tabs {
   flex-direction: column;
 }
 
-foreignObject .tp-rotv {
+/* Safari/mobile foreignObject rendering fix */
+foreignObject .tp-rotv,
+foreignObject > div {
   position: fixed;
 }
