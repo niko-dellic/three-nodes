@@ -289,6 +289,21 @@ export class GraphEditor {
     separator3.className = 'toolbar-separator';
     toolbar.appendChild(separator3);
 
+    // Add node button with plus icon
+    const addNodeButton = document.createElement('button');
+    addNodeButton.className = 'toolbar-button add-node-button';
+    addNodeButton.title = 'Add node (Space or Right-click)';
+    addNodeButton.innerHTML = '<i class="ph ph-plus"></i>';
+    addNodeButton.addEventListener('click', (e) => {
+      // Stop propagation to prevent the context menu's click-outside handler from closing it
+      e.stopPropagation();
+      // Get the button's position on screen
+      const rect = addNodeButton.getBoundingClientRect();
+      // Show context menu below the button
+      this.contextMenu.show(rect.left, rect.bottom + 5);
+    });
+    toolbar.appendChild(addNodeButton);
+
     // Properties button
     const propertiesButton = document.createElement('button');
     propertiesButton.className = 'toolbar-button';

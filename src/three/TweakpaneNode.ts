@@ -1,5 +1,6 @@
 import { BaseThreeNode } from './BaseThreeNode';
 import { Pane } from 'tweakpane';
+import * as EssentialsPlugin from '@tweakpane/plugin-essentials';
 
 /**
  * Base class for nodes that use Tweakpane controls
@@ -19,6 +20,8 @@ export abstract class TweakpaneNode<
   initializeTweakpane(container: HTMLElement): void {
     this.container = container;
     this.pane = new Pane({ container });
+    // Register Essentials plugin for fpsgraph and other components
+    this.pane.registerPlugin(EssentialsPlugin);
     this.setupTweakpaneControls();
   }
 

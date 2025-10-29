@@ -12,6 +12,7 @@ import { BooleanInputNode } from './nodes/data/BooleanInputNode';
 import { PointInputNode } from './nodes/data/PointInputNode';
 import { ListInputNode } from './nodes/data/ListInputNode';
 import { TextInputNode } from './nodes/data/TextInputNode';
+import { IntervalInputNode } from './nodes/data/IntervalInputNode';
 
 // Input nodes (interactive controls)
 import { ButtonNode } from './nodes/input/ButtonNode';
@@ -19,10 +20,13 @@ import { ButtonNode } from './nodes/input/ButtonNode';
 // Monitor nodes
 import { NumberMonitorNode } from './nodes/monitor/NumberMonitorNode';
 import { TextMonitorNode } from './nodes/monitor/TextMonitorNode';
+import { FPSGraphNode } from './nodes/monitor/FPSGraphNode';
 
 // Geometry nodes
 import { BoxGeometryNode } from './nodes/geometry/BoxGeometryNode';
 import { SphereGeometryNode } from './nodes/geometry/SphereGeometryNode';
+import { PointGridNode } from './nodes/geometry/PointGridNode';
+import { VoxelGridNode } from './nodes/geometry/VoxelGridNode';
 
 // Material nodes
 import { MeshStandardMaterialNode } from './nodes/material/MeshStandardMaterialNode';
@@ -41,6 +45,9 @@ import { CreateMeshNode } from './nodes/scene/CreateMeshNode';
 import { AddToSceneNode } from './nodes/scene/AddToSceneNode';
 import { SceneCompilerNode } from './nodes/scene/SceneCompilerNode';
 import { Object3DNode } from './nodes/scene/Object3DNode';
+import { CreateInstancedMeshNode } from './nodes/scene/CreateInstancedMeshNode';
+import { UpdateInstancePositionsNode } from './nodes/scene/UpdateInstancePositionsNode';
+import { SetMaterialNode } from './nodes/scene/SetMaterialNode';
 
 // Camera nodes
 import { PerspectiveCameraNode } from './nodes/camera/PerspectiveCameraNode';
@@ -134,11 +141,15 @@ export { BooleanInputNode } from './nodes/data/BooleanInputNode';
 export { PointInputNode } from './nodes/data/PointInputNode';
 export { ListInputNode } from './nodes/data/ListInputNode';
 export { TextInputNode } from './nodes/data/TextInputNode';
+export { IntervalInputNode } from './nodes/data/IntervalInputNode';
 export { ButtonNode } from './nodes/input/ButtonNode';
 export { NumberMonitorNode } from './nodes/monitor/NumberMonitorNode';
 export { TextMonitorNode } from './nodes/monitor/TextMonitorNode';
+export { FPSGraphNode } from './nodes/monitor/FPSGraphNode';
 export { BoxGeometryNode } from './nodes/geometry/BoxGeometryNode';
 export { SphereGeometryNode } from './nodes/geometry/SphereGeometryNode';
+export { PointGridNode } from './nodes/geometry/PointGridNode';
+export { VoxelGridNode } from './nodes/geometry/VoxelGridNode';
 export { MeshStandardMaterialNode } from './nodes/material/MeshStandardMaterialNode';
 export { MeshBasicMaterialNode } from './nodes/material/MeshBasicMaterialNode';
 export { MeshPhongMaterialNode } from './nodes/material/MeshPhongMaterialNode';
@@ -153,6 +164,9 @@ export { CreateMeshNode } from './nodes/scene/CreateMeshNode';
 export { AddToSceneNode } from './nodes/scene/AddToSceneNode';
 export { SceneCompilerNode } from './nodes/scene/SceneCompilerNode';
 export { Object3DNode } from './nodes/scene/Object3DNode';
+export { CreateInstancedMeshNode } from './nodes/scene/CreateInstancedMeshNode';
+export { UpdateInstancePositionsNode } from './nodes/scene/UpdateInstancePositionsNode';
+export { SetMaterialNode } from './nodes/scene/SetMaterialNode';
 export { PerspectiveCameraNode } from './nodes/camera/PerspectiveCameraNode';
 export { CameraComponentNode } from './nodes/camera/CameraComponentNode';
 export { ActiveCameraNode } from './nodes/camera/ActiveCameraNode';
@@ -271,6 +285,14 @@ export function createDefaultRegistry(): NodeRegistry {
     icon: '📄',
   });
 
+  registry.register(IntervalInputNode, {
+    type: 'IntervalInputNode',
+    category: 'Input',
+    label: 'Interval Input',
+    description: 'Min-max range slider from Tweakpane Essentials',
+    icon: '⬌',
+  });
+
   // Register monitor nodes
   registry.register(NumberMonitorNode, {
     type: 'NumberMonitorNode',
@@ -288,6 +310,14 @@ export function createDefaultRegistry(): NodeRegistry {
     icon: '📺',
   });
 
+  registry.register(FPSGraphNode, {
+    type: 'FPSGraphNode',
+    category: 'Monitor',
+    label: 'FPS Graph',
+    description: 'Frame rate monitor with graph from Tweakpane Essentials',
+    icon: '📈',
+  });
+
   // Register geometry nodes
   registry.register(BoxGeometryNode, {
     type: 'BoxGeometryNode',
@@ -301,6 +331,22 @@ export function createDefaultRegistry(): NodeRegistry {
     category: 'Geometry',
     label: 'Sphere Geometry',
     description: 'Creates a sphere geometry',
+  });
+
+  registry.register(PointGridNode, {
+    type: 'PointGridNode',
+    category: 'Geometry',
+    label: 'Point Grid',
+    description: 'Creates a grid of Vector3 points in 3D space',
+    icon: '⊞',
+  });
+
+  registry.register(VoxelGridNode, {
+    type: 'VoxelGridNode',
+    category: 'Geometry',
+    label: 'Voxel Grid',
+    description: 'Creates a grid of boxes using InstancedMesh',
+    icon: '🧊',
   });
 
   // Register material nodes
@@ -405,6 +451,30 @@ export function createDefaultRegistry(): NodeRegistry {
     label: 'Object3D',
     description: 'Empty Object3D container for grouping and transforms',
     icon: '📦',
+  });
+
+  registry.register(CreateInstancedMeshNode, {
+    type: 'CreateInstancedMeshNode',
+    category: 'Scene',
+    label: 'Create Instanced Mesh',
+    description: 'Creates an InstancedMesh for rendering multiple copies efficiently',
+    icon: '🔢',
+  });
+
+  registry.register(UpdateInstancePositionsNode, {
+    type: 'UpdateInstancePositionsNode',
+    category: 'Scene',
+    label: 'Update Instance Positions',
+    description: 'Updates InstancedMesh instance positions from Vector3 array',
+    icon: '📍',
+  });
+
+  registry.register(SetMaterialNode, {
+    type: 'SetMaterialNode',
+    category: 'Scene',
+    label: 'Set Material',
+    description: 'Changes the material of a mesh or object',
+    icon: '🎨',
   });
 
   // Register camera nodes
