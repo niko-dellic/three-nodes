@@ -42,7 +42,6 @@ export class MeshMatcapMaterialNode extends BaseMaterialTweakpaneNode<'matcap' |
 
     // Input ports
     this.addInput({ name: 'matcap', type: PortType.Texture });
-    this.addInput({ name: 'color', type: PortType.Color });
     this.addInput({ name: 'map', type: PortType.Texture });
 
     // Properties

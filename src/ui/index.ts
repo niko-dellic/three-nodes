@@ -10,3 +10,5 @@ export { ContextMenu } from './ContextMenu';
 export { PreviewManager } from './PreviewManager';
 export { ClipboardManager } from './ClipboardManager';
 export { HistoryManager } from './HistoryManager';
+export { SaveLoadManager } from './SaveLoadManager';
+export { ObjectInspector } from './ObjectInspector';

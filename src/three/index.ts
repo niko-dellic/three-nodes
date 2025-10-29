@@ -42,12 +42,19 @@ import { SpriteMaterialNode } from './nodes/material/SpriteMaterialNode';
 // Scene nodes
 import { SceneNode } from './nodes/scene/SceneNode';
 import { CreateMeshNode } from './nodes/scene/CreateMeshNode';
+import { CreatePointsNode } from './nodes/scene/CreatePointsNode';
 import { AddToSceneNode } from './nodes/scene/AddToSceneNode';
 import { SceneCompilerNode } from './nodes/scene/SceneCompilerNode';
 import { Object3DNode } from './nodes/scene/Object3DNode';
 import { CreateInstancedMeshNode } from './nodes/scene/CreateInstancedMeshNode';
 import { UpdateInstancePositionsNode } from './nodes/scene/UpdateInstancePositionsNode';
 import { SetMaterialNode } from './nodes/scene/SetMaterialNode';
+
+// Scene utility nodes
+import { GLTFExporterNode } from './nodes/scene/utils/GLTFExporterNode';
+import { GetObjectByNameNode } from './nodes/scene/utils/GetObjectByNameNode';
+import { TraverseNode } from './nodes/scene/utils/TraverseNode';
+import { FilterObjectsNode } from './nodes/scene/utils/FilterObjectsNode';
 
 // Camera nodes
 import { PerspectiveCameraNode } from './nodes/camera/PerspectiveCameraNode';
@@ -161,12 +168,17 @@ export { LineDashedMaterialNode } from './nodes/material/LineDashedMaterialNode'
 export { SpriteMaterialNode } from './nodes/material/SpriteMaterialNode';
 export { SceneNode } from './nodes/scene/SceneNode';
 export { CreateMeshNode } from './nodes/scene/CreateMeshNode';
+export { CreatePointsNode } from './nodes/scene/CreatePointsNode';
 export { AddToSceneNode } from './nodes/scene/AddToSceneNode';
 export { SceneCompilerNode } from './nodes/scene/SceneCompilerNode';
 export { Object3DNode } from './nodes/scene/Object3DNode';
 export { CreateInstancedMeshNode } from './nodes/scene/CreateInstancedMeshNode';
 export { UpdateInstancePositionsNode } from './nodes/scene/UpdateInstancePositionsNode';
 export { SetMaterialNode } from './nodes/scene/SetMaterialNode';
+export { GLTFExporterNode } from './nodes/scene/utils/GLTFExporterNode';
+export { GetObjectByNameNode } from './nodes/scene/utils/GetObjectByNameNode';
+export { TraverseNode } from './nodes/scene/utils/TraverseNode';
+export { FilterObjectsNode } from './nodes/scene/utils/FilterObjectsNode';
 export { PerspectiveCameraNode } from './nodes/camera/PerspectiveCameraNode';
 export { CameraComponentNode } from './nodes/camera/CameraComponentNode';
 export { ActiveCameraNode } from './nodes/camera/ActiveCameraNode';
@@ -430,6 +442,14 @@ export function createDefaultRegistry(): NodeRegistry {
     description: 'Creates a mesh from geometry and material',
   });
 
+  registry.register(CreatePointsNode, {
+    type: 'CreatePointsNode',
+    category: 'Scene',
+    label: 'Create Points',
+    description: 'Creates a Points object from Vector3 positions and material',
+    icon: '⋯',
+  });
+
   registry.register(AddToSceneNode, {
     type: 'AddToSceneNode',
     category: 'Scene',
@@ -475,6 +495,39 @@ export function createDefaultRegistry(): NodeRegistry {
     label: 'Set Material',
     description: 'Changes the material of a mesh or object',
     icon: '🎨',
+  });
+
+  // Register scene utility nodes
+  registry.register(GLTFExporterNode, {
+    type: 'GLTFExporterNode',
+    category: 'Scene Utils',
+    label: 'GLTF Exporter',
+    description: 'Exports objects to GLTF/GLB format',
+    icon: '📦',
+  });
+
+  registry.register(GetObjectByNameNode, {
+    type: 'GetObjectByNameNode',
+    category: 'Scene Utils',
+    label: 'Get Object By Name',
+    description: 'Finds objects by name in the hierarchy',
+    icon: '🔍',
+  });
+
+  registry.register(TraverseNode, {
+    type: 'TraverseNode',
+    category: 'Scene Utils',
+    label: 'Traverse',
+    description: 'Traverses all objects in a hierarchy',
+    icon: '🌲',
+  });
+
+  registry.register(FilterObjectsNode, {
+    type: 'FilterObjectsNode',
+    category: 'Scene Utils',
+    label: 'Filter Objects',
+    description: 'Filters objects by type, name, or properties',
+    icon: '🔬',
   });
 
   // Register camera nodes

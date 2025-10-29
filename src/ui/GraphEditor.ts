@@ -10,6 +10,7 @@ import { ContextMenu } from './ContextMenu';
 import { ClipboardManager } from './ClipboardManager';
 import { HistoryManager } from './HistoryManager';
 import { PropertiesPanel } from './PropertiesPanel';
+import { SaveLoadManager } from './SaveLoadManager';
 import { NodeRegistry } from '@/three/NodeRegistry';
 
 export class GraphEditor {
@@ -24,6 +25,7 @@ export class GraphEditor {
   private clipboardManager: ClipboardManager;
   private historyManager: HistoryManager;
   private propertiesPanel: PropertiesPanel;
+  private saveLoadManager: SaveLoadManager;
   private registry: NodeRegistry;
 
   private svg: SVGSVGElement;
@@ -76,6 +78,9 @@ export class GraphEditor {
     // Initialize clipboard manager
     this.clipboardManager = new ClipboardManager(graph, this.selectionManager, registry);
 
+    // Initialize save/load manager
+    this.saveLoadManager = new SaveLoadManager(graph, registry);
+
     // Create toolbar with all controls
     this.toolbar = this.createToolbar();
     this.infoOverlay = this.createInfoOverlay();
@@ -109,16 +114,23 @@ export class GraphEditor {
       this.propertiesPanel.updateDataFlow();
     });
 
-    // Set up keyboard shortcut for properties panel (T key)
+    // Set up keyboard shortcuts
     window.addEventListener('keydown', (e) => {
       // Only handle if not typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
 
+      // Properties panel (T key)
       if (e.key === 't' || e.key === 'T') {
         e.preventDefault();
         this.propertiesPanel.toggle();
+      }
+
+      // Save (Ctrl/Cmd+S)
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        this.saveLoadManager.showSaveDialog();
       }
     });
 
@@ -289,6 +301,31 @@ export class GraphEditor {
     separator3.className = 'toolbar-separator';
     toolbar.appendChild(separator3);
 
+    // Save button
+    const saveButton = document.createElement('button');
+    saveButton.className = 'toolbar-button';
+    saveButton.title = 'Save graph (Ctrl/Cmd+S)';
+    saveButton.innerHTML = '<i class="ph ph-floppy-disk"></i>';
+    saveButton.addEventListener('click', () => {
+      this.saveLoadManager.showSaveDialog();
+    });
+    toolbar.appendChild(saveButton);
+
+    // Load button
+    const loadButton = document.createElement('button');
+    loadButton.className = 'toolbar-button';
+    loadButton.title = 'Load graph';
+    loadButton.innerHTML = '<i class="ph ph-folder-open"></i>';
+    loadButton.addEventListener('click', () => {
+      this.saveLoadManager.showLoadModal();
+    });
+    toolbar.appendChild(loadButton);
+
+    // Separator
+    const separator4 = document.createElement('div');
+    separator4.className = 'toolbar-separator';
+    toolbar.appendChild(separator4);
+
     // Add node button with plus icon
     const addNodeButton = document.createElement('button');
     addNodeButton.className = 'toolbar-button add-node-button';
@@ -326,6 +363,7 @@ export class GraphEditor {
       <p>Tab - Toggle between editor and 3D view</p>
       <p>T - Toggle properties panel</p>
       <p>Space/Right-click - Context menu</p>
+      <p>Ctrl/Cmd+S - Save graph</p>
       <p>Ctrl/Cmd+C - Copy selected nodes</p>
       <p>Ctrl/Cmd+X - Cut selected nodes</p>
       <p>Ctrl/Cmd+V - Paste nodes</p>

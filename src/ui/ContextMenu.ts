@@ -39,6 +39,33 @@ export class ContextMenu {
     document.addEventListener('keydown', (e) => {
       if (!this.isVisible) return;
 
+      // Special handling for context menu search input
+      if (e.target instanceof HTMLInputElement && e.target === this.searchInput) {
+        // Allow arrow keys and Enter for navigation even while typing
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          this.navigateButtons(1);
+          return;
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          this.navigateButtons(-1);
+          return;
+        } else if (e.key === 'Enter') {
+          // Enter key: select highlighted button
+          if (this.selectedButtonIndex >= 0) {
+            e.preventDefault();
+            this.navigableButtons[this.selectedButtonIndex]?.click();
+          }
+          return;
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          this.hide();
+          return;
+        }
+        // Allow other keys (for typing in search)
+        return;
+      }
+
       if (e.key === 'Escape') {
         this.hide();
         return;

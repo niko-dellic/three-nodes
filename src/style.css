@@ -524,7 +524,6 @@ body.dragging {
 .data-flow-port-value {
   color: var(--secondary-color);
   font-family: 'Courier New', monospace;
-  max-width: 150px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -572,4 +571,398 @@ body.dragging {
   scrollbar-color: var(--secondary-color) transparent;
   scrollbar-width: thin;
   /* overlay scrollbar */
+}
+
+/* Save/Load Modal Styles */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.save-load-modal {
+  background: var(--tertiary-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  width: 500px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.2s ease-in-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-color);
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.modal-close:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.modal-body {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.modal-body label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-color);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.modal-body input[type='text'] {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--background-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-color);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.modal-body input[type='text']:focus {
+  border-color: var(--primary-color);
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+.modal-button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-button.cancel {
+  background: var(--secondary-color);
+  color: var(--text-color);
+}
+
+.modal-button.cancel:hover {
+  background: #6d6d6d;
+}
+
+.modal-button.save {
+  background: var(--primary-color);
+  color: var(--background-color);
+}
+
+.modal-button.save:hover {
+  background: #d0d0d0;
+}
+
+/* Saved Graphs List */
+.saved-graphs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.saved-graph-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: var(--background-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.saved-graph-item:hover {
+  background: #252525;
+  border-color: var(--primary-color);
+}
+
+.graph-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.graph-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-color);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.graph-date {
+  font-size: 12px;
+  color: #999;
+}
+
+.graph-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: 12px;
+}
+
+.graph-action-btn {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  font-size: 18px;
+}
+
+.graph-action-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.graph-action-btn.delete-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.empty-message {
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+  padding: 40px 20px;
+}
+
+/* Notification Styles */
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10001;
+  opacity: 0;
+  transform: translateX(100px);
+  transition: all 0.3s ease-in-out;
+  pointer-events: none;
+}
+
+.notification.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.notification-success {
+  background: #10b981;
+}
+
+.notification-error {
+  background: #ef4444;
+}
+
+/* Load Modal Specific Styles */
+.load-modal .modal-body {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.load-modal .saved-graphs-list {
+  margin-top: 0;
+}
+
+/* Object Inspector Styles */
+.object-inspector {
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-color);
+}
+
+.inspector-label {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #888;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.inspector-expandable {
+  margin-left: 0;
+}
+
+.inspector-header {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 2px 0;
+  user-select: none;
+  transition: background-color 0.15s;
+  border-radius: 2px;
+}
+
+.inspector-header:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.inspector-arrow {
+  display: inline-block;
+  width: 12px;
+  color: #888;
+  font-size: 8px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.inspector-preview {
+  color: var(--text-color);
+  white-space: nowrap;
+}
+
+.inspector-preview.inspector-threejs {
+  color: #4a90e2;
+}
+
+.inspector-content {
+  margin-left: 12px;
+  padding-left: 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.inspector-row {
+  display: flex;
+  align-items: baseline;
+  padding: 2px 0;
+  gap: 4px;
+}
+
+.inspector-key {
+  color: #a371f7;
+  flex-shrink: 0;
+}
+
+.inspector-value {
+  word-break: break-word;
+}
+
+.inspector-value.inspector-string {
+  color: #f87171;
+}
+
+.inspector-value.inspector-number {
+  color: #60a5fa;
+}
+
+.inspector-value.inspector-boolean {
+  color: #34d399;
+}
+
+.inspector-value.inspector-null,
+.inspector-value.inspector-undefined {
+  color: #888;
+  font-style: italic;
+}
+
+.inspector-value.inspector-function {
+  color: #fbbf24;
+  font-style: italic;
+}
+
+.inspector-value.inspector-circular {
+  color: #888;
+  font-style: italic;
+}
+
+.inspector-value.inspector-ellipsis {
+  color: #888;
+}
+
+.inspector-value.inspector-unknown {
+  color: #888;
+}
+
+/* Data flow port value - make it fill the space */
+.data-flow-port-value {
+  flex: 1;
+  min-width: 0;
+}
+
+.data-flow-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
 }

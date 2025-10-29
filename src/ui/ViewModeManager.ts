@@ -48,6 +48,11 @@ export class ViewModeManager {
   private setupEventListeners(): void {
     // Tab key to toggle
     document.addEventListener('keydown', (e) => {
+      // Don't handle keyboard shortcuts if typing in an input field
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
       if (e.key === 'Tab') {
         e.preventDefault();
         this.toggle();

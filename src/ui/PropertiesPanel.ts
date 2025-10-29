@@ -1,6 +1,6 @@
 import { Node } from '@/core/Node';
-import { TweakpaneNode } from '@/three/TweakpaneNode';
 import { Pane } from 'tweakpane';
+import { ObjectInspector } from './ObjectInspector';
 
 export class PropertiesPanel {
   private panel: HTMLElement;
@@ -13,7 +13,6 @@ export class PropertiesPanel {
   private isVisible: boolean = false;
   private width: number = 300;
   private minWidth: number = 200;
-  private maxWidth: number = 600;
   private isResizing: boolean = false;
 
   constructor(container: HTMLElement) {
@@ -45,7 +44,7 @@ export class PropertiesPanel {
     // Load saved width from localStorage
     const savedWidth = localStorage.getItem('propertiesPanelWidth');
     if (savedWidth) {
-      this.width = Math.max(this.minWidth, Math.min(this.maxWidth, parseInt(savedWidth, 10)));
+      this.width = Math.max(this.minWidth, parseInt(savedWidth, 10));
     }
     this.updateWidth();
   }
@@ -62,7 +61,8 @@ export class PropertiesPanel {
 
       const containerRect = this.panel.parentElement!.getBoundingClientRect();
       const newWidth = containerRect.right - e.clientX;
-      this.width = Math.max(this.minWidth, Math.min(this.maxWidth, newWidth));
+      // Only enforce minimum width, no maximum limit
+      this.width = Math.max(this.minWidth, newWidth);
       this.updateWidth();
     });
 
@@ -302,10 +302,20 @@ export class PropertiesPanel {
         portName.textContent = name + ':';
         item.appendChild(portName);
 
-        const portValue = document.createElement('span');
-        portValue.className = 'data-flow-port-value';
-        portValue.textContent = this.formatValue(port.value);
-        item.appendChild(portValue);
+        const portValueContainer = document.createElement('div');
+        portValueContainer.className = 'data-flow-port-value';
+
+        // Create Chrome DevTools-style inspector with lazy rendering
+        // expandLevel: 0 = collapsed by default (click to expand)
+        // No maxDepth limit - relies on circular ref detection + lazy rendering like Chrome
+        const inspector = new ObjectInspector({
+          expandLevel: 0,
+          maxStringLength: 100,
+          maxArrayPreview: 5,
+        });
+        const inspectorEl = inspector.inspect(port.value);
+        portValueContainer.appendChild(inspectorEl);
+        item.appendChild(portValueContainer);
 
         section.appendChild(item);
       }
@@ -327,53 +337,26 @@ export class PropertiesPanel {
         portName.textContent = name + ':';
         item.appendChild(portName);
 
-        const portValue = document.createElement('span');
-        portValue.className = 'data-flow-port-value';
-        portValue.textContent = this.formatValue(port.value);
-        item.appendChild(portValue);
+        const portValueContainer = document.createElement('div');
+        portValueContainer.className = 'data-flow-port-value';
+
+        // Create Chrome DevTools-style inspector with lazy rendering
+        // expandLevel: 0 = collapsed by default (click to expand)
+        // No maxDepth limit - relies on circular ref detection + lazy rendering like Chrome
+        const inspector = new ObjectInspector({
+          expandLevel: 0,
+          maxStringLength: 100,
+          maxArrayPreview: 5,
+        });
+        const inspectorEl = inspector.inspect(port.value);
+        portValueContainer.appendChild(inspectorEl);
+        item.appendChild(portValueContainer);
 
         section.appendChild(item);
       }
     }
 
     return section;
-  }
-
-  private formatValue(value: any): string {
-    if (value === null || value === undefined) {
-      return '(none)';
-    }
-
-    if (typeof value === 'number') {
-      return value.toFixed(3);
-    }
-
-    if (typeof value === 'string') {
-      return value.length > 50 ? value.substring(0, 47) + '...' : value;
-    }
-
-    if (typeof value === 'boolean') {
-      return value.toString();
-    }
-
-    if (typeof value === 'object') {
-      // Special handling for common types
-      if (value.isColor) {
-        return '#' + value.getHexString();
-      }
-      if (value.isVector3) {
-        return `(${value.x.toFixed(2)}, ${value.y.toFixed(2)}, ${value.z.toFixed(2)})`;
-      }
-      if (value.isVector2) {
-        return `(${value.x.toFixed(2)}, ${value.y.toFixed(2)})`;
-      }
-      if (value.x !== undefined && value.y !== undefined) {
-        return `(${value.x.toFixed(2)}, ${value.y.toFixed(2)})`;
-      }
-      return JSON.stringify(value).substring(0, 50);
-    }
-
-    return String(value);
   }
 
   updateDataFlow(): void {

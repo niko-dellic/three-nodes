@@ -50,6 +50,11 @@ export class InteractionManager {
   private shiftPressed: boolean = false;
   private capturedPointerId: number | null = null;
 
+  // Touch handling state
+  private activeTouches: Map<number, Touch> = new Map();
+  private initialTouchDistance: number | null = null;
+  private initialZoomLevel: number | null = null;
+
   // Bound event handlers for document-level events during drag
   private boundOnPointerMove: ((e: PointerEvent) => void) | null = null;
   private boundOnPointerUp: ((e: PointerEvent) => void) | null = null;
@@ -96,6 +101,12 @@ export class InteractionManager {
 
     // Wheel event for zoom
     this.svg.addEventListener('wheel', this.onWheel.bind(this), { passive: false });
+
+    // Touch events for mobile support
+    this.svg.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: false });
+    this.svg.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: false });
+    this.svg.addEventListener('touchend', this.onTouchEnd.bind(this), { passive: false });
+    this.svg.addEventListener('touchcancel', this.onTouchEnd.bind(this), { passive: false });
 
     // Keyboard events
     document.addEventListener('keydown', this.onKeyDown.bind(this));
@@ -427,6 +438,11 @@ export class InteractionManager {
   }
 
   private onKeyDown(e: KeyboardEvent): void {
+    // Don't handle keyboard shortcuts if typing in an input field
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      return;
+    }
+
     // Track shift key state for array connections
     if (e.key === 'Shift') {
       this.shiftPressed = true;
@@ -501,6 +517,114 @@ export class InteractionManager {
     if (e.key === 'Shift') {
       this.shiftPressed = false;
     }
+  }
+
+  private onTouchStart(e: TouchEvent): void {
+    e.preventDefault();
+
+    // Update active touches
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      this.activeTouches.set(touch.identifier, touch);
+    }
+
+    // Handle based on number of active touches
+    if (this.activeTouches.size === 1) {
+      // Single touch - start panning
+      const touch = Array.from(this.activeTouches.values())[0];
+      this.dragState = {
+        type: 'pan',
+        startX: touch.clientX,
+        startY: touch.clientY,
+      };
+    } else if (this.activeTouches.size === 2) {
+      // Two touches - start pinch zoom
+      const touches = Array.from(this.activeTouches.values());
+      this.initialTouchDistance = this.getTouchDistance(touches[0], touches[1]);
+      this.initialZoomLevel = this.viewport.getZoom();
+
+      // Cancel any existing pan drag
+      this.dragState = { type: 'none' };
+    }
+  }
+
+  private onTouchMove(e: TouchEvent): void {
+    e.preventDefault();
+
+    // Update active touches
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      if (this.activeTouches.has(touch.identifier)) {
+        this.activeTouches.set(touch.identifier, touch);
+      }
+    }
+
+    if (this.activeTouches.size === 1 && this.dragState.type === 'pan') {
+      // Single touch panning
+      const touch = Array.from(this.activeTouches.values())[0];
+      const dx = touch.clientX - this.dragState.startX;
+      const dy = touch.clientY - this.dragState.startY;
+
+      this.viewport.panImmediate(dx, dy);
+
+      this.dragState = {
+        type: 'pan',
+        startX: touch.clientX,
+        startY: touch.clientY,
+      };
+    } else if (
+      this.activeTouches.size === 2 &&
+      this.initialTouchDistance !== null &&
+      this.initialZoomLevel !== null
+    ) {
+      // Two touch pinch zoom
+      const touches = Array.from(this.activeTouches.values());
+      const currentDistance = this.getTouchDistance(touches[0], touches[1]);
+
+      // Calculate zoom scale
+      const scale = currentDistance / this.initialTouchDistance;
+      const newZoom = this.initialZoomLevel * scale;
+
+      // Get center point between the two touches
+      const centerX = (touches[0].clientX + touches[1].clientX) / 2;
+      const centerY = (touches[0].clientY + touches[1].clientY) / 2;
+
+      // Apply zoom at the center point
+      this.viewport.zoomToPoint(centerX, centerY, newZoom);
+    }
+  }
+
+  private onTouchEnd(e: TouchEvent): void {
+    e.preventDefault();
+
+    // Remove ended touches
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      this.activeTouches.delete(touch.identifier);
+    }
+
+    // If no more touches, reset state
+    if (this.activeTouches.size === 0) {
+      this.dragState = { type: 'none' };
+      this.initialTouchDistance = null;
+      this.initialZoomLevel = null;
+    } else if (this.activeTouches.size === 1) {
+      // Went from 2 touches to 1 - restart panning
+      const touch = Array.from(this.activeTouches.values())[0];
+      this.dragState = {
+        type: 'pan',
+        startX: touch.clientX,
+        startY: touch.clientY,
+      };
+      this.initialTouchDistance = null;
+      this.initialZoomLevel = null;
+    }
+  }
+
+  private getTouchDistance(touch1: Touch, touch2: Touch): number {
+    const dx = touch2.clientX - touch1.clientX;
+    const dy = touch2.clientY - touch1.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
   }
 
   private findPort(portId: string): Port | null {

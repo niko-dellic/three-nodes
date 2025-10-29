@@ -37,6 +37,34 @@ export class Viewport {
     this.targetTransform.y = this.transform.y;
   }
 
+  panImmediate(dx: number, dy: number): void {
+    // Immediate pan update for touch gestures
+    this.transform.x += dx;
+    this.transform.y += dy;
+    this.targetTransform.x = this.transform.x;
+    this.targetTransform.y = this.transform.y;
+  }
+
+  getZoom(): number {
+    return this.transform.scale;
+  }
+
+  zoomToPoint(centerX: number, centerY: number, newScale: number): void {
+    // Clamp scale to min/max
+    const clampedScale = Math.max(this.minScale, Math.min(this.maxScale, newScale));
+    const oldScale = this.transform.scale;
+
+    // Update both transform and target immediately for responsive touch interaction
+    this.transform.scale = clampedScale;
+    this.targetTransform.scale = clampedScale;
+
+    this.transform.x = centerX - ((centerX - this.transform.x) * clampedScale) / oldScale;
+    this.targetTransform.x = this.transform.x;
+
+    this.transform.y = centerY - ((centerY - this.transform.y) * clampedScale) / oldScale;
+    this.targetTransform.y = this.transform.y;
+  }
+
   zoom(delta: number, centerX: number, centerY: number): void {
     const oldScale = this.targetTransform.scale;
     // 5x more sensitive: 0.005 instead of 0.001

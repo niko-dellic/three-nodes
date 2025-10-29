@@ -9,5 +9,6 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    host: true, // Allow access from local network (e.g., phone on same WiFi)
   },
 });

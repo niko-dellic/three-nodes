@@ -31,6 +31,7 @@ export abstract class BaseMaterialNode<TInputs extends string = string> extends 
     this.addOutput({ name: 'material', type: PortType.Material });
 
     // Add common input ports (available to all materials)
+    this.addInput({ name: 'color', type: PortType.Color });
     this.addInput({ name: 'opacity', type: PortType.Number, defaultValue: 1 });
     this.addInput({ name: 'transparent', type: PortType.Boolean, defaultValue: false });
     this.addInput({ name: 'side', type: PortType.Number, defaultValue: THREE.FrontSide });
@@ -63,6 +64,13 @@ export abstract class BaseMaterialNode<TInputs extends string = string> extends 
     this.addProperty({ name: 'depthWrite', type: 'boolean', value: true, label: 'Depth Write' });
     this.addProperty({ name: 'wireframe', type: 'boolean', value: false, label: 'Wireframe' });
     this.addProperty({ name: 'visible', type: 'boolean', value: true, label: 'Visible' });
+    // add vertex colors
+    this.addProperty({
+      name: 'vertexColors',
+      type: 'boolean',
+      value: false,
+      label: 'Vertex Colors',
+    });
   }
 
   /**

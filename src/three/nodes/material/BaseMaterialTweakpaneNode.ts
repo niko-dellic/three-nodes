@@ -27,6 +27,7 @@ export abstract class BaseMaterialTweakpaneNode<
     this.addOutput({ name: 'material', type: PortType.Material });
 
     // Add common input ports (available to all materials)
+    this.addInput({ name: 'color', type: PortType.Color });
     this.addInput({ name: 'opacity', type: PortType.Number, defaultValue: 1 });
     this.addInput({ name: 'transparent', type: PortType.Boolean, defaultValue: false });
     this.addInput({ name: 'side', type: PortType.Number, defaultValue: THREE.FrontSide });
