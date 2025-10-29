@@ -109,7 +109,7 @@ body.dragging {
   pointer-events: none;
 }
 
-/* Context Menu */
+/* Context Menu - Desktop (default) */
 .context-menu {
   position: fixed;
   background: #1e1e1e;
@@ -125,10 +125,66 @@ body.dragging {
   flex-direction: column;
 }
 
+/* Explicitly prevent bottom sheet styles on non-touch devices */
+body:not(#touch-device) .context-menu {
+  border-radius: 8px;
+  border: 1px solid #3a3a3a;
+  min-width: 300px;
+  max-width: 350px;
+  max-height: 600px;
+  width: auto;
+  height: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+body:not(#touch-device) .context-menu::before {
+  display: none;
+}
+
+body:not(#touch-device) .context-menu-search {
+  padding: 10px;
+}
+
+/* Mobile: Context menu as bottom sheet */
+#touch-device .context-menu {
+  left: 0 !important;
+  right: 0;
+  bottom: 0;
+  top: auto !important;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 70vh;
+  max-height: 85vh;
+  border-radius: 16px 16px 0 0;
+  border: 1px solid #3a3a3a;
+  border-bottom: none;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.6);
+}
+
+/* Mobile: Add visual drag handle to context menu */
+#touch-device .context-menu::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  z-index: 1;
+}
+
 .context-menu-search {
   padding: 10px;
   border-bottom: 1px solid #3a3a3a;
   background: #252525;
+}
+
+/* Mobile: Add padding to search for drag handle */
+#touch-device .context-menu-search {
+  padding-top: 20px;
 }
 
 .context-menu-search-input {
@@ -149,6 +205,18 @@ body.dragging {
   overflow-y: auto;
   max-height: 520px;
   flex: 1;
+}
+
+/* Ensure desktop keeps max-height */
+body:not(#touch-device) .context-menu-pane {
+  max-height: 520px;
+}
+
+/* Mobile: Adjust context menu pane for bottom sheet */
+#touch-device .context-menu-pane {
+  max-height: none;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Minimal Tweakpane theme adjustments for context menu */
@@ -259,11 +327,94 @@ body.dragging {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   max-width: 100vw;
   overflow-x: auto;
+  max-height: 75vh;
 }
 
+/* Toolbar collapsed state - Desktop and Mobile */
+.toolbar.collapsed {
+  width: auto;
+  padding: 8px;
+  flex-direction: row !important; /* Always horizontal when collapsed */
+  gap: 8px;
+}
+
+/* Hide all direct children except: collapse button group, view toggle, and properties button */
+.toolbar.collapsed > *:not(:first-child):not(#toggle-button-container):not(#properties-button) {
+  display: none !important;
+}
+
+/* Within the visible button group, only show the collapse button */
+.toolbar.collapsed .toolbar-button-group > *:not(.collapse-button) {
+  display: none !important;
+}
+
+.toolbar.collapsed .collapse-button {
+  margin: 0;
+  display: flex !important; /* Ensure collapse button is always visible */
+}
+
+/* Ensure toggle button container is visible when collapsed */
+.toolbar.collapsed #toggle-button-container {
+  display: flex !important;
+}
+
+/* Ensure properties button is visible when collapsed */
+.toolbar.collapsed #properties-button {
+  display: block !important;
+}
+
+/* Hide separators when collapsed */
+.toolbar.collapsed .toolbar-separator {
+  display: none !important;
+}
+
+/* Ensure the button group stays as flex when collapsed */
+.toolbar.collapsed .toolbar-button-group {
+  display: flex !important;
+  flex-direction: row;
+  gap: 8px;
+}
+
+/* Button groups - allow buttons to be grouped together */
+.toolbar-button-group {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Mobile/touch device toolbar layout */
 #touch-device .toolbar {
   flex-direction: column;
   align-items: flex-start;
+  max-width: 200px;
+}
+
+/* Mobile: When collapsed, use same row layout as desktop */
+#touch-device .toolbar.collapsed {
+  width: auto;
+  max-width: none;
+  flex-direction: row !important; /* Override to row when collapsed */
+  align-items: center;
+}
+
+#touch-device .toolbar-section {
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+}
+
+#touch-device .toolbar-separator {
+  width: 100%;
+  height: 1px;
+  margin: 4px 0;
+}
+
+/* Keep button groups horizontal on mobile */
+#touch-device .toolbar-button-group {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
 }
 
 .toolbar-button {
@@ -277,6 +428,7 @@ body.dragging {
   white-space: nowrap;
   touch-action: manipulation; /* Enable tap on touch devices, prevent double-tap zoom */
   -webkit-tap-highlight-color: rgba(255, 255, 255, 0.1); /* Visual feedback on touch */
+  border: 1px solid var(--border-color);
 }
 
 .toolbar-button:hover {
@@ -317,6 +469,28 @@ body.dragging {
 }
 
 .toolbar-button.fullscreen-button i {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar-button.collapse-button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--background-color);
+  border-color: var(--border-color);
+  font-size: 16px;
+}
+
+.toolbar-button.collapse-button:hover {
+  background: var(--tertiary-color);
+}
+
+.toolbar-button.collapse-button i {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -422,7 +596,7 @@ body.dragging {
   line-height: 1.5;
 }
 
-/* Properties Panel */
+/* Properties Panel - Desktop (default) */
 .properties-panel {
   position: fixed;
   top: 0;
@@ -436,10 +610,87 @@ body.dragging {
   flex-direction: column;
   transform: translateX(100%);
   transition: transform 0.3s ease;
+  border-radius: 0;
 }
 
 .properties-panel.visible {
   transform: translateX(0);
+}
+
+/* Explicitly prevent bottom sheet styles on non-touch devices */
+body:not(#touch-device) .properties-panel {
+  top: 0;
+  bottom: auto;
+  right: 0;
+  left: auto;
+  width: 300px;
+  height: 100vh;
+  border-left: 1px solid var(--border-color);
+  border-top: none;
+  border-radius: 0;
+  transform: translateX(100%);
+  box-shadow: none;
+}
+
+body:not(#touch-device) .properties-panel.visible {
+  transform: translateX(0);
+}
+
+body:not(#touch-device) .properties-panel::before {
+  display: none;
+}
+
+/* Mobile: Properties panel as bottom sheet */
+#touch-device .properties-panel {
+  top: auto !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  max-width: 100vw !important;
+  height: 60vh;
+  max-height: 80vh;
+  border-left: none !important;
+  border-right: none;
+  border-top: 1px solid var(--border-color);
+  border-radius: 16px 16px 0 0 !important;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
+  box-sizing: border-box;
+}
+
+#touch-device .properties-panel.visible {
+  transform: translateY(0);
+}
+
+/* Mobile: Add visual drag handle to properties panel */
+#touch-device .properties-panel::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  z-index: 1;
+}
+
+/* Mobile: Hide resize handle on touch devices */
+#touch-device .properties-resize-handle {
+  display: none;
+}
+
+/* Mobile: Add padding to tabs for drag handle */
+#touch-device .properties-tabs {
+  padding-top: 20px;
+}
+
+/* Ensure desktop tabs don't get extra padding */
+body:not(#touch-device) .properties-tabs {
+  padding: 8px;
 }
 
 .properties-resize-handle {
@@ -546,6 +797,7 @@ body.dragging {
   background: rgba(255, 255, 255, 0.03);
   border-radius: 3px;
   font-size: 12px;
+  overflow: auto;
 }
 
 .data-flow-port-name {
@@ -556,7 +808,7 @@ body.dragging {
 .data-flow-port-value {
   color: var(--secondary-color);
   font-family: 'Courier New', monospace;
-  overflow: hidden;
+  overflow: auto;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -997,4 +1249,8 @@ body.dragging {
   display: flex;
   gap: 8px;
   align-items: flex-start;
+}
+
+.data-flow-item:has(.inspector-expandable) {
+  flex-direction: column;
 }

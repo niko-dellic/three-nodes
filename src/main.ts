@@ -19,6 +19,12 @@ import {
   MeshMatcapMaterialNode,
 } from '@/three';
 import { GraphEditor, LiveViewport, ViewModeManager, PreviewManager } from '@/ui';
+import { isTouchDevice } from '@/utils/deviceDetection';
+
+// Detect touch device and add ID to body for styling
+if (isTouchDevice()) {
+  document.body.id = 'touch-device';
+}
 
 // Create the node registry
 const registry = createDefaultRegistry();

@@ -93,6 +93,8 @@ export class PreviewManager {
           this.previewMaterial = this.previewMaterials[index];
         }
       }
+
+      this.updatePreview();
     } catch (error) {
       console.warn('Failed to load preview settings from local storage:', error);
     }

@@ -35,6 +35,7 @@ export class GraphEditor {
   private toolbar: HTMLElement;
   private infoOverlay: HTMLElement;
   private fullscreenButton: HTMLButtonElement | null = null;
+  private collapseButton: HTMLButtonElement | null = null;
   private animationId: number | null = null;
 
   constructor(
@@ -126,6 +127,12 @@ export class GraphEditor {
       if (e.key === 't' || e.key === 'T') {
         e.preventDefault();
         this.propertiesPanel.toggle();
+      }
+
+      // Collapse toolbar (H key)
+      if (e.key === 'h' || e.key === 'H') {
+        e.preventDefault();
+        this.collapseButton?.click();
       }
 
       // Fullscreen (F key)
@@ -273,6 +280,49 @@ export class GraphEditor {
     const toolbar = document.createElement('div');
     toolbar.className = 'toolbar';
 
+    // Group 1: Utility controls (Collapse, Info, Fullscreen)
+    const utilityGroup = document.createElement('div');
+    utilityGroup.className = 'toolbar-button-group';
+
+    // Collapse/expand button
+    this.collapseButton = document.createElement('button');
+    this.collapseButton.className = 'toolbar-button collapse-button';
+    this.collapseButton.innerHTML = '<i class="ph ph-caret-left"></i>';
+    this.collapseButton.title = 'Collapse toolbar (H)';
+
+    // Load collapsed state from localStorage
+    const savedCollapsedState = localStorage.getItem('toolbar-collapsed');
+    let isCollapsed = savedCollapsedState === 'true';
+
+    // Function to update toolbar collapsed state
+    const setCollapsedState = (collapsed: boolean) => {
+      isCollapsed = collapsed;
+      if (isCollapsed) {
+        toolbar.classList.add('collapsed');
+        this.collapseButton!.innerHTML = '<i class="ph ph-caret-right"></i>';
+        this.collapseButton!.title = 'Expand toolbar (H)';
+      } else {
+        toolbar.classList.remove('collapsed');
+        this.collapseButton!.innerHTML = '<i class="ph ph-caret-left"></i>';
+        this.collapseButton!.title = 'Collapse toolbar (H)';
+      }
+      // Save state to localStorage
+      localStorage.setItem('toolbar-collapsed', String(isCollapsed));
+    };
+
+    this.collapseButton.addEventListener('click', () => {
+      setCollapsedState(!isCollapsed);
+    });
+    utilityGroup.appendChild(this.collapseButton);
+
+    // Apply saved state after toolbar is fully constructed
+    // Use setTimeout to ensure DOM is ready
+    setTimeout(() => {
+      if (savedCollapsedState === 'true') {
+        setCollapsedState(true);
+      }
+    }, 0);
+
     // Info button
     const infoButton = document.createElement('button');
     infoButton.className = 'toolbar-button info-button';
@@ -281,38 +331,73 @@ export class GraphEditor {
     infoButton.addEventListener('click', () => {
       this.infoOverlay.classList.toggle('visible');
     });
-    toolbar.appendChild(infoButton);
+    utilityGroup.appendChild(infoButton);
 
-    // Fullscreen button
-    this.fullscreenButton = document.createElement('button');
-    this.fullscreenButton.className = 'toolbar-button fullscreen-button';
-    this.fullscreenButton.innerHTML = '<i class="ph ph-arrows-out"></i>';
-    this.fullscreenButton.title = 'Toggle fullscreen (F)';
+    // Fullscreen button (only show if fullscreen is supported)
+    // iOS Safari doesn't support fullscreen API, so we detect and hide on unsupported devices
+    const supportsFullscreen =
+      document.fullscreenEnabled ||
+      (document as any).webkitFullscreenEnabled ||
+      (document as any).mozFullScreenEnabled ||
+      (document as any).msFullscreenEnabled;
 
-    const updateFullscreenIcon = () => {
-      if (document.fullscreenElement) {
-        this.fullscreenButton!.innerHTML = '<i class="ph ph-arrows-in"></i>';
-      } else {
-        this.fullscreenButton!.innerHTML = '<i class="ph ph-arrows-out"></i>';
-      }
-    };
+    if (supportsFullscreen) {
+      this.fullscreenButton = document.createElement('button');
+      this.fullscreenButton.className = 'toolbar-button fullscreen-button';
+      this.fullscreenButton.innerHTML = '<i class="ph ph-arrows-out"></i>';
+      this.fullscreenButton.title = 'Toggle fullscreen (F)';
 
-    this.fullscreenButton.addEventListener('click', async () => {
-      try {
-        if (!document.fullscreenElement) {
-          await document.documentElement.requestFullscreen();
+      const updateFullscreenIcon = () => {
+        if (document.fullscreenElement) {
+          this.fullscreenButton!.innerHTML = '<i class="ph ph-arrows-in"></i>';
         } else {
-          await document.exitFullscreen();
+          this.fullscreenButton!.innerHTML = '<i class="ph ph-arrows-out"></i>';
         }
-      } catch (err) {
-        console.error('Error toggling fullscreen:', err);
-      }
-    });
+      };
 
-    // Listen for fullscreen changes (e.g., pressing ESC to exit)
-    document.addEventListener('fullscreenchange', updateFullscreenIcon);
+      this.fullscreenButton.addEventListener('click', async () => {
+        try {
+          if (!document.fullscreenElement) {
+            // Try standard and prefixed versions
+            const docEl = document.documentElement as any;
+            if (docEl.requestFullscreen) {
+              await docEl.requestFullscreen();
+            } else if (docEl.webkitRequestFullscreen) {
+              await docEl.webkitRequestFullscreen();
+            } else if (docEl.mozRequestFullScreen) {
+              await docEl.mozRequestFullScreen();
+            } else if (docEl.msRequestFullscreen) {
+              await docEl.msRequestFullscreen();
+            }
+          } else {
+            // Try standard and prefixed exit methods
+            const doc = document as any;
+            if (doc.exitFullscreen) {
+              await doc.exitFullscreen();
+            } else if (doc.webkitExitFullscreen) {
+              await doc.webkitExitFullscreen();
+            } else if (doc.mozCancelFullScreen) {
+              await doc.mozCancelFullScreen();
+            } else if (doc.msExitFullscreen) {
+              await doc.msExitFullscreen();
+            }
+          }
+        } catch (err) {
+          console.warn('Fullscreen not supported or denied:', err);
+        }
+      });
 
-    toolbar.appendChild(this.fullscreenButton);
+      // Listen for fullscreen changes (e.g., pressing ESC to exit)
+      // Support multiple event names for different browsers
+      document.addEventListener('fullscreenchange', updateFullscreenIcon);
+      document.addEventListener('webkitfullscreenchange', updateFullscreenIcon);
+      document.addEventListener('mozfullscreenchange', updateFullscreenIcon);
+      document.addEventListener('MSFullscreenChange', updateFullscreenIcon);
+
+      utilityGroup.appendChild(this.fullscreenButton);
+    }
+
+    toolbar.appendChild(utilityGroup);
 
     // Separator
     const separator1 = document.createElement('div');
@@ -339,6 +424,10 @@ export class GraphEditor {
     separator3.className = 'toolbar-separator';
     toolbar.appendChild(separator3);
 
+    // Group 2: File operations (Save, Load)
+    const fileOpsGroup = document.createElement('div');
+    fileOpsGroup.className = 'toolbar-button-group';
+
     // Save button
     const saveButton = document.createElement('button');
     saveButton.className = 'toolbar-button';
@@ -347,7 +436,7 @@ export class GraphEditor {
     saveButton.addEventListener('click', () => {
       this.saveLoadManager.showSaveDialog();
     });
-    toolbar.appendChild(saveButton);
+    fileOpsGroup.appendChild(saveButton);
 
     // Load button
     const loadButton = document.createElement('button');
@@ -357,12 +446,18 @@ export class GraphEditor {
     loadButton.addEventListener('click', () => {
       this.saveLoadManager.showLoadModal();
     });
-    toolbar.appendChild(loadButton);
+    fileOpsGroup.appendChild(loadButton);
+
+    toolbar.appendChild(fileOpsGroup);
 
     // Separator
     const separator4 = document.createElement('div');
     separator4.className = 'toolbar-separator';
     toolbar.appendChild(separator4);
+
+    // Group 3: Editor controls (Add node)
+    const editorGroup = document.createElement('div');
+    editorGroup.className = 'toolbar-button-group';
 
     // Add node button with plus icon
     const addNodeButton = document.createElement('button');
@@ -377,9 +472,11 @@ export class GraphEditor {
       // Show context menu below the button
       this.contextMenu.show(rect.left, rect.bottom + 5);
     });
-    toolbar.appendChild(addNodeButton);
+    editorGroup.appendChild(addNodeButton);
 
-    // Properties button
+    toolbar.appendChild(editorGroup);
+
+    // Properties button (outside group so it stays visible when collapsed)
     const propertiesButton = document.createElement('button');
     propertiesButton.className = 'toolbar-button';
     propertiesButton.id = 'properties-button';
@@ -396,22 +493,34 @@ export class GraphEditor {
   private createInfoOverlay(): HTMLElement {
     const overlay = document.createElement('div');
     overlay.className = 'info';
-    overlay.innerHTML = `
-      <p><strong>Controls:</strong></p>
-      <p>Tab - Toggle between editor and 3D view</p>
-      <p>T - Toggle properties panel</p>
-      <p>F - Toggle fullscreen</p>
-      <p>Space/Right-click - Context menu</p>
-      <p>Ctrl/Cmd+S - Save graph</p>
-      <p>Ctrl/Cmd+C - Copy selected nodes</p>
-      <p>Ctrl/Cmd+X - Cut selected nodes</p>
-      <p>Ctrl/Cmd+V - Paste nodes</p>
-      <p>Ctrl/Cmd+Z - Undo</p>
-      <p>Ctrl/Cmd+Shift+Z / Ctrl/Cmd+Y - Redo</p>
-      <p>Ctrl/Cmd+A - Select all</p>
-      <p>V - Toggle node visibility (Preview All mode)</p>
-      <p>Delete - Remove selected nodes</p>
-    `;
+
+    // Build controls list, conditionally including fullscreen if supported
+    const controls = [
+      '<p><strong>Controls:</strong></p>',
+      '<p>Tab - Toggle between editor and 3D view</p>',
+      '<p>T - Toggle properties panel</p>',
+      '<p>H - Collapse/expand toolbar</p>',
+    ];
+
+    // Only show fullscreen shortcut if fullscreen button exists
+    if (this.fullscreenButton) {
+      controls.push('<p>F - Toggle fullscreen</p>');
+    }
+
+    controls.push(
+      '<p>Space/Right-click - Context menu</p>',
+      '<p>Ctrl/Cmd+S - Save graph</p>',
+      '<p>Ctrl/Cmd+C - Copy selected nodes</p>',
+      '<p>Ctrl/Cmd+X - Cut selected nodes</p>',
+      '<p>Ctrl/Cmd+V - Paste nodes</p>',
+      '<p>Ctrl/Cmd+Z - Undo</p>',
+      '<p>Ctrl/Cmd+Shift+Z / Ctrl/Cmd+Y - Redo</p>',
+      '<p>Ctrl/Cmd+A - Select all</p>',
+      '<p>V - Toggle node visibility (Preview All mode)</p>',
+      '<p>Delete - Remove selected nodes</p>'
+    );
+
+    overlay.innerHTML = controls.join('');
     this.appContainer.appendChild(overlay);
     return overlay;
   }
