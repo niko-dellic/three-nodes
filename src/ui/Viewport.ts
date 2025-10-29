@@ -138,14 +138,4 @@ export class Viewport {
     container.style.transform = `translate(${this.transform.x}px, ${this.transform.y}px) scale(${this.transform.scale})`;
     container.style.transformOrigin = '0 0';
   }
-
-  applyToSVG(svg: SVGSVGElement): void {
-    const g = svg.querySelector('g');
-    if (g) {
-      g.setAttribute(
-        'transform',
-        `translate(${this.transform.x}, ${this.transform.y}) scale(${this.transform.scale})`
-      );
-    }
-  }
 }

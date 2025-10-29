@@ -120,13 +120,6 @@ export class EdgeRendererHTML {
     const color = isArrayConnection ? '#f97316' : '#888';
     const strokeWidth = isArrayConnection ? 4 : 2;
 
-    // Debug logging
-    if (isArrayConnection) {
-      console.log(
-        `Edge ${edge.id}: Array connection detected! Color: ${color}, Width: ${strokeWidth}, Connections: ${edge.target.connections.length}`
-      );
-    }
-
     // Calculate bounding box for this edge
     const bbox = this.calculateBoundingBox(sourcePos.x, sourcePos.y, targetPos.x, targetPos.y);
 
@@ -163,7 +156,6 @@ export class EdgeRendererHTML {
       // Update existing path styling using inline styles (overrides CSS)
       edgeSVG.path.style.stroke = color;
       edgeSVG.path.style.strokeWidth = `${strokeWidth}px`;
-      console.log(`Updated edge ${edge.id}: stroke=${color}, width=${strokeWidth}`);
     }
 
     // Update SVG position and size using direct style manipulation
@@ -196,9 +188,6 @@ export class EdgeRendererHTML {
     // Determine color based on shift key state
     const dragColor = shiftPressed ? '#fb923c' : '#4a9eff'; // Light orange if shift, blue otherwise
 
-    // Debug logging
-    console.log(`Drag connection: shiftPressed=${shiftPressed}, color=${dragColor}`);
-
     if (!this.dragSVG) {
       // Create new SVG element for drag connection
       const svg = d3
@@ -228,7 +217,6 @@ export class EdgeRendererHTML {
     } else {
       // Update stroke color based on shift state using inline style
       this.dragSVG.path.style.stroke = dragColor;
-      console.log(`Updated drag path: stroke=${dragColor}`);
     }
 
     // Update SVG position and size using direct style manipulation
