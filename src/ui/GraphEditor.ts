@@ -3,7 +3,7 @@ import { Evaluator } from '@/core/Evaluator';
 import { Port } from '@/core/Port';
 import { Viewport } from './Viewport';
 import { NodeRenderer } from './NodeRenderer';
-import { EdgeRenderer } from './EdgeRenderer';
+import { EdgeRendererHTML } from './EdgeRendererHTML';
 import { InteractionManager } from './InteractionManager';
 import { SelectionManager } from './SelectionManager';
 import { ContextMenu } from './ContextMenu';
@@ -18,7 +18,7 @@ export class GraphEditor {
   private evaluator: Evaluator;
   private viewport: Viewport;
   private nodeRenderer: NodeRenderer;
-  private edgeRenderer: EdgeRenderer;
+  private edgeRenderer: EdgeRendererHTML;
   private interactionManager: InteractionManager;
   private selectionManager: SelectionManager;
   private contextMenu: ContextMenu;
@@ -28,8 +28,11 @@ export class GraphEditor {
   private saveLoadManager: SaveLoadManager;
   private registry: NodeRegistry;
 
-  private svg: SVGSVGElement;
-  private transformGroup: SVGGElement;
+  private graphContainer: HTMLElement; // Main graph canvas container
+  private backgroundLayer: HTMLElement;
+  private edgesLayer: HTMLElement;
+  private nodesLayer: HTMLElement;
+  private overlayLayer: HTMLElement;
   private container: HTMLElement;
   private appContainer: HTMLElement;
   private toolbar: HTMLElement;
@@ -54,22 +57,79 @@ export class GraphEditor {
     this.viewport = new Viewport();
     this.selectionManager = new SelectionManager(graph);
 
-    // Create SVG for entire graph (edges + nodes)
-    this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    this.svg.classList.add('graph-svg');
-    container.appendChild(this.svg);
+    // Create HTML container structure for graph
+    this.graphContainer = document.createElement('div');
+    this.graphContainer.classList.add('graph-canvas');
+    this.graphContainer.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    `;
+    container.appendChild(this.graphContainer);
 
-    // Create a transform group that will hold both edges and nodes
-    this.transformGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    this.transformGroup.classList.add('transform-group');
-    this.svg.appendChild(this.transformGroup);
+    // Create layered structure
+    // Background layer
+    this.backgroundLayer = document.createElement('div');
+    this.backgroundLayer.classList.add('background-layer');
+    this.backgroundLayer.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    `;
+    this.graphContainer.appendChild(this.backgroundLayer);
+
+    // Edges layer (for D3 SVG - will be transformed along with nodes)
+    this.edgesLayer = document.createElement('div');
+    this.edgesLayer.classList.add('edges-layer');
+    this.edgesLayer.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      transform-origin: 0 0;
+      will-change: transform;
+    `;
+    this.graphContainer.appendChild(this.edgesLayer);
+
+    // Nodes layer (this will be transformed for zoom/pan)
+    this.nodesLayer = document.createElement('div');
+    this.nodesLayer.classList.add('nodes-layer');
+    this.nodesLayer.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform-origin: 0 0;
+      will-change: transform;
+    `;
+    this.graphContainer.appendChild(this.nodesLayer);
+
+    // Overlay layer (for marquee selection, etc.)
+    this.overlayLayer = document.createElement('div');
+    this.overlayLayer.classList.add('overlay-layer');
+    this.overlayLayer.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    `;
+    this.graphContainer.appendChild(this.overlayLayer);
 
     // Initialize history manager first (needed by NodeRenderer)
     this.historyManager = new HistoryManager(graph, registry, this.selectionManager);
 
-    // Initialize renderers - they add their groups to the transform group
-    this.edgeRenderer = new EdgeRenderer(this.transformGroup);
-    this.nodeRenderer = new NodeRenderer(this.transformGroup, graph, this.historyManager);
+    // Initialize renderers with HTML layers
+    this.edgeRenderer = new EdgeRendererHTML(this.edgesLayer);
+    this.nodeRenderer = new NodeRenderer(this.nodesLayer, graph, this.historyManager);
 
     // Initialize context menu
     this.contextMenu = new ContextMenu(container, registry);
@@ -96,12 +156,13 @@ export class GraphEditor {
       this.propertiesPanel.setSelectedNodes(selectedNodes);
     });
 
-    // Initialize interaction
+    // Initialize interaction (pass graphContainer and overlayLayer)
     this.interactionManager = new InteractionManager(
       this.graph,
       this.viewport,
       this.nodeRenderer,
-      this.svg,
+      this.graphContainer,
+      this.overlayLayer,
       this.selectionManager,
       this.contextMenu,
       this.clipboardManager,
@@ -207,8 +268,9 @@ export class GraphEditor {
     // Update viewport damping
     this.viewport.update();
 
-    // Apply viewport transform to SVG
-    this.viewport.applyToSVG(this.svg);
+    // Apply viewport transform to both nodes and edges layers
+    this.viewport.applyToHTML(this.nodesLayer);
+    this.viewport.applyToHTML(this.edgesLayer);
 
     // Get drag connection if any
     const dragState = this.interactionManager.getDragState();
@@ -226,6 +288,7 @@ export class GraphEditor {
             startY: pos.y,
             endX: worldMouse.x,
             endY: worldMouse.y,
+            shiftPressed: dragState.shiftPressed,
           };
         }
       }
@@ -271,9 +334,9 @@ export class GraphEditor {
   private handleResize(): void {
     const rect = this.container.getBoundingClientRect();
 
-    // Update SVG dimensions
-    this.svg.setAttribute('width', rect.width.toString());
-    this.svg.setAttribute('height', rect.height.toString());
+    // Update graph container dimensions
+    this.graphContainer.style.width = `${rect.width}px`;
+    this.graphContainer.style.height = `${rect.height}px`;
   }
 
   private createToolbar(): HTMLElement {

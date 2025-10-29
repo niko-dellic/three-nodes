@@ -6,11 +6,22 @@ export class EdgeRenderer {
   private edgeElements: Map<string, SVGPathElement> = new Map();
   private dragConnectionElement: SVGPathElement | null = null;
 
-  constructor(parentGroup: SVGGElement) {
+  constructor(parentLayer: HTMLElement) {
     // Create a group for edges (rendered behind nodes)
+    // For now, create SVG inside the HTML container (will be replaced with LeaderLine)
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    `;
     this.edgesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     this.edgesGroup.classList.add('edges');
-    parentGroup.appendChild(this.edgesGroup);
+    svg.appendChild(this.edgesGroup);
+    parentLayer.appendChild(svg);
   }
 
   render(

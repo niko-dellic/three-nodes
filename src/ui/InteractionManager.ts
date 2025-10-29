@@ -36,16 +36,16 @@ export class InteractionManager {
   private graph: Graph;
   private viewport: Viewport;
   private nodeRenderer: NodeRenderer;
-  private svg: SVGSVGElement;
+  private graphContainer: HTMLElement;
+  private overlayLayer: HTMLElement;
   private selectionManager: SelectionManager;
   private contextMenu: ContextMenu;
   private clipboardManager: ClipboardManager;
   private historyManager: HistoryManager;
-  private transformGroup: SVGGElement | null = null;
 
   private dragState: DragState = { type: 'none' };
   private currentMousePos: { x: number; y: number } | null = null;
-  private marqueeElement: SVGRectElement | null = null;
+  private marqueeElement: HTMLElement | null = null;
   private rightClickStartPos: { x: number; y: number } | null = null;
   private readonly CLICK_THRESHOLD = 5; // pixels
   private shiftPressed: boolean = false;
@@ -71,7 +71,8 @@ export class InteractionManager {
     graph: Graph,
     viewport: Viewport,
     nodeRenderer: NodeRenderer,
-    svg: SVGSVGElement,
+    graphContainer: HTMLElement,
+    overlayLayer: HTMLElement,
     selectionManager: SelectionManager,
     contextMenu: ContextMenu,
     clipboardManager: ClipboardManager,
@@ -80,7 +81,8 @@ export class InteractionManager {
     this.graph = graph;
     this.viewport = viewport;
     this.nodeRenderer = nodeRenderer;
-    this.svg = svg;
+    this.graphContainer = graphContainer;
+    this.overlayLayer = overlayLayer;
     this.selectionManager = selectionManager;
     this.contextMenu = contextMenu;
     this.clipboardManager = clipboardManager;
@@ -88,9 +90,6 @@ export class InteractionManager {
 
     // Detect device type
     this.isTouchDevice = isTouchDevice();
-
-    // Find the transform group that contains the nodes
-    this.transformGroup = svg.querySelector('.transform-group');
 
     // Bind handlers that will be attached/detached during drag operations
     this.boundOnPointerMove = this.onPointerMove.bind(this);
@@ -101,50 +100,61 @@ export class InteractionManager {
   }
 
   private setupEventListeners(): void {
-    // Mouse events on SVG (for nodes/ports)
-    this.svg.addEventListener('pointerdown', this.onPointerDown.bind(this));
+    // Mouse events on graph container (for nodes/ports)
+    this.graphContainer.addEventListener('pointerdown', this.onPointerDown.bind(this));
 
     // Note: pointermove and pointerup are attached to document during drag
     // to ensure they aren't interrupted by hovering over UI elements
 
     // Double-click to open context menu
-    this.svg.addEventListener('dblclick', this.onDoubleClick.bind(this));
+    this.graphContainer.addEventListener('dblclick', this.onDoubleClick.bind(this));
 
     // Wheel event for zoom
-    this.svg.addEventListener('wheel', this.onWheel.bind(this), { passive: false });
+    this.graphContainer.addEventListener('wheel', this.onWheel.bind(this), { passive: false });
 
     // Touch events for mobile support
-    this.svg.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: false });
-    this.svg.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: false });
-    this.svg.addEventListener('touchend', this.onTouchEnd.bind(this), { passive: false });
-    this.svg.addEventListener('touchcancel', this.onTouchEnd.bind(this), { passive: false });
+    this.graphContainer.addEventListener('touchstart', this.onTouchStart.bind(this), {
+      passive: false,
+    });
+    this.graphContainer.addEventListener('touchmove', this.onTouchMove.bind(this), {
+      passive: false,
+    });
+    this.graphContainer.addEventListener('touchend', this.onTouchEnd.bind(this), {
+      passive: false,
+    });
+    this.graphContainer.addEventListener('touchcancel', this.onTouchEnd.bind(this), {
+      passive: false,
+    });
 
     // Keyboard events
     document.addEventListener('keydown', this.onKeyDown.bind(this));
     document.addEventListener('keyup', this.onKeyUp.bind(this));
 
     // Prevent default context menu - we'll show it on pointer up if not dragging
-    this.svg.addEventListener('contextmenu', (e) => {
+    this.graphContainer.addEventListener('contextmenu', (e) => {
       e.preventDefault();
     });
   }
 
   private createMarqueeElement(): void {
-    this.marqueeElement = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    // Create marquee as HTML div in overlay layer
+    this.marqueeElement = document.createElement('div');
     this.marqueeElement.classList.add('marquee-selection');
-    this.marqueeElement.style.display = 'none';
+    this.marqueeElement.style.cssText = `
+      position: absolute;
+      border: 1px solid #3b82f6;
+      background: rgba(59, 130, 246, 0.1);
+      pointer-events: none;
+      display: none;
+    `;
 
-    // Add marquee to transform group so it transforms with the viewport
-    if (this.transformGroup) {
-      this.transformGroup.appendChild(this.marqueeElement);
-    } else {
-      this.svg.appendChild(this.marqueeElement);
-    }
+    // Add marquee to overlay layer (not transformed, stays in screen space)
+    this.overlayLayer.appendChild(this.marqueeElement);
   }
 
   private attachDocumentDragListeners(pointerId: number): void {
-    // Capture the pointer to ensure all events come to the SVG even over other UI elements
-    this.svg.setPointerCapture(pointerId);
+    // Capture the pointer to ensure all events come to the graph container even over other UI elements
+    this.graphContainer.setPointerCapture(pointerId);
     this.capturedPointerId = pointerId;
 
     // Add dragging class to body to prevent text selection
@@ -161,7 +171,7 @@ export class InteractionManager {
     // Release pointer capture
     if (this.capturedPointerId !== null) {
       try {
-        this.svg.releasePointerCapture(this.capturedPointerId);
+        this.graphContainer.releasePointerCapture(this.capturedPointerId);
       } catch (e) {
         // Ignore errors if pointer capture was already released
       }
@@ -351,7 +361,8 @@ export class InteractionManager {
       this.updateMarqueeSelection();
     } else if (this.dragState.type === 'connection') {
       // Connection drag is visualized by GraphEditor via getDragState()
-      // Just update currentMousePos which is used for drag visualization
+      // Update shift state in real-time for visual feedback
+      this.dragState.shiftPressed = e.shiftKey;
     }
   }
 
@@ -375,7 +386,8 @@ export class InteractionManager {
 
                 // Make sure we're connecting output to input
                 if (!sourcePort.isInput && inputPort.isInput) {
-                  this.graph.connect(sourcePort, inputPort, this.dragState.shiftPressed);
+                  // Use current shift state from event, not cached state from drag start
+                  this.graph.connect(sourcePort, inputPort, e.shiftKey);
                 }
               } catch (err) {
                 console.error('Failed to create connection:', err);
@@ -826,10 +838,11 @@ export class InteractionManager {
     const width = Math.abs(currentX - startX);
     const height = Math.abs(currentY - startY);
 
-    this.marqueeElement.setAttribute('x', x.toString());
-    this.marqueeElement.setAttribute('y', y.toString());
-    this.marqueeElement.setAttribute('width', width.toString());
-    this.marqueeElement.setAttribute('height', height.toString());
+    // Update marquee position and size using CSS (marquee is in screen space, not world space)
+    this.marqueeElement.style.left = `${x}px`;
+    this.marqueeElement.style.top = `${y}px`;
+    this.marqueeElement.style.width = `${width}px`;
+    this.marqueeElement.style.height = `${height}px`;
     this.marqueeElement.style.display = 'block';
   }
 

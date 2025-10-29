@@ -132,6 +132,13 @@ export class Viewport {
     );
   }
 
+  applyToHTML(container: HTMLElement): void {
+    // Apply CSS transform for pan and zoom (Figma-style)
+    // Use transform-origin at top-left (0, 0) so scaling happens from that point
+    container.style.transform = `translate(${this.transform.x}px, ${this.transform.y}px) scale(${this.transform.scale})`;
+    container.style.transformOrigin = '0 0';
+  }
+
   applyToSVG(svg: SVGSVGElement): void {
     const g = svg.querySelector('g');
     if (g) {

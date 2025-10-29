@@ -256,57 +256,78 @@ body:not(#touch-device) .context-menu-pane {
   box-shadow: inset 0 0 0 2px var(--primary-color);
 }
 
-/* Node styles */
+/* Node styles - HTML based */
 .node {
   cursor: move;
+  background: var(--background-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  overflow: visible;
+  pointer-events: auto;
 }
 
-.node-bg {
-  fill: var(--background-color);
-  stroke: var(--border-color);
-  stroke-width: 1;
+.node:hover {
+  border-color: #666;
 }
 
-.node:hover .node-bg {
-  stroke: #666;
-}
-
-.node.selected .node-bg {
-  stroke: #3b82f6;
-  stroke-width: 3;
+.node.selected {
+  border-color: #3b82f6;
+  box-shadow:
+    0 0 0 2px rgba(59, 130, 246, 0.2),
+    0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .node-header {
-  fill: var(--background-color);
+  height: 30px;
+  border-radius: 4px 4px 0 0;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  background: var(--background-color);
 }
 
 .node-title {
-  fill: white;
+  color: white;
   font-size: 14px;
   font-weight: 500;
   pointer-events: none;
   user-select: none;
 }
 
+.node-body {
+  position: relative;
+  padding: 10px 0;
+}
+
 .port {
   cursor: crosshair;
-  stroke: rgba(255, 255, 255, 0.3);
-  stroke-width: 2;
   transition: all 0.15s ease;
+  pointer-events: auto;
 }
 
 .port:hover {
-  r: 7;
-  stroke: rgba(255, 255, 255, 0.8);
-  stroke-width: 3;
+  transform: scale(1.2);
+  border-color: rgba(255, 255, 255, 0.8);
+  border-width: 3px;
   filter: brightness(1.3);
 }
 
+.port-container {
+  pointer-events: auto;
+}
+
 .port-label {
-  fill: #ccc;
+  color: #ccc;
   font-size: 11px;
   pointer-events: none;
   user-select: none;
+  white-space: nowrap;
+}
+
+/* Node control container for tweakpane */
+.node-control {
+  pointer-events: auto;
 }
 
 /* Toolbar - unified controls at top left */

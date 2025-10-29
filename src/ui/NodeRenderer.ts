@@ -23,33 +23,18 @@ const PORT_COLORS: Record<PortType, string> = {
   [PortType.Any]: '#6b7280',
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
-  Data: '#3b82f6',
-  Geometry: '#84cc16',
-  Material: '#f97316',
-  Scene: '#14b8a6',
-  Camera: '#a855f7',
-  Lights: '#fbbf24',
-  Output: '#ef4444',
-};
-
 export class NodeRenderer {
-  private svg: SVGSVGElement;
-  private container: SVGGElement;
-  private nodeElements: Map<string, SVGGElement> = new Map();
+  private container: HTMLElement;
+  private nodeElements: Map<string, HTMLElement> = new Map();
   private graph: Graph;
   private historyManager: HistoryManager;
   private previewManager: any = null; // Will be set later to avoid circular dependency
   private previewMode: string = 'none';
 
-  constructor(parentGroup: SVGGElement, graph: Graph, historyManager: HistoryManager) {
-    // Store reference to parent for querySelector operations
-    this.svg = parentGroup.ownerSVGElement!;
+  constructor(parentLayer: HTMLElement, graph: Graph, historyManager: HistoryManager) {
+    this.container = parentLayer;
     this.graph = graph;
     this.historyManager = historyManager;
-    this.container = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    this.container.classList.add('nodes');
-    parentGroup.appendChild(this.container);
   }
 
   setPreviewManager(previewManager: any): void {
@@ -87,44 +72,42 @@ export class NodeRenderer {
     }
   }
 
-  private createNodeElement(node: Node): SVGGElement {
-    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    g.setAttribute('data-node-id', node.id);
-    g.classList.add('node');
-
-    // Background
-    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    rect.setAttribute('width', '200');
-    rect.setAttribute('rx', '4');
-    rect.classList.add('node-bg');
-    g.appendChild(rect);
+  private createNodeElement(node: Node): HTMLElement {
+    // Create main node container
+    const nodeDiv = document.createElement('div');
+    nodeDiv.dataset.nodeId = node.id;
+    nodeDiv.classList.add('node');
+    nodeDiv.style.position = 'absolute';
+    nodeDiv.style.width = '200px';
 
     // Header
-    const header = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    header.setAttribute('width', '200');
-    header.setAttribute('height', '30');
-    header.setAttribute('rx', '4');
+    const header = document.createElement('div');
     header.classList.add('node-header');
-    g.appendChild(header);
 
     // Title
-    const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    title.setAttribute('x', '10');
-    title.setAttribute('y', '20');
+    const title = document.createElement('div');
     title.classList.add('node-title');
     title.textContent = node.label;
-    g.appendChild(title);
+    header.appendChild(title);
 
-    return g;
+    nodeDiv.appendChild(header);
+
+    // Body container for controls and ports
+    const body = document.createElement('div');
+    body.classList.add('node-body');
+    nodeDiv.appendChild(body);
+
+    return nodeDiv;
   }
 
   private updateNodeElement(
-    element: SVGGElement,
+    element: HTMLElement,
     node: Node,
     isSelected: boolean = false,
     hoveringPortId?: string
   ): void {
-    element.setAttribute('transform', `translate(${node.position.x}, ${node.position.y})`);
+    // Position using CSS transform
+    element.style.transform = `translate(${node.position.x}px, ${node.position.y}px)`;
 
     // Update selection visual
     if (isSelected) {
@@ -145,25 +128,25 @@ export class NodeRenderer {
     const width = node.customWidth ?? calculatedWidth;
     const height = node.customHeight ?? calculatedHeight;
 
-    const bg = element.querySelector('.node-bg') as SVGRectElement;
-    bg.setAttribute('width', width.toString());
-    bg.setAttribute('height', height.toString());
-
-    // Set header color and width based on category
-    const header = element.querySelector('.node-header') as SVGRectElement;
-    header.setAttribute('width', width.toString());
-    const category = node.type
-      .replace('Node', '')
-      .replace(/([A-Z])/g, ' $1')
-      .trim()
-      .split(' ')[0];
-    header.setAttribute('fill', CATEGORY_COLORS[category] || '#6b7280');
+    // Update width and height
+    element.style.width = `${width}px`;
+    element.style.height = `${height}px`;
 
     // Add interactive controls if needed
     this.updateInteractiveControls(element, node, width);
 
-    // Update ports (with offset for controls)
-    this.updatePorts(element, node, 40 + controlHeight, width, hoveringPortId);
+    // Check if ports need to be recreated (only if structure changed)
+    const portSignature = `${node.inputs.size}-${node.outputs.size}-${width}-${controlHeight}`;
+    const currentSignature = element.dataset.portSignature;
+
+    if (currentSignature !== portSignature) {
+      // Ports structure changed, recreate them
+      this.updatePorts(element, node, 40 + controlHeight, width, hoveringPortId);
+      element.dataset.portSignature = portSignature;
+    } else {
+      // Just update hover state without recreating DOM
+      this.updatePortHoverState(element, hoveringPortId);
+    }
 
     // Add or update resize handle
     this.updateResizeHandle(element, node, width, height);
@@ -172,17 +155,17 @@ export class NodeRenderer {
     this.updateVisibilityIcon(element, node, width);
   }
 
-  private updateInteractiveControls(element: SVGGElement, node: Node, width: number): void {
+  private updateInteractiveControls(element: HTMLElement, node: Node, width: number): void {
     if (node instanceof TweakpaneNode) {
       // Check if control already exists
-      let controlElement = element.querySelector('.node-control');
+      let controlElement = element.querySelector('.node-control') as HTMLElement;
 
       if (!controlElement) {
         // Create new control only if it doesn't exist
         this.createTweakpaneControl(element, node, width);
       } else {
         // Update width of existing control
-        controlElement.setAttribute('width', (width - 20).toString());
+        controlElement.style.width = `${width - 20}px`;
 
         // Just refresh the existing Tweakpane if it's initialized
         if (node.isTweakpaneInitialized()) {
@@ -198,50 +181,52 @@ export class NodeRenderer {
     }
   }
 
-  private createTweakpaneControl(element: SVGGElement, node: TweakpaneNode, width: number): void {
+  private createTweakpaneControl(element: HTMLElement, node: TweakpaneNode, width: number): void {
     const controlHeight = node.getControlHeight();
 
-    const foreignObject = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
-    foreignObject.setAttribute('x', '10');
-    foreignObject.setAttribute('y', '35');
-    foreignObject.setAttribute('width', (width - 20).toString()); // width - padding
-    foreignObject.setAttribute('height', controlHeight.toString());
-    foreignObject.classList.add('node-control');
+    // Create a simple div for the control (no more foreignObject!)
+    const controlDiv = document.createElement('div');
+    controlDiv.classList.add('node-control');
+    controlDiv.style.cssText = `
+      width: ${width - 20}px;
+      height: ${controlHeight}px;
+      padding: 5px 10px;
+    `;
 
     // Track interaction for history recording
-    foreignObject.addEventListener('pointerdown', (e) => {
+    controlDiv.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       // Begin interaction - suppress history recording until pointerup
       this.historyManager.beginInteraction();
     });
 
-    foreignObject.addEventListener('pointermove', (e) => e.stopPropagation());
+    controlDiv.addEventListener('pointermove', (e) => e.stopPropagation());
 
-    foreignObject.addEventListener('pointerup', (e) => {
+    controlDiv.addEventListener('pointerup', (e) => {
       e.stopPropagation();
       // End interaction - record history if changes occurred
       this.historyManager.endInteraction();
     });
 
     // Also handle case where pointer leaves while dragging
-    foreignObject.addEventListener('pointerleave', (e) => {
+    controlDiv.addEventListener('pointerleave', (e) => {
       // Only end interaction if button is not pressed (not mid-drag)
       if (e.buttons === 0) {
         this.historyManager.endInteraction();
       }
     });
 
-    foreignObject.addEventListener('click', (e) => e.stopPropagation());
+    controlDiv.addEventListener('click', (e) => e.stopPropagation());
 
-    const div = document.createElement('div');
-    div.style.cssText = 'width: 100%; height: 100%;';
-
-    foreignObject.appendChild(div);
-    element.appendChild(foreignObject);
+    // Add to node body
+    const body = element.querySelector('.node-body');
+    if (body) {
+      body.appendChild(controlDiv);
+    }
 
     // Initialize Tweakpane with the container (only if not already initialized)
     if (!node.isTweakpaneInitialized()) {
-      node.initializeTweakpane(div);
+      node.initializeTweakpane(controlDiv);
 
       // Set up the callback for graph updates (only once)
       this.setupTweakpaneCallback(node);
@@ -265,17 +250,35 @@ export class NodeRenderer {
     };
   }
 
+  private updatePortHoverState(element: HTMLElement, hoveringPortId?: string): void {
+    // Update all ports - apply hover state to the hovered port, reset others
+    element.querySelectorAll('.port').forEach((port) => {
+      const portEl = port as HTMLElement;
+      if (hoveringPortId && portEl.dataset.portId === hoveringPortId) {
+        // Apply hover state
+        portEl.style.transform = 'scale(1.2)';
+        portEl.style.borderColor = '#ffffff';
+        portEl.style.borderWidth = '3px';
+        portEl.style.filter = 'brightness(1.5)';
+      } else {
+        // Reset to default state
+        portEl.style.transform = '';
+        portEl.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+        portEl.style.borderWidth = '2px';
+        portEl.style.filter = '';
+      }
+    });
+  }
+
   private updatePorts(
-    element: SVGGElement,
+    element: HTMLElement,
     node: Node,
     yOffset: number = 40,
     width: number = 200,
     hoveringPortId?: string
   ): void {
     // Remove old ports and file picker buttons
-    element.querySelectorAll('.port').forEach((p) => p.remove());
-    element.querySelectorAll('.port-label').forEach((p) => p.remove());
-    element.querySelectorAll('.file-picker-button-container').forEach((p) => p.remove());
+    element.querySelectorAll('.port-container').forEach((p) => p.remove());
 
     let inputYOffset = yOffset;
 
@@ -295,83 +298,93 @@ export class NodeRenderer {
   }
 
   private createPortElement(
-    parent: SVGGElement,
+    parent: HTMLElement,
     port: Port,
-    x: number,
+    _x: number,
     y: number,
     side: 'input' | 'output',
-    width: number = 200,
+    _width: number = 200,
     hoveringPortId?: string
   ): void {
     // Determine if this specific port is being hovered over
     const isHovering = hoveringPortId === port.id;
 
-    // Port circle
-    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    circle.setAttribute('cx', x.toString());
-    circle.setAttribute('cy', y.toString());
-    circle.setAttribute('r', '6');
+    // Create port container
+    const portContainer = document.createElement('div');
+    portContainer.classList.add('port-container');
+    portContainer.style.cssText = `
+      position: absolute;
+      top: ${y - 6}px;
+      ${side === 'input' ? 'left: -6px;' : `right: -6px;`}
+      display: flex;
+      align-items: center;
+      ${side === 'input' ? 'flex-direction: row;' : 'flex-direction: row-reverse;'}
+      gap: 5px;
+    `;
+
+    // Port circle (div with border-radius)
+    const portCircle = document.createElement('div');
+    portCircle.classList.add('port');
+    portCircle.dataset.portId = port.id;
+    portCircle.dataset.portName = port.name;
 
     // Get base color
     const baseColor = PORT_COLORS[port.type] || '#6b7280';
 
+    portCircle.style.cssText = `
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: ${baseColor};
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      cursor: crosshair;
+      transition: all 0.15s ease;
+      position: relative;
+      z-index: 10;
+    `;
+
     // Apply visual feedback for hovered port
     if (isHovering) {
-      // Brighten the color and add outline for hovered port
-      circle.setAttribute('fill', this.brightenColor(baseColor, 1.5));
-      circle.setAttribute('stroke', '#ffffff');
-      circle.setAttribute('stroke-width', '2');
-      circle.setAttribute('filter', 'brightness(1.5)');
-    } else {
-      circle.setAttribute('fill', baseColor);
+      portCircle.style.transform = 'scale(1.2)';
+      portCircle.style.borderColor = '#ffffff';
+      portCircle.style.borderWidth = '3px';
+      portCircle.style.filter = 'brightness(1.5)';
     }
 
-    circle.setAttribute('data-port-id', port.id);
-    circle.setAttribute('data-port-name', port.name);
-    circle.classList.add('port');
-    parent.appendChild(circle);
+    portContainer.appendChild(portCircle);
 
     // Port label
-    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    label.setAttribute('y', (y + 4).toString());
+    const label = document.createElement('div');
     label.classList.add('port-label');
     label.textContent = port.name;
+    label.style.cssText = `
+      color: #ccc;
+      font-size: 11px;
+      user-select: none;
+      pointer-events: none;
+      white-space: nowrap;
+    `;
 
-    if (side === 'input') {
-      label.setAttribute('x', '15');
-      label.setAttribute('text-anchor', 'start');
-    } else {
-      label.setAttribute('x', (width - 15).toString());
-      label.setAttribute('text-anchor', 'end');
-    }
-
-    parent.appendChild(label);
+    portContainer.appendChild(label);
 
     // Add file picker button for texture input ports that have no connections
     if (side === 'input' && port.type === PortType.Texture && port.connections.length === 0) {
-      this.addFilePickerButton(parent, port, y, width);
+      this.addFilePickerButton(portContainer, port);
     }
+
+    parent.appendChild(portContainer);
   }
 
-  private addFilePickerButton(parent: SVGGElement, port: Port, y: number, width: number): void {
+  private addFilePickerButton(parent: HTMLElement, port: Port): void {
     const node = port.node;
     const hasTexture =
       typeof (node as any).hasLoadedTexture === 'function'
         ? (node as any).hasLoadedTexture(port.name)
         : false;
 
-    // Create a foreignObject to embed HTML buttons
-    const foreignObject = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
-    foreignObject.setAttribute('x', (width - (hasTexture ? 58 : 40)).toString());
-    foreignObject.setAttribute('y', (y - 8).toString());
-    foreignObject.setAttribute('width', hasTexture ? '44' : '20');
-    foreignObject.setAttribute('height', '16');
-    foreignObject.setAttribute('data-file-picker-button', 'true');
-    foreignObject.classList.add('file-picker-button-container'); // Add class for cleanup
-    foreignObject.style.pointerEvents = 'auto';
-
-    // Create container for buttons
+    // Create container for buttons (simple HTML, no foreignObject!)
     const container = document.createElement('div');
+    container.classList.add('file-picker-button-container');
     container.style.cssText = `
       display: flex;
       gap: 2px;
@@ -382,12 +395,10 @@ export class NodeRenderer {
     const loadButton = document.createElement('div');
     const folderIcon = document.createElement('i');
     folderIcon.className = 'ph ph-folder';
-    folderIcon.setAttribute('data-file-picker-button', 'true');
     folderIcon.style.pointerEvents = 'none';
     loadButton.appendChild(folderIcon);
     loadButton.className = 'port-file-picker-button';
     loadButton.title = `Load ${port.name} texture`;
-    loadButton.setAttribute('data-file-picker-button', 'true');
     loadButton.style.cssText = `
       width: 18px;
       height: 16px;
@@ -439,12 +450,10 @@ export class NodeRenderer {
       const clearButton = document.createElement('div');
       const clearIcon = document.createElement('i');
       clearIcon.className = 'ph ph-x';
-      clearIcon.setAttribute('data-file-picker-button', 'true');
       clearIcon.style.pointerEvents = 'none';
       clearButton.appendChild(clearIcon);
       clearButton.className = 'port-file-picker-button';
       clearButton.title = `Clear ${port.name} texture`;
-      clearButton.setAttribute('data-file-picker-button', 'true');
       clearButton.style.cssText = `
         width: 18px;
         height: 16px;
@@ -482,8 +491,7 @@ export class NodeRenderer {
       container.appendChild(clearButton);
     }
 
-    foreignObject.appendChild(container);
-    parent.appendChild(foreignObject);
+    parent.appendChild(container);
   }
 
   private handleFilePickerClick(port: Port): void {
@@ -512,21 +520,6 @@ export class NodeRenderer {
     }
   }
 
-  private brightenColor(hex: string, factor: number): string {
-    // Convert hex to RGB
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-
-    // Brighten
-    const newR = Math.min(255, Math.floor(r * factor));
-    const newG = Math.min(255, Math.floor(g * factor));
-    const newB = Math.min(255, Math.floor(b * factor));
-
-    // Convert back to hex
-    return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
-  }
-
   private markDownstreamDirty(node: Node): void {
     // Get all output ports
     for (const outputPort of node.outputs.values()) {
@@ -542,29 +535,55 @@ export class NodeRenderer {
   }
 
   getPortWorldPosition(portId: string): { x: number; y: number } | null {
-    const portElement = this.svg.querySelector(`[data-port-id="${portId}"]`);
+    const portElement = this.container.querySelector(`[data-port-id="${portId}"]`) as HTMLElement;
     if (!portElement) return null;
 
-    const circle = portElement as SVGCircleElement;
-    const cx = parseFloat(circle.getAttribute('cx') || '0');
-    const cy = parseFloat(circle.getAttribute('cy') || '0');
+    // Get node element and extract its world position
+    const nodeElement = portElement.closest('.node') as HTMLElement | null;
+    if (!nodeElement) return null;
 
-    const nodeElement = portElement.closest('.node') as SVGGElement;
-    const transform = nodeElement.getAttribute('transform') || '';
-    const match = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+    const transform = nodeElement.style.transform;
+    const match = transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
 
-    if (match) {
-      const nodeX = parseFloat(match[1]);
-      const nodeY = parseFloat(match[2]);
-      return { x: nodeX + cx, y: nodeY + cy };
+    if (!match) return null;
+
+    const nodeX = parseFloat(match[1]);
+    const nodeY = parseFloat(match[2]);
+
+    // Get port container to read its position from CSS
+    const portContainer = portElement.parentElement as HTMLElement | null;
+    if (!portContainer) return null;
+
+    // Parse the port container's CSS position (set in createPortElement)
+    // Port container has style: top: Ypx and left/right: -6px
+    const topMatch = portContainer.style.top.match(/([-\d.]+)px/);
+    if (!topMatch) return null;
+
+    const portY = parseFloat(topMatch[1]);
+
+    // Determine if it's an input (left side) or output (right side) port
+    // Inputs are at left: -6px, outputs are at right: -6px
+    const isInput = portContainer.style.left !== '';
+
+    let portX: number;
+    if (isInput) {
+      // Input port is on the left edge (x = 0, but port circle center is at x = 6)
+      portX = 6; // Half of port circle width (12px)
+    } else {
+      // Output port is on the right edge
+      const nodeWidth = parseFloat(nodeElement.style.width || '200');
+      portX = nodeWidth - 6; // Right edge minus half port width
     }
 
-    return { x: cx, y: cy };
+    return {
+      x: nodeX + portX,
+      y: nodeY + portY + 6, // +6 to get center of 12px port circle
+    };
   }
 
   // Get port element for a given port ID
-  getPortElement(portId: string): SVGCircleElement | null {
-    return this.svg.querySelector(`[data-port-id="${portId}"]`) as SVGCircleElement | null;
+  getPortElement(portId: string): HTMLElement | null {
+    return this.container.querySelector(`[data-port-id="${portId}"]`) as HTMLElement | null;
   }
 
   getNodeAt(_x: number, _y: number): Node | null {
@@ -573,27 +592,36 @@ export class NodeRenderer {
   }
 
   private updateResizeHandle(
-    element: SVGGElement,
+    element: HTMLElement,
     node: Node,
     width: number,
     height: number
   ): void {
     const handleClass = 'resize-handle';
-    let handle = element.querySelector(`.${handleClass}`) as SVGPathElement;
+    let handle = element.querySelector(`.${handleClass}`) as HTMLElement;
 
     if (!handle) {
-      // Create corner resize handle (triangle shape)
-      handle = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      // Create corner resize handle (triangle div in bottom-right corner)
+      handle = document.createElement('div');
       handle.classList.add(handleClass);
-      handle.setAttribute('fill', 'rgba(255, 255, 255, 0.2)');
-      handle.setAttribute('cursor', 'nwse-resize');
+      handle.style.cssText = `
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 0;
+        height: 0;
+        border-style: solid;
+        border-width: 0 0 12px 12px;
+        border-color: transparent transparent rgba(255, 255, 255, 0.2) transparent;
+        cursor: nwse-resize;
+      `;
 
       // Add hover effect
       handle.addEventListener('mouseenter', () => {
-        handle.setAttribute('fill', 'rgba(255, 255, 255, 0.4)');
+        handle.style.borderColor = 'transparent transparent rgba(255, 255, 255, 0.4) transparent';
       });
       handle.addEventListener('mouseleave', () => {
-        handle.setAttribute('fill', 'rgba(255, 255, 255, 0.2)');
+        handle.style.borderColor = 'transparent transparent rgba(255, 255, 255, 0.2) transparent';
       });
 
       // Set up resize drag handlers
@@ -663,15 +691,13 @@ export class NodeRenderer {
       element.appendChild(handle);
     }
 
-    // Update handle position and shape (bottom-right corner triangle)
-    const handleSize = 12;
-    const path = `M ${width} ${height - handleSize} L ${width} ${height} L ${width - handleSize} ${height} Z`;
-    handle.setAttribute('d', path);
+    // Handle is positioned via CSS (bottom: 0, right: 0) so no need to update position
+    // The triangle shape is created via CSS borders
   }
 
-  private updateVisibilityIcon(element: SVGGElement, node: Node, width: number): void {
+  private updateVisibilityIcon(element: HTMLElement, node: Node, _width: number): void {
     const iconClass = 'visibility-icon';
-    let icon = element.querySelector(`.${iconClass}`) as SVGGElement;
+    let icon = element.querySelector(`.${iconClass}`) as HTMLElement;
 
     // Only show visibility icon when preview mode is 'all'
     if (this.previewMode !== 'all') {
@@ -683,86 +709,72 @@ export class NodeRenderer {
     }
 
     if (!icon) {
-      // Create visibility icon group
-      icon = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      // Create visibility icon using Phosphor icon font
+      icon = document.createElement('div');
       icon.classList.add(iconClass);
-      icon.setAttribute('cursor', 'pointer');
+      icon.style.cssText = `
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        cursor: pointer;
+        transition: background 0.2s;
+        pointer-events: auto;
+        z-index: 10;
+      `;
 
-      // Create circle background
-      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      circle.setAttribute('r', '8');
-      circle.setAttribute('fill', 'rgba(255, 255, 255, 0.1)');
-      circle.classList.add('visibility-bg');
-      icon.appendChild(circle);
-
-      // Create eye icon (using path for better control)
-      const eyePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      eyePath.classList.add('eye-path');
-      eyePath.setAttribute('stroke', '#ffffff');
-      eyePath.setAttribute('stroke-width', '1.5');
-      eyePath.setAttribute('fill', 'none');
-      icon.appendChild(eyePath);
-
-      // Add pupil (small circle)
-      const pupil = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      pupil.classList.add('eye-pupil');
-      pupil.setAttribute('r', '1.5');
-      pupil.setAttribute('fill', '#ffffff');
-      icon.appendChild(pupil);
-
-      // Add slash for "hidden" state
-      const slash = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      slash.classList.add('eye-slash');
-      slash.setAttribute('x1', '-6');
-      slash.setAttribute('y1', '-6');
-      slash.setAttribute('x2', '6');
-      slash.setAttribute('y2', '6');
-      slash.setAttribute('stroke', '#ef4444');
-      slash.setAttribute('stroke-width', '2');
-      slash.setAttribute('stroke-linecap', 'round');
-      slash.setAttribute('opacity', '0');
-      icon.appendChild(slash);
+      const iconElement = document.createElement('i');
+      iconElement.classList.add('ph');
+      iconElement.style.cssText = `
+        font-size: 16px;
+        color: #ffffff;
+        pointer-events: none;
+      `;
+      icon.appendChild(iconElement);
 
       // Hover effects
       icon.addEventListener('mouseenter', () => {
-        circle.setAttribute('fill', 'rgba(255, 255, 255, 0.2)');
+        icon.style.background = 'rgba(255, 255, 255, 0.2)';
       });
       icon.addEventListener('mouseleave', () => {
-        circle.setAttribute('fill', 'rgba(255, 255, 255, 0.1)');
+        icon.style.background = 'rgba(255, 255, 255, 0.1)';
       });
 
       // Click to toggle visibility
       icon.addEventListener('click', (e) => {
         e.stopPropagation();
+        e.preventDefault();
         if (this.previewManager) {
           this.previewManager.toggleNodeVisibility(node.id);
         }
       });
 
+      // Prevent dragging when clicking icon
+      icon.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+      });
+
       element.appendChild(icon);
     }
 
-    // Position icon in top-right corner of node
-    icon.setAttribute('transform', `translate(${width - 20}, 15)`);
-
     // Update visibility state
     const isVisible = !this.previewManager || this.previewManager.isNodeVisible(node.id);
-    const slash = icon.querySelector('.eye-slash') as SVGLineElement;
-    const eyePath = icon.querySelector('.eye-path') as SVGPathElement;
-    const pupil = icon.querySelector('.eye-pupil') as SVGCircleElement;
-
-    if (isVisible) {
-      // Show eye (no slash)
-      slash.setAttribute('opacity', '0');
-      eyePath.setAttribute('d', 'M -5 0 Q -5 -3 0 -3 Q 5 -3 5 0 Q 5 3 0 3 Q -5 3 -5 0');
-      pupil.setAttribute('cx', '0');
-      pupil.setAttribute('cy', '0');
-    } else {
-      // Show eye with slash
-      slash.setAttribute('opacity', '1');
-      eyePath.setAttribute('d', 'M -5 0 Q -5 -3 0 -3 Q 5 -3 5 0 Q 5 3 0 3 Q -5 3 -5 0');
-      pupil.setAttribute('cx', '0');
-      pupil.setAttribute('cy', '0');
+    const iconElement = icon.querySelector('i');
+    if (iconElement) {
+      // Use Phosphor icon classes for eye / eye-slash
+      if (isVisible) {
+        iconElement.className = 'ph ph-eye';
+        iconElement.style.color = '#ffffff';
+      } else {
+        iconElement.className = 'ph ph-eye-slash';
+        iconElement.style.color = '#ef4444';
+      }
     }
   }
 }
