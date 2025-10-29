@@ -1,5 +1,5 @@
 import { Port } from './Port';
-import { PortSchema, EvaluationContext, PropertyConfig, NodeProperty } from './types';
+import { PortSchema, EvaluationContext, PropertyConfig, NodeProperty, NodeLayoutConfig } from './types';
 import { PortValue } from '@/types';
 import type { Graph } from './Graph';
 
@@ -13,6 +13,8 @@ export abstract class Node<TInputs extends string = string, TOutputs extends str
   public position: { x: number; y: number } = { x: 0, y: 0 };
   public customWidth?: number; // Optional custom width set by user resize
   public customHeight?: number; // Optional custom height set by user resize
+  public minWidth?: number; // Minimum width based on natural content size
+  public minHeight?: number; // Minimum height based on natural content size
   public graph?: Graph; // Reference to parent graph (set by Graph.addNode)
 
   // Dirty flag for incremental evaluation
@@ -74,6 +76,12 @@ export abstract class Node<TInputs extends string = string, TOutputs extends str
 
   dispose(): void {
     // Override if needed (cleanup GPU resources, etc.)
+  }
+
+  // Layout customization - override to provide custom styling/positioning
+  getLayoutConfig(): NodeLayoutConfig | undefined {
+    // Override in subclasses to customize layout
+    return undefined;
   }
 
   // Dirty flag management

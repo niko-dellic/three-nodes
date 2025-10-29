@@ -39,6 +39,32 @@ export interface NodeProperty {
   rows?: number;
 }
 
+export interface NodeLayoutConfig {
+  // Layout style options
+  style?: 'inline-header' | 'default'; // 'inline-header' = controls in header, 'default' = normal layout
+  
+  // Custom CSS styles to apply to specific elements
+  headerStyle?: Partial<CSSStyleProperties>;
+  bodyStyle?: Partial<CSSStyleProperties>;
+  contentColumnStyle?: Partial<CSSStyleProperties>;
+  
+  // Hide specific columns
+  hideInputColumn?: boolean;
+  hideOutputColumn?: boolean;
+  
+  // Show/hide port labels (default: true)
+  showInputLabels?: boolean;
+  showOutputLabels?: boolean;
+  
+  // Tweakpane control width override
+  tweakpaneMinWidth?: number; // Min width in pixels for Tweakpane controls (default: 250)
+}
+
+// Helper type for CSS style properties
+export interface CSSStyleProperties {
+  [key: string]: string | undefined;
+}
+
 export interface SerializedGraph {
   version: string;
   nodes: SerializedNode[];

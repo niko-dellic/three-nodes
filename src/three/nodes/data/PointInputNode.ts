@@ -2,10 +2,7 @@ import { TweakpaneNode } from '../../TweakpaneNode';
 import { PortType, Point2D } from '@/types';
 import { EvaluationContext } from '@/core/types';
 
-export class PointInputNode extends TweakpaneNode<
-  never,
-  'point'
-> {
+export class PointInputNode extends TweakpaneNode<never, 'point'> {
   private currentValue: Point2D = { x: 0, y: 0 };
   private params = { point: { x: 0, y: 0 } };
 
@@ -28,10 +25,19 @@ export class PointInputNode extends TweakpaneNode<
 
     this.params.point = { ...this.currentValue };
 
-    this.pane.addBinding(this.params, 'point').on('change', (ev) => {
-      this.currentValue = { ...ev.value };
-      this.onTweakpaneChange();
-    });
+    this.pane
+      .addBinding(this.params, 'point', {
+        label: '', // No label
+        expanded: true, // Always show expanded x/y controls
+      })
+      .on('change', (ev) => {
+        this.currentValue = { ...ev.value };
+        this.onTweakpaneChange();
+      });
+  }
+
+  getControlHeight(): number {
+    return 70; // Expanded point input needs more height for x/y controls
   }
 
   evaluate(_context: EvaluationContext): void {

@@ -76,4 +76,12 @@ export abstract class TweakpaneNode<
   getControlHeight(): number {
     return 30; // Default height for simple controls
   }
+
+  /**
+   * Check if this node uses horizontal layout (sockets on sides, controls in middle)
+   * All TweakpaneNodes use horizontal layout by default for consistent interface
+   */
+  usesHorizontalLayout(): boolean {
+    return true;
+  }
 }

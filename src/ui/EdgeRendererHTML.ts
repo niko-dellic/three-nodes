@@ -16,6 +16,13 @@ export class EdgeRendererHTML {
     this.container = parentLayer;
   }
 
+  // Get CSS variable color
+  private getCSSColor(variableName: string): string {
+    return getComputedStyle(document.documentElement)
+      .getPropertyValue(variableName)
+      .trim();
+  }
+
   render(
     graph: Graph,
     getPortPosition: (portId: string) => { x: number; y: number } | null,
@@ -117,7 +124,9 @@ export class EdgeRendererHTML {
 
     // Check if target port has multiple connections (array connection)
     const isArrayConnection = edge.target.hasMultipleConnections();
-    const color = isArrayConnection ? '#f97316' : '#888';
+    const color = isArrayConnection
+      ? this.getCSSColor('--multiple-link-color')
+      : this.getCSSColor('--link-color');
     const strokeWidth = isArrayConnection ? 4 : 2;
 
     // Calculate bounding box for this edge
@@ -186,7 +195,9 @@ export class EdgeRendererHTML {
     const bbox = this.calculateBoundingBox(startX, startY, endX, endY);
 
     // Determine color based on shift key state
-    const dragColor = shiftPressed ? '#fb923c' : '#4a9eff'; // Light orange if shift, blue otherwise
+    const dragColor = shiftPressed
+      ? this.getCSSColor('--drag-color-array')
+      : this.getCSSColor('--drag-color');
 
     if (!this.dragSVG) {
       // Create new SVG element for drag connection

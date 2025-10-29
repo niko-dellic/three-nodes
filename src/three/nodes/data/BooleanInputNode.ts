@@ -1,11 +1,8 @@
 import { TweakpaneNode } from '../../TweakpaneNode';
 import { PortType } from '@/types';
-import { EvaluationContext } from '@/core/types';
+import { EvaluationContext, NodeLayoutConfig } from '@/core/types';
 
-export class BooleanInputNode extends TweakpaneNode<
-  never,
-  'value'
-> {
+export class BooleanInputNode extends TweakpaneNode<never, 'value'> {
   private currentValue: boolean = false;
   private params = { value: false };
 
@@ -27,10 +24,14 @@ export class BooleanInputNode extends TweakpaneNode<
 
     this.params.value = this.currentValue;
 
-    this.pane.addBinding(this.params, 'value').on('change', (ev) => {
-      this.currentValue = ev.value;
-      this.onTweakpaneChange();
-    });
+    this.pane
+      .addBinding(this.params, 'value', {
+        label: '',
+      })
+      .on('change', (ev) => {
+        this.currentValue = ev.value;
+        this.onTweakpaneChange();
+      });
   }
 
   evaluate(_context: EvaluationContext): void {
@@ -52,5 +53,12 @@ export class BooleanInputNode extends TweakpaneNode<
 
   getValue(): boolean {
     return this.currentValue;
+  }
+
+  getLayoutConfig(): NodeLayoutConfig {
+    return {
+      style: 'inline-header',
+      hideInputColumn: true,
+    };
   }
 }

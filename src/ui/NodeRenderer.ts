@@ -78,16 +78,43 @@ export class NodeRenderer {
     nodeDiv.dataset.nodeId = node.id;
     nodeDiv.classList.add('node');
     nodeDiv.style.position = 'absolute';
-    nodeDiv.style.width = '200px';
 
     // Header
     const header = document.createElement('div');
     header.classList.add('node-header');
 
-    // Title
+    // Title (editable on click)
     const title = document.createElement('div');
     title.classList.add('node-title');
     title.textContent = node.label;
+    title.setAttribute('contenteditable', 'false');
+    title.setAttribute('spellcheck', 'false');
+
+    // Make title editable on click
+    title.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (title.getAttribute('contenteditable') === 'false') {
+        this.startEditingTitle(title, node);
+      }
+    });
+
+    // Handle blur (when clicking away)
+    title.addEventListener('blur', () => {
+      this.finishEditingTitle(title, node);
+    });
+
+    // Handle Enter key to finish editing
+    title.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        title.blur(); // This will trigger the blur event which saves the title
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        title.textContent = node.label; // Revert to original
+        title.blur();
+      }
+    });
+
     header.appendChild(title);
 
     nodeDiv.appendChild(header);
@@ -116,120 +143,387 @@ export class NodeRenderer {
       element.classList.remove('selected');
     }
 
-    // Check if this node has interactive controls (is a TweakpaneNode)
+    // All nodes now use horizontal flexbox layout
     const hasControls = node instanceof TweakpaneNode;
-    const controlHeight = hasControls ? (node as TweakpaneNode).getControlHeight() + 10 : 0; // +10 for padding
+    const controlHeight = hasControls ? (node as TweakpaneNode).getControlHeight() : 0;
 
-    // Calculate dimensions based on ports and controls (or use custom dimensions if set)
-    const maxPorts = Math.max(node.inputs.size, node.outputs.size);
-    const calculatedHeight = 40 + controlHeight + maxPorts * 25;
-    const calculatedWidth = 200; // Default node width
+    // Only apply explicit dimensions if custom sizing has been set via resize
+    // Otherwise, let flexbox naturally size the content
+    if (node.customWidth !== undefined) {
+      element.style.width = `${node.customWidth}px`;
+    } else {
+      element.style.width = ''; // Clear to allow natural sizing
+    }
 
-    const width = node.customWidth ?? calculatedWidth;
-    const height = node.customHeight ?? calculatedHeight;
+    if (node.customHeight !== undefined) {
+      element.style.height = `${node.customHeight}px`;
+    } else {
+      element.style.height = ''; // Clear to allow natural sizing
+    }
 
-    // Update width and height
-    element.style.width = `${width}px`;
-    element.style.height = `${height}px`;
-
-    // Add interactive controls if needed
-    this.updateInteractiveControls(element, node, width);
-
-    // Check if ports need to be recreated (only if structure changed)
-    const portSignature = `${node.inputs.size}-${node.outputs.size}-${width}-${controlHeight}`;
+    // Check if layout needs to be recreated (only if structure changed)
+    // Width is intentionally excluded from signature - resize shouldn't trigger full rebuild
+    const portSignature = `flexbox-${node.inputs.size}-${node.outputs.size}-${controlHeight}`;
     const currentSignature = element.dataset.portSignature;
 
     if (currentSignature !== portSignature) {
-      // Ports structure changed, recreate them
-      this.updatePorts(element, node, 40 + controlHeight, width, hoveringPortId);
+      this.rebuildNodeLayout(element, node, controlHeight, hoveringPortId);
       element.dataset.portSignature = portSignature;
     } else {
-      // Just update hover state without recreating DOM
+      // Layout exists, just update hover states and refresh controls if needed
       this.updatePortHoverState(element, hoveringPortId);
+
+      // Refresh Tweakpane to adapt to new dimensions if applicable
+      if (hasControls && (node as TweakpaneNode).isTweakpaneInitialized()) {
+        const pane = (node as TweakpaneNode).getPaneInstance();
+        if (pane) {
+          pane.refresh();
+        }
+      }
     }
 
     // Add or update resize handle
-    this.updateResizeHandle(element, node, width, height);
+    this.updateResizeHandle(element, node);
 
     // Add or update visibility icon (only in 'all' preview mode)
-    this.updateVisibilityIcon(element, node, width);
+    this.updateVisibilityIcon(element, node);
   }
 
-  private updateInteractiveControls(element: HTMLElement, node: Node, width: number): void {
-    if (node instanceof TweakpaneNode) {
-      // Check if control already exists
-      let controlElement = element.querySelector('.node-control') as HTMLElement;
+  private rebuildNodeLayout(
+    element: HTMLElement,
+    node: Node,
+    controlHeight: number,
+    hoveringPortId?: string
+  ): void {
+    const hasControls = node instanceof TweakpaneNode;
+    const layoutConfig = node.getLayoutConfig();
 
-      if (!controlElement) {
-        // Create new control only if it doesn't exist
-        this.createTweakpaneControl(element, node, width);
-      } else {
-        // Update width of existing control
-        controlElement.style.width = `${width - 20}px`;
-
-        // Just refresh the existing Tweakpane if it's initialized
-        if (node.isTweakpaneInitialized()) {
-          const pane = node.getPaneInstance();
-          if (pane) {
-            pane.refresh();
-          }
-        }
+    // Dispose existing Tweakpane before clearing DOM (if applicable)
+    if (hasControls && (node as TweakpaneNode).isTweakpaneInitialized()) {
+      const pane = (node as TweakpaneNode).getPaneInstance();
+      if (pane) {
+        pane.dispose();
       }
-    } else {
-      // Remove controls for non-Tweakpane nodes
-      element.querySelectorAll('.node-control').forEach((c) => c.remove());
+      // Reset the internal state
+      (node as any)['pane'] = null;
+      (node as any)['container'] = null;
     }
-  }
 
-  private createTweakpaneControl(element: HTMLElement, node: TweakpaneNode, width: number): void {
-    const controlHeight = node.getControlHeight();
+    // Check if this node uses inline-header layout
+    if (layoutConfig?.style === 'inline-header') {
+      this.buildInlineHeaderLayout(element, node, controlHeight, hoveringPortId, layoutConfig);
+      return;
+    }
 
-    // Create a simple div for the control (no more foreignObject!)
-    const controlDiv = document.createElement('div');
-    controlDiv.classList.add('node-control');
-    controlDiv.style.cssText = `
-      width: ${width - 20}px;
-      height: ${controlHeight}px;
-      padding: 5px 10px;
-    `;
+    // Create horizontal flexbox layout structure
+    const body = element.querySelector('.node-body') as HTMLElement;
+    if (!body) return;
 
-    // Track interaction for history recording
-    controlDiv.addEventListener('pointerdown', (e) => {
-      e.stopPropagation();
-      // Begin interaction - suppress history recording until pointerup
-      this.historyManager.beginInteraction();
-    });
+    // Clear existing content
+    body.innerHTML = '';
 
-    controlDiv.addEventListener('pointermove', (e) => e.stopPropagation());
+    // Apply custom body styles if provided
+    if (layoutConfig?.bodyStyle) {
+      Object.assign(body.style, layoutConfig.bodyStyle);
+    }
 
-    controlDiv.addEventListener('pointerup', (e) => {
-      e.stopPropagation();
-      // End interaction - record history if changes occurred
-      this.historyManager.endInteraction();
-    });
+    // Create flex row container
+    const rowContainer = document.createElement('div');
+    rowContainer.classList.add('node-layout');
 
-    // Also handle case where pointer leaves while dragging
-    controlDiv.addEventListener('pointerleave', (e) => {
-      // Only end interaction if button is not pressed (not mid-drag)
-      if (e.buttons === 0) {
+    // Determine if we should show labels
+    const showInputLabels = layoutConfig?.showInputLabels !== false; // default true
+    const showOutputLabels = layoutConfig?.showOutputLabels !== false; // default true
+
+    // Column 1: Input ports (only create if we have inputs)
+    const hasInputs = node.inputs.size > 0;
+    let inputColumn: HTMLElement | null = null;
+
+    if (hasInputs && !layoutConfig?.hideInputColumn) {
+      inputColumn = document.createElement('div');
+      inputColumn.classList.add('input-column');
+
+      // Add input ports to column 1
+      for (const port of node.inputs.values()) {
+        this.createPortElement(inputColumn, port, 'input', hoveringPortId, showInputLabels);
+      }
+    }
+
+    // Column 2: Body content (controls or empty space)
+    const contentColumn = document.createElement('div');
+    contentColumn.classList.add('content-column');
+    if (layoutConfig?.contentColumnStyle) {
+      Object.assign(contentColumn.style, layoutConfig.contentColumnStyle);
+    }
+
+    // Column 3: Output ports (only create if we have outputs)
+    const hasOutputs = node.outputs.size > 0;
+    let outputColumn: HTMLElement | null = null;
+
+    if (hasOutputs && !layoutConfig?.hideOutputColumn) {
+      outputColumn = document.createElement('div');
+      outputColumn.classList.add('output-column');
+
+      // Add output ports to column 3
+      for (const port of node.outputs.values()) {
+        this.createPortElement(outputColumn, port, 'output', hoveringPortId, showOutputLabels);
+      }
+    }
+
+    // Add content to column 2
+    if (hasControls && controlHeight > 0) {
+      // Create control element for Tweakpane nodes
+      const controlDiv = document.createElement('div');
+      controlDiv.classList.add('node-control');
+      controlDiv.style.height = `${controlHeight}px`;
+
+      // Apply custom Tweakpane min-width if specified
+      if (layoutConfig?.tweakpaneMinWidth !== undefined) {
+        controlDiv.style.setProperty(
+          '--tweakpane-min-width',
+          `${layoutConfig.tweakpaneMinWidth}px`
+        );
+      }
+
+      // Track interaction for history recording
+      controlDiv.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        this.historyManager.beginInteraction();
+      });
+      controlDiv.addEventListener('pointermove', (e) => e.stopPropagation());
+      controlDiv.addEventListener('pointerup', (e) => {
+        e.stopPropagation();
         this.historyManager.endInteraction();
+      });
+      controlDiv.addEventListener('pointerleave', (e) => {
+        if (e.buttons === 0) {
+          this.historyManager.endInteraction();
+        }
+      });
+      controlDiv.addEventListener('click', (e) => e.stopPropagation());
+
+      contentColumn.appendChild(controlDiv);
+
+      // Initialize Tweakpane
+      if (!(node as TweakpaneNode).isTweakpaneInitialized()) {
+        (node as TweakpaneNode).initializeTweakpane(controlDiv);
+        this.setupTweakpaneCallback(node as TweakpaneNode);
       }
-    });
-
-    controlDiv.addEventListener('click', (e) => e.stopPropagation());
-
-    // Add to node body
-    const body = element.querySelector('.node-body');
-    if (body) {
-      body.appendChild(controlDiv);
     }
 
-    // Initialize Tweakpane with the container (only if not already initialized)
-    if (!node.isTweakpaneInitialized()) {
-      node.initializeTweakpane(controlDiv);
+    // Assemble columns into row (only add columns that exist)
+    if (inputColumn) {
+      rowContainer.appendChild(inputColumn);
+    }
+    rowContainer.appendChild(contentColumn);
+    if (outputColumn) {
+      rowContainer.appendChild(outputColumn);
+    }
 
-      // Set up the callback for graph updates (only once)
-      this.setupTweakpaneCallback(node);
+    body.appendChild(rowContainer);
+
+    // Capture the natural size on first render for minimum resize constraints
+    // This ensures we can always shrink back to the original content size
+    if (node.minWidth === undefined || node.minHeight === undefined) {
+      // Force a layout calculation
+      const naturalWidth = element.offsetWidth;
+      const naturalHeight = element.offsetHeight;
+
+      // Store these as the minimum sizes
+      node.minWidth = naturalWidth;
+      node.minHeight = naturalHeight;
+    }
+  }
+
+  private buildInlineHeaderLayout(
+    element: HTMLElement,
+    node: Node,
+    controlHeight: number,
+    hoveringPortId: string | undefined,
+    layoutConfig: any
+  ): void {
+    const hasControls = node instanceof TweakpaneNode;
+
+    // Get header and body elements
+    const header = element.querySelector('.node-header') as HTMLElement;
+    const body = element.querySelector('.node-body') as HTMLElement;
+
+    if (!header || !body) return;
+
+    // Clear body content
+    body.innerHTML = '';
+    body.style.display = 'none'; // Hide the body completely
+
+    // Apply custom header styles
+    if (layoutConfig.headerStyle) {
+      Object.assign(header.style, layoutConfig.headerStyle);
+    } else {
+      // Default inline-header styling
+      header.style.display = 'flex';
+      header.style.alignItems = 'center';
+      header.style.gap = '10px';
+      header.style.padding = '0 10px';
+    }
+
+    // Clear header (except title)
+    const title = header.querySelector('.node-title');
+    header.innerHTML = '';
+    if (title) {
+      header.appendChild(title);
+    }
+
+    // Determine if we should show labels
+    const showInputLabels = layoutConfig?.showInputLabels !== false; // default true
+    const showOutputLabels = layoutConfig?.showOutputLabels !== false; // default true
+
+    // Add ports to header if not hidden
+    if (!layoutConfig.hideInputColumn && node.inputs.size > 0) {
+      const inputContainer = document.createElement('div');
+      inputContainer.style.cssText = 'display: flex; gap: 5px;';
+      for (const port of node.inputs.values()) {
+        this.createPortElement(inputContainer, port, 'input', hoveringPortId, showInputLabels);
+      }
+      header.appendChild(inputContainer);
+    }
+
+    // Add controls to header
+    if (hasControls && controlHeight > 0) {
+      const controlDiv = document.createElement('div');
+      controlDiv.classList.add('node-control');
+      controlDiv.style.cssText = `flex: 1; height: ${controlHeight}px;`;
+
+      // Apply custom Tweakpane min-width if specified
+      if (layoutConfig?.tweakpaneMinWidth !== undefined) {
+        controlDiv.style.setProperty(
+          '--tweakpane-min-width',
+          `${layoutConfig.tweakpaneMinWidth}px`
+        );
+      }
+
+      // Track interaction for history recording
+      controlDiv.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        this.historyManager.beginInteraction();
+      });
+      controlDiv.addEventListener('pointermove', (e) => e.stopPropagation());
+      controlDiv.addEventListener('pointerup', (e) => {
+        e.stopPropagation();
+        this.historyManager.endInteraction();
+      });
+      controlDiv.addEventListener('pointerleave', (e) => {
+        if (e.buttons === 0) {
+          this.historyManager.endInteraction();
+        }
+      });
+      controlDiv.addEventListener('click', (e) => e.stopPropagation());
+
+      header.appendChild(controlDiv);
+
+      // Initialize Tweakpane
+      if (!(node as TweakpaneNode).isTweakpaneInitialized()) {
+        (node as TweakpaneNode).initializeTweakpane(controlDiv);
+        this.setupTweakpaneCallback(node as TweakpaneNode);
+      }
+    }
+
+    // Add output ports to header if not hidden
+    if (!layoutConfig.hideOutputColumn && node.outputs.size > 0) {
+      const outputContainer = document.createElement('div');
+      outputContainer.style.cssText = 'display: flex; gap: 5px;';
+      for (const port of node.outputs.values()) {
+        this.createPortElement(outputContainer, port, 'output', hoveringPortId, showOutputLabels);
+      }
+      header.appendChild(outputContainer);
+    }
+
+    // Capture natural size
+    if (node.minWidth === undefined || node.minHeight === undefined) {
+      const naturalWidth = element.offsetWidth;
+      const naturalHeight = element.offsetHeight;
+      node.minWidth = naturalWidth;
+      node.minHeight = naturalHeight;
+    }
+  }
+
+  private createPortElement(
+    parent: HTMLElement,
+    port: Port,
+    side: 'input' | 'output',
+    hoveringPortId?: string,
+    showLabel: boolean = true
+  ): void {
+    const isHovering = hoveringPortId === port.id;
+
+    const portContainer = document.createElement('div');
+    portContainer.classList.add('port-container', side);
+
+    // Port circle
+    const portCircle = document.createElement('div');
+    portCircle.classList.add('port');
+    portCircle.dataset.portId = port.id;
+    portCircle.dataset.portName = port.name;
+
+    // Set dynamic color based on port type
+    const baseColor = PORT_COLORS[port.type] || '#6b7280';
+    portCircle.style.backgroundColor = baseColor;
+
+    if (isHovering) {
+      portCircle.style.transform = 'scale(1.2)';
+      portCircle.style.borderColor = '#ffffff';
+      portCircle.style.borderWidth = '3px';
+      portCircle.style.filter = 'brightness(1.5)';
+    }
+
+    portContainer.appendChild(portCircle);
+
+    // Port label (only add if showLabel is true)
+    if (showLabel) {
+      const label = document.createElement('div');
+      label.classList.add('port-label');
+      label.textContent = port.name;
+      portContainer.appendChild(label);
+    }
+
+    // Add file picker button for texture input ports that have no connections
+    if (side === 'input' && port.type === PortType.Texture && port.connections.length === 0) {
+      this.addFilePickerButton(portContainer, port);
+    }
+
+    parent.appendChild(portContainer);
+  }
+
+  private startEditingTitle(titleElement: HTMLElement, _node: Node): void {
+    titleElement.setAttribute('contenteditable', 'true');
+    titleElement.classList.add('editing');
+    titleElement.focus();
+
+    // Select all text
+    const range = document.createRange();
+    range.selectNodeContents(titleElement);
+    const selection = window.getSelection();
+    if (selection) {
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+  }
+
+  private finishEditingTitle(titleElement: HTMLElement, node: Node): void {
+    titleElement.setAttribute('contenteditable', 'false');
+    titleElement.classList.remove('editing');
+
+    // Get the new text (trim whitespace)
+    const newLabel = titleElement.textContent?.trim() || node.label;
+
+    // Update if changed
+    if (newLabel !== node.label && newLabel.length > 0) {
+      node.label = newLabel;
+      titleElement.textContent = newLabel;
+
+      // Trigger graph change to save state
+      this.graph.triggerChange();
+    } else {
+      // Revert if empty or unchanged
+      titleElement.textContent = node.label;
     }
   }
 
@@ -270,111 +564,6 @@ export class NodeRenderer {
     });
   }
 
-  private updatePorts(
-    element: HTMLElement,
-    node: Node,
-    yOffset: number = 40,
-    width: number = 200,
-    hoveringPortId?: string
-  ): void {
-    // Remove old ports and file picker buttons
-    element.querySelectorAll('.port-container').forEach((p) => p.remove());
-
-    let inputYOffset = yOffset;
-
-    // Input ports (left side)
-    for (const port of node.inputs.values()) {
-      this.createPortElement(element, port, 0, inputYOffset, 'input', width, hoveringPortId);
-      inputYOffset += 25;
-    }
-
-    let outputYOffset = yOffset;
-
-    // Output ports (right side)
-    for (const port of node.outputs.values()) {
-      this.createPortElement(element, port, width, outputYOffset, 'output', width, hoveringPortId);
-      outputYOffset += 25;
-    }
-  }
-
-  private createPortElement(
-    parent: HTMLElement,
-    port: Port,
-    _x: number,
-    y: number,
-    side: 'input' | 'output',
-    _width: number = 200,
-    hoveringPortId?: string
-  ): void {
-    // Determine if this specific port is being hovered over
-    const isHovering = hoveringPortId === port.id;
-
-    // Create port container
-    const portContainer = document.createElement('div');
-    portContainer.classList.add('port-container');
-    portContainer.style.cssText = `
-      position: absolute;
-      top: ${y - 6}px;
-      ${side === 'input' ? 'left: -6px;' : `right: -6px;`}
-      display: flex;
-      align-items: center;
-      ${side === 'input' ? 'flex-direction: row;' : 'flex-direction: row-reverse;'}
-      gap: 5px;
-    `;
-
-    // Port circle (div with border-radius)
-    const portCircle = document.createElement('div');
-    portCircle.classList.add('port');
-    portCircle.dataset.portId = port.id;
-    portCircle.dataset.portName = port.name;
-
-    // Get base color
-    const baseColor = PORT_COLORS[port.type] || '#6b7280';
-
-    portCircle.style.cssText = `
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background-color: ${baseColor};
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      cursor: crosshair;
-      transition: all 0.15s ease;
-      position: relative;
-      z-index: 10;
-    `;
-
-    // Apply visual feedback for hovered port
-    if (isHovering) {
-      portCircle.style.transform = 'scale(1.2)';
-      portCircle.style.borderColor = '#ffffff';
-      portCircle.style.borderWidth = '3px';
-      portCircle.style.filter = 'brightness(1.5)';
-    }
-
-    portContainer.appendChild(portCircle);
-
-    // Port label
-    const label = document.createElement('div');
-    label.classList.add('port-label');
-    label.textContent = port.name;
-    label.style.cssText = `
-      color: #ccc;
-      font-size: 11px;
-      user-select: none;
-      pointer-events: none;
-      white-space: nowrap;
-    `;
-
-    portContainer.appendChild(label);
-
-    // Add file picker button for texture input ports that have no connections
-    if (side === 'input' && port.type === PortType.Texture && port.connections.length === 0) {
-      this.addFilePickerButton(portContainer, port);
-    }
-
-    parent.appendChild(portContainer);
-  }
-
   private addFilePickerButton(parent: HTMLElement, port: Port): void {
     const node = port.node;
     const hasTexture =
@@ -398,6 +587,7 @@ export class NodeRenderer {
     folderIcon.style.pointerEvents = 'none';
     loadButton.appendChild(folderIcon);
     loadButton.className = 'port-file-picker-button';
+    loadButton.setAttribute('data-file-picker-button', 'true');
     loadButton.title = `Load ${port.name} texture`;
     loadButton.style.cssText = `
       width: 18px;
@@ -453,6 +643,7 @@ export class NodeRenderer {
       clearIcon.style.pointerEvents = 'none';
       clearButton.appendChild(clearIcon);
       clearButton.className = 'port-file-picker-button';
+      clearButton.setAttribute('data-file-picker-button', 'true');
       clearButton.title = `Clear ${port.name} texture`;
       clearButton.style.cssText = `
         width: 18px;
@@ -550,34 +741,24 @@ export class NodeRenderer {
     const nodeX = parseFloat(match[1]);
     const nodeY = parseFloat(match[2]);
 
-    // Get port container to read its position from CSS
-    const portContainer = portElement.parentElement as HTMLElement | null;
-    if (!portContainer) return null;
+    // Extract viewport scale from the container's transform
+    // The container (nodesLayer) has transform: translate(x, y) scale(scale)
+    const containerTransform = this.container.style.transform;
+    const scaleMatch = containerTransform.match(/scale\(([\d.]+)\)/);
+    const viewportScale = scaleMatch ? parseFloat(scaleMatch[1]) : 1;
 
-    // Parse the port container's CSS position (set in createPortElement)
-    // Port container has style: top: Ypx and left/right: -6px
-    const topMatch = portContainer.style.top.match(/([-\d.]+)px/);
-    if (!topMatch) return null;
+    // All nodes now use flexbox layout - use getBoundingClientRect to get actual position
+    const portRect = portElement.getBoundingClientRect();
+    const nodeRect = nodeElement.getBoundingClientRect();
 
-    const portY = parseFloat(topMatch[1]);
-
-    // Determine if it's an input (left side) or output (right side) port
-    // Inputs are at left: -6px, outputs are at right: -6px
-    const isInput = portContainer.style.left !== '';
-
-    let portX: number;
-    if (isInput) {
-      // Input port is on the left edge (x = 0, but port circle center is at x = 6)
-      portX = 6; // Half of port circle width (12px)
-    } else {
-      // Output port is on the right edge
-      const nodeWidth = parseFloat(nodeElement.style.width || '200');
-      portX = nodeWidth - 6; // Right edge minus half port width
-    }
+    // Calculate relative position within node (in screen space, affected by zoom)
+    // Divide by viewport scale to convert back to world space
+    const relativeX = (portRect.left - nodeRect.left + 6) / viewportScale; // +6 for port center
+    const relativeY = (portRect.top - nodeRect.top + 6) / viewportScale; // +6 for port center
 
     return {
-      x: nodeX + portX,
-      y: nodeY + portY + 6, // +6 to get center of 12px port circle
+      x: nodeX + relativeX,
+      y: nodeY + relativeY,
     };
   }
 
@@ -591,12 +772,7 @@ export class NodeRenderer {
     return null;
   }
 
-  private updateResizeHandle(
-    element: HTMLElement,
-    node: Node,
-    width: number,
-    height: number
-  ): void {
+  private updateResizeHandle(element: HTMLElement, node: Node): void {
     const handleClass = 'resize-handle';
     let handle = element.querySelector(`.${handleClass}`) as HTMLElement;
 
@@ -636,8 +812,9 @@ export class NodeRenderer {
         isResizing = true;
         startX = e.clientX;
         startY = e.clientY;
-        startWidth = node.customWidth ?? width;
-        startHeight = node.customHeight ?? height;
+        // Get current dimensions from element if no custom size is set
+        startWidth = node.customWidth ?? element.offsetWidth;
+        startHeight = node.customHeight ?? element.offsetHeight;
 
         // Begin interaction for history
         this.historyManager.beginInteraction();
@@ -652,15 +829,10 @@ export class NodeRenderer {
         const deltaX = e.clientX - startX;
         const deltaY = e.clientY - startY;
 
-        // Calculate minimum dimensions based on node content
-        const hasControls = node instanceof TweakpaneNode;
-        const controlHeight = hasControls ? (node as TweakpaneNode).getControlHeight() + 10 : 0;
-        const maxPorts = Math.max(node.inputs.size, node.outputs.size);
-
-        // Minimum height: header + controls + all ports
-        const minHeight = 40 + controlHeight + maxPorts * 25;
-        // Minimum width: enough for controls and port labels
-        const minWidth = 150;
+        // Use the stored natural size as minimum (captured when node was first created)
+        // This prevents the resize loop issue while still respecting content boundaries
+        const minWidth = node.minWidth ?? 120;
+        const minHeight = node.minHeight ?? 60;
 
         const newWidth = Math.max(minWidth, startWidth + deltaX);
         const newHeight = Math.max(minHeight, startHeight + deltaY);
@@ -695,7 +867,7 @@ export class NodeRenderer {
     // The triangle shape is created via CSS borders
   }
 
-  private updateVisibilityIcon(element: HTMLElement, node: Node, _width: number): void {
+  private updateVisibilityIcon(element: HTMLElement, node: Node): void {
     const iconClass = 'visibility-icon';
     let icon = element.querySelector(`.${iconClass}`) as HTMLElement;
 

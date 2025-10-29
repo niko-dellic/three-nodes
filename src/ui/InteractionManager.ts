@@ -207,6 +207,11 @@ export class InteractionManager {
       return;
     }
 
+    // Ignore clicks on node title (to allow renaming)
+    if (target.classList.contains('node-title')) {
+      return;
+    }
+
     // Check if clicking on a port
     if (target.classList.contains('port')) {
       const portId = target.getAttribute('data-port-id');
@@ -833,10 +838,16 @@ export class InteractionManager {
     if (this.dragState.type !== 'marquee' || !this.marqueeElement) return;
 
     const { startX, startY, currentX, currentY } = this.dragState;
-    const x = Math.min(startX, currentX);
-    const y = Math.min(startY, currentY);
-    const width = Math.abs(currentX - startX);
-    const height = Math.abs(currentY - startY);
+
+    // Convert world coordinates to screen coordinates
+    const startScreen = this.viewport.worldToScreen(startX, startY);
+    const currentScreen = this.viewport.worldToScreen(currentX, currentY);
+
+    // Calculate min/max in screen space
+    const x = Math.min(startScreen.x, currentScreen.x);
+    const y = Math.min(startScreen.y, currentScreen.y);
+    const width = Math.abs(currentScreen.x - startScreen.x);
+    const height = Math.abs(currentScreen.y - startScreen.y);
 
     // Update marquee position and size using CSS (marquee is in screen space, not world space)
     this.marqueeElement.style.left = `${x}px`;

@@ -3,10 +3,7 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class Vector3Node extends TweakpaneNode<
-  'x' | 'y' | 'z',
-  'vector'
-> {
+export class Vector3Node extends TweakpaneNode<'x' | 'y' | 'z', 'vector'> {
   private params = { x: 0, y: 0, z: 0 };
   private bindings: Map<string, any> = new Map();
 
@@ -78,7 +75,8 @@ export class Vector3Node extends TweakpaneNode<
     const yConnected = this.inputs.get('y')?.connections.length ?? 0 > 0;
     const zConnected = this.inputs.get('z')?.connections.length ?? 0 > 0;
 
-    // Only create sliders for unconnected inputs
+    // Create sliders for each axis, grouped with visual separators
+    // X axis control (corresponds to X input socket)
     if (!xConnected) {
       const binding = this.pane.addBinding(this.params, 'x', {
         label: 'X',
@@ -88,8 +86,17 @@ export class Vector3Node extends TweakpaneNode<
       });
       binding.on('change', () => this.onTweakpaneChange());
       this.bindings.set('x', binding);
+    } else {
+      // Show a disabled label when X input is connected
+      this.pane.addBlade({
+        view: 'text',
+        label: 'X',
+        value: '← connected',
+        parse: (v: string) => String(v),
+      }).disabled = true;
     }
 
+    // Y axis control (corresponds to Y input socket)
     if (!yConnected) {
       const binding = this.pane.addBinding(this.params, 'y', {
         label: 'Y',
@@ -99,8 +106,17 @@ export class Vector3Node extends TweakpaneNode<
       });
       binding.on('change', () => this.onTweakpaneChange());
       this.bindings.set('y', binding);
+    } else {
+      // Show a disabled label when Y input is connected
+      this.pane.addBlade({
+        view: 'text',
+        label: 'Y',
+        value: '← connected',
+        parse: (v: string) => String(v),
+      }).disabled = true;
     }
 
+    // Z axis control (corresponds to Z input socket)
     if (!zConnected) {
       const binding = this.pane.addBinding(this.params, 'z', {
         label: 'Z',
@@ -110,6 +126,14 @@ export class Vector3Node extends TweakpaneNode<
       });
       binding.on('change', () => this.onTweakpaneChange());
       this.bindings.set('z', binding);
+    } else {
+      // Show a disabled label when Z input is connected
+      this.pane.addBlade({
+        view: 'text',
+        label: 'Z',
+        value: '← connected',
+        parse: (v: string) => String(v),
+      }).disabled = true;
     }
   }
 
@@ -139,17 +163,10 @@ export class Vector3Node extends TweakpaneNode<
   }
 
   getControlHeight(): number {
-    // Calculate height based on number of unconnected inputs
-    const xConnected = this.inputs.get('x')?.connections.length ?? 0 > 0;
-    const yConnected = this.inputs.get('y')?.connections.length ?? 0 > 0;
-    const zConnected = this.inputs.get('z')?.connections.length ?? 0 > 0;
-
-    let sliderCount = 0;
-    if (!xConnected) sliderCount++;
-    if (!yConnected) sliderCount++;
-    if (!zConnected) sliderCount++;
-
-    return sliderCount > 0 ? sliderCount * 30 : 0;
+    // Always show 3 rows (one for each axis: X, Y, Z)
+    // Each row is either a slider or a "connected" indicator
+    // This maintains consistent height and clear 1:1 mapping with input sockets
+    return 3 * 30; // 3 controls at 30px each
   }
 
   // Override to refresh Tweakpane controls when connections change

@@ -39,7 +39,7 @@ const graph = new Graph();
 
 const dimsNode = registry.insertNode(Vector3Node, 'dims-node');
 
-dimsNode.position = { x: -250, y: 200 };
+dimsNode.position = { x: -450, y: 200 };
 dimsNode.setVector(2, 2, 2);
 graph.addNode(dimsNode);
 
@@ -60,7 +60,7 @@ graph.connect(decomposeNode.output('z'), boxGeoNode.input('depth'));
 
 // 3. Create color for material
 const colorNode = registry.insertNode(ColorPickerNode, 'color-picker');
-colorNode.position = { x: 300, y: 400 };
+colorNode.position = { x: 100, y: 350 };
 graph.addNode(colorNode);
 
 // 4. Create material
@@ -80,7 +80,7 @@ graph.connect(materialNode.output('material'), meshNode.input('material'));
 
 // 6. Create scene
 const sceneNode = registry.insertNode(SceneNode, 'scene');
-sceneNode.position = { x: 800, y: 50 };
+sceneNode.position = { x: 1100, y: 100 };
 graph.addNode(sceneNode);
 
 // 7. Create camera
@@ -105,12 +105,12 @@ graph.addNode(ambientLightNode);
 
 // Using insertNode with Vector3Node for type safety
 const directionalLightPos = registry.insertNode(Vector3Node, 'dir-light-pos');
-directionalLightPos.position = { x: 300, y: -25 };
+directionalLightPos.position = { x: 100, y: -25 };
 directionalLightPos.setVector(10, 10, 10);
 graph.addNode(directionalLightPos);
 
 const directionaLightIntensity = registry.insertNode(NumberSliderNode, 'dir-light-intensity');
-directionaLightIntensity.position = { x: 300, y: -150 };
+directionaLightIntensity.position = { x: 0, y: -100 };
 directionaLightIntensity.setValue(100);
 graph.addNode(directionaLightIntensity);
 

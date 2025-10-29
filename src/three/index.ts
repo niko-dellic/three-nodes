@@ -131,6 +131,8 @@ import { Matrix4Node } from './nodes/transform/Matrix4Node';
 // Loader nodes
 import { GLTFLoaderNode } from './nodes/loaders/GLTFLoaderNode';
 import { Rhino3dmLoaderNode } from './nodes/loaders/Rhino3dmLoaderNode';
+import { JSONLoaderNode } from './nodes/loaders/JSONLoaderNode';
+import { CSVLoaderNode } from './nodes/loaders/CSVLoaderNode';
 
 export { NodeRegistry } from './NodeRegistry';
 export { BaseThreeNode } from './BaseThreeNode';
@@ -198,6 +200,8 @@ export { ScaleNode } from './nodes/transform/ScaleNode';
 export { Matrix4Node } from './nodes/transform/Matrix4Node';
 export { GLTFLoaderNode } from './nodes/loaders/GLTFLoaderNode';
 export { Rhino3dmLoaderNode } from './nodes/loaders/Rhino3dmLoaderNode';
+export { JSONLoaderNode } from './nodes/loaders/JSONLoaderNode';
+export { CSVLoaderNode } from './nodes/loaders/CSVLoaderNode';
 
 // Create and configure the default registry
 export function createDefaultRegistry(): NodeRegistry {
@@ -949,6 +953,22 @@ export function createDefaultRegistry(): NodeRegistry {
     label: 'Rhino 3DM Loader',
     description: 'Load Rhino 3dm files',
     icon: '🦏',
+  });
+
+  registry.register(JSONLoaderNode, {
+    type: 'JSONLoaderNode',
+    category: 'Loaders',
+    label: 'JSON Loader',
+    description: 'Load and parse JSON data files',
+    icon: '📋',
+  });
+
+  registry.register(CSVLoaderNode, {
+    type: 'CSVLoaderNode',
+    category: 'Loaders',
+    label: 'CSV Loader',
+    description: 'Load and parse CSV data files using d3',
+    icon: '📊',
   });
 
   return registry;

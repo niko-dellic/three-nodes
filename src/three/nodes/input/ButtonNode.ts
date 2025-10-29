@@ -1,11 +1,8 @@
 import { TweakpaneNode } from '../../TweakpaneNode';
 import { PortType } from '@/types';
-import { EvaluationContext } from '@/core/types';
+import { EvaluationContext, NodeLayoutConfig } from '@/core/types';
 
-export class ButtonNode extends TweakpaneNode<
-  never,
-  'trigger'
-> {
+export class ButtonNode extends TweakpaneNode<never, 'trigger'> {
   private triggered: boolean = false;
 
   constructor(id: string) {
@@ -62,5 +59,13 @@ export class ButtonNode extends TweakpaneNode<
 
   getControlHeight(): number {
     return 30;
+  }
+
+  getLayoutConfig(): NodeLayoutConfig {
+    return {
+      style: 'inline-header',
+      hideInputColumn: true,
+      tweakpaneMinWidth: 100,
+    };
   }
 }

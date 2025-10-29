@@ -1,6 +1,6 @@
 import { TweakpaneNode } from '../../TweakpaneNode';
 import { PortType } from '@/types';
-import { EvaluationContext } from '@/core/types';
+import { EvaluationContext, NodeLayoutConfig } from '@/core/types';
 
 export class NumberSliderNode extends TweakpaneNode<never, 'value'> {
   private currentValue: number = 0;
@@ -41,6 +41,7 @@ export class NumberSliderNode extends TweakpaneNode<never, 'value'> {
 
     this.pane
       .addBinding(this.params, 'value', {
+        label: '',
         min: minValue,
         max: maxValue,
         step: stepValue,
@@ -90,5 +91,12 @@ export class NumberSliderNode extends TweakpaneNode<never, 'value'> {
 
   getStep(): number {
     return this.getProperty('step') ?? 0.1;
+  }
+
+  getLayoutConfig(): NodeLayoutConfig {
+    return {
+      style: 'inline-header',
+      hideInputColumn: true,
+    };
   }
 }

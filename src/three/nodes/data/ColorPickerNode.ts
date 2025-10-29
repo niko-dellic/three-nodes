@@ -1,6 +1,6 @@
 import { TweakpaneNode } from '../../TweakpaneNode';
 import { PortType } from '@/types';
-import { EvaluationContext } from '@/core/types';
+import { EvaluationContext, NodeLayoutConfig } from '@/core/types';
 import * as THREE from 'three';
 
 export class ColorPickerNode extends TweakpaneNode<never, 'color'> {
@@ -21,6 +21,12 @@ export class ColorPickerNode extends TweakpaneNode<never, 'color'> {
     this.params.color = this.getColorHex();
   }
 
+  getLayoutConfig(): NodeLayoutConfig {
+    return {
+      showOutputLabels: false, // Hide output label for a cleaner look
+    };
+  }
+
   protected setupTweakpaneControls(): void {
     if (!this.pane) return;
 
@@ -28,6 +34,7 @@ export class ColorPickerNode extends TweakpaneNode<never, 'color'> {
 
     this.pane
       .addBinding(this.params, 'color', {
+        label: '', // No label
         expanded: true, // Always show the color space picker
         picker: 'inline', // Show picker inline, not in a popup
       })

@@ -3,6 +3,11 @@
   --secondary-color: #595959;
   --tertiary-color: #303030;
   --background-color: #1a1a1a;
+  --selection-color: #3b82f6;
+  --link-color: #888888;
+  --multiple-link-color: #f98b16;
+  --drag-color: #4a9eff;
+  --drag-color-array: #fb923c;
   --text-color: #ffffff;
   --border-color: #444444;
   --button-padding: 6px 14px;
@@ -17,9 +22,11 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
-  background: #1a1a1a;
+  background: var(--background-color);
   /* Prevent pinch zoom on the website */
   touch-action: pan-x pan-y;
+  scrollbar-color: var(--secondary-color) transparent;
+  scrollbar-width: thin;
 }
 
 /* Prevent text selection during drag operations */
@@ -70,16 +77,20 @@ body.dragging {
   pointer-events: none;
 }
 
+#editor.hidden * {
+  pointer-events: none;
+}
+
 /* Edge styles */
 .edge {
   pointer-events: none;
-  stroke: #888;
+  stroke: var(--link-color);
   stroke-width: 2;
   fill: none;
 }
 
 .edge-array {
-  stroke: #f97316;
+  stroke: var(--multiple-link-color);
   stroke-width: 4;
 }
 
@@ -92,8 +103,8 @@ body.dragging {
 
 /* Marquee selection */
 .marquee-selection {
-  fill: rgba(59, 130, 246, 0.1);
-  stroke: #3b82f6;
+  fill: color-mix(in srgb, var(--selection-color) 10%, transparent);
+  stroke: var(--selection-color);
   stroke-width: 1;
   stroke-dasharray: 4 4;
   pointer-events: none;
@@ -231,19 +242,31 @@ body:not(#touch-device) .context-menu-pane {
   padding-left: 0;
 }
 
-/* Button hover state */
-.context-menu-pane .tp-btnv_b:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+.tp-btnv .tp-btnv_b {
+  color: var(--text-color);
+  background-color: var(--tertiary-color);
+  border-color: var(--tertiary-color);
+  font-weight: normal;
 }
 
-.context-menu-pane .tp-btnv_b:active {
-  background-color: rgba(255, 255, 255, 0.2);
+/* Button hover state */
+.tp-btnv .tp-btnv_b:hover {
+  background-color: var(--secondary-color);
+}
+
+.tp-btnv .tp-btnv_b:active {
+  background-color: var(--tertiary-color);
+}
+
+.context-menu-pane .tp-btnv_b div {
+  text-align: left;
+  padding-left: 3px;
 }
 
 /* Selected button state for keyboard navigation */
 .context-menu-pane .tp-btn-selected {
-  background-color: rgba(45, 74, 112, 0.8) !important;
-  box-shadow: inset 0 0 0 2px var(--primary-color);
+  background-color: var(--secondary-color);
+  box-shadow: inset 0 0 0 1px var(--primary-color);
 }
 
 /* Node styles - HTML based */
@@ -255,6 +278,10 @@ body:not(#touch-device) .context-menu-pane {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   overflow: visible;
   pointer-events: auto;
+  width: fit-content;
+  height: fit-content;
+  min-width: 120px;
+  min-height: 60px;
 }
 
 .node:hover {
@@ -262,9 +289,9 @@ body:not(#touch-device) .context-menu-pane {
 }
 
 .node.selected {
-  border-color: #3b82f6;
+  border-color: var(--selection-color);
   box-shadow:
-    0 0 0 2px rgba(59, 130, 246, 0.2),
+    0 0 0 2px color-mix(in srgb, var(--selection-color) 20%, transparent),
     0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
@@ -273,27 +300,50 @@ body:not(#touch-device) .context-menu-pane {
   border-radius: 4px 4px 0 0;
   display: flex;
   align-items: center;
-  padding: 0 10px;
+  padding: 10px 10px;
   background: var(--background-color);
+  white-space: nowrap;
 }
 
 .node-title {
   color: white;
   font-size: 14px;
   font-weight: 500;
-  pointer-events: none;
+  pointer-events: auto;
   user-select: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background-color 0.2s;
+  outline: none;
+}
+
+.node-title:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.node-title.editing {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--primary-color);
+  user-select: text;
+  cursor: text;
 }
 
 .node-body {
   position: relative;
-  padding: 10px 0;
 }
 
 .port {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
   cursor: crosshair;
   transition: all 0.15s ease;
   pointer-events: auto;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
 }
 
 .port:hover {
@@ -305,6 +355,18 @@ body:not(#touch-device) .context-menu-pane {
 
 .port-container {
   pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  position: relative;
+}
+
+.port-container.input {
+  flex-direction: row;
+}
+
+.port-container.output {
+  flex-direction: row-reverse;
 }
 
 .port-label {
@@ -318,6 +380,69 @@ body:not(#touch-device) .context-menu-pane {
 /* Node control container for tweakpane */
 .node-control {
   pointer-events: auto;
+}
+
+/* Tweakpane: Hide empty labels and make value take full width */
+.node-control .tp-lblv_l:empty {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+}
+
+/* Make value take full width when label is empty/hidden */
+.node-control .tp-lblv:has(.tp-lblv_l:empty) .tp-lblv_v {
+  width: 100% !important;
+  flex: 1 !important;
+  min-width: var(--tweakpane-min-width, 250px);
+}
+
+/* Fallback for browsers without :has() - hide empty label and expand value */
+.node-control .tp-lblv_l:empty ~ .tp-lblv_v {
+  width: 100% !important;
+  flex: 1 !important;
+  min-width: var(--tweakpane-min-width, 250px);
+}
+
+/* Node flexbox layout - three column structure */
+.node-layout {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  height: 100%;
+}
+
+.input-column {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  justify-content: center;
+}
+
+.content-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.output-column {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.output-column:not(:has(.port-label)) {
+  width: 0;
+}
+
+.input-column:has(.port-label) {
+  margin-right: 10px;
+}
+.output-column:has(.port-label) {
+  margin-left: 10px;
 }
 
 /* Toolbar - unified controls at top left */
@@ -853,13 +978,6 @@ body:not(#touch-device) .properties-tabs {
   top: 4px;
   font-size: 10px;
   opacity: 0.7;
-}
-
-.context-menu .tp-btnv_b {
-  color: var(--text-color);
-  background-color: var(--tertiary-color);
-  border-color: var(--tertiary-color);
-  font-weight: normal;
 }
 
 .context-menu {
