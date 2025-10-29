@@ -379,7 +379,7 @@ export class NodeRenderer {
     `;
 
     // Create load/folder button
-    const loadButton = document.createElement('button');
+    const loadButton = document.createElement('div');
     const folderIcon = document.createElement('i');
     folderIcon.className = 'ph ph-folder';
     folderIcon.setAttribute('data-file-picker-button', 'true');

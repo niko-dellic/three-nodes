@@ -5,7 +5,6 @@ import {
   createDefaultRegistry,
   BoxGeometryNode,
   ColorPickerNode,
-  MeshStandardMaterialNode,
   CreateMeshNode,
   SceneNode,
   Vector3Node,
@@ -20,7 +19,6 @@ import {
   MeshMatcapMaterialNode,
 } from '@/three';
 import { GraphEditor, LiveViewport, ViewModeManager, PreviewManager } from '@/ui';
-import { MeshMatcapMaterial } from 'three';
 
 // Create the node registry
 const registry = createDefaultRegistry();

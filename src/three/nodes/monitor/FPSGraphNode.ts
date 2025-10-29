@@ -11,7 +11,6 @@ export class FPSGraphNode extends TweakpaneNode<never, 'fps'> {
   private lastFrameTime: number = performance.now();
   private frameCount: number = 0;
   private fpsSum: number = 0;
-  private updateInterval: number = 100; // Update every 100ms
 
   constructor(id: string) {
     super(id, 'FPSGraphNode', 'FPS Graph');
