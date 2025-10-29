@@ -215,12 +215,21 @@ export class NodeRenderer {
       return;
     }
 
-    // Create horizontal flexbox layout structure
+    // Get header and body elements
+    const header = element.querySelector('.node-header') as HTMLElement;
     const body = element.querySelector('.node-body') as HTMLElement;
     if (!body) return;
 
+    // Ensure body is visible (remove inline-specific class)
+    body.classList.remove('node-body-hidden');
+
     // Clear existing content
     body.innerHTML = '';
+
+    // Ensure header doesn't have inline-specific class
+    if (header) {
+      header.classList.remove('node-header-inline');
+    }
 
     // Apply custom body styles if provided
     if (layoutConfig?.bodyStyle) {
@@ -350,26 +359,24 @@ export class NodeRenderer {
 
     if (!header || !body) return;
 
-    // Clear body content
+    // Clear body content and hide it
     body.innerHTML = '';
-    body.style.display = 'none'; // Hide the body completely
-
-    // Apply custom header styles
-    if (layoutConfig.headerStyle) {
-      Object.assign(header.style, layoutConfig.headerStyle);
-    } else {
-      // Default inline-header styling
-      header.style.display = 'flex';
-      header.style.alignItems = 'center';
-      header.style.gap = '10px';
-      header.style.padding = '0 10px';
-    }
+    body.classList.add('node-body-hidden');
 
     // Clear header (except title)
     const title = header.querySelector('.node-title');
     header.innerHTML = '';
     if (title) {
       header.appendChild(title);
+    }
+
+    // Apply inline header styling via CSS class (after clearing innerHTML)
+    if (layoutConfig.headerStyle) {
+      // Apply custom header styles only if specified
+      Object.assign(header.style, layoutConfig.headerStyle);
+    } else {
+      // Use CSS class for default inline-header styling
+      header.classList.add('node-header-inline');
     }
 
     // Determine if we should show labels
@@ -379,7 +386,7 @@ export class NodeRenderer {
     // Add ports to header if not hidden
     if (!layoutConfig.hideInputColumn && node.inputs.size > 0) {
       const inputContainer = document.createElement('div');
-      inputContainer.style.cssText = 'display: flex; gap: 5px;';
+      inputContainer.classList.add('inline-port-container');
       for (const port of node.inputs.values()) {
         this.createPortElement(inputContainer, port, 'input', hoveringPortId, showInputLabels);
       }
@@ -429,7 +436,7 @@ export class NodeRenderer {
     // Add output ports to header if not hidden
     if (!layoutConfig.hideOutputColumn && node.outputs.size > 0) {
       const outputContainer = document.createElement('div');
-      outputContainer.style.cssText = 'display: flex; gap: 5px;';
+      outputContainer.classList.add('inline-port-container');
       for (const port of node.outputs.values()) {
         this.createPortElement(outputContainer, port, 'output', hoveringPortId, showOutputLabels);
       }
@@ -545,21 +552,15 @@ export class NodeRenderer {
   }
 
   private updatePortHoverState(element: HTMLElement, hoveringPortId?: string): void {
-    // Update all ports - apply hover state to the hovered port, reset others
+    // Update all ports - highlight the drag target port during connection creation
     element.querySelectorAll('.port').forEach((port) => {
       const portEl = port as HTMLElement;
       if (hoveringPortId && portEl.dataset.portId === hoveringPortId) {
-        // Apply hover state
-        portEl.style.transform = 'scale(1.2)';
-        portEl.style.borderColor = '#ffffff';
-        portEl.style.borderWidth = '3px';
-        portEl.style.filter = 'brightness(1.5)';
+        // Highlight as drag target
+        portEl.classList.add('port-dragging');
       } else {
-        // Reset to default state
-        portEl.style.transform = '';
-        portEl.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-        portEl.style.borderWidth = '2px';
-        portEl.style.filter = '';
+        // Remove drag target highlight
+        portEl.classList.remove('port-dragging');
       }
     });
   }
@@ -725,40 +726,18 @@ export class NodeRenderer {
     }
   }
 
-  getPortWorldPosition(portId: string): { x: number; y: number } | null {
+  getPortScreenPosition(portId: string): { x: number; y: number } | null {
     const portElement = this.container.querySelector(`[data-port-id="${portId}"]`) as HTMLElement;
     if (!portElement) return null;
 
-    // Get node element and extract its world position
-    const nodeElement = portElement.closest('.node') as HTMLElement | null;
-    if (!nodeElement) return null;
-
-    const transform = nodeElement.style.transform;
-    const match = transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
-
-    if (!match) return null;
-
-    const nodeX = parseFloat(match[1]);
-    const nodeY = parseFloat(match[2]);
-
-    // Extract viewport scale from the container's transform
-    // The container (nodesLayer) has transform: translate(x, y) scale(scale)
-    const containerTransform = this.container.style.transform;
-    const scaleMatch = containerTransform.match(/scale\(([\d.]+)\)/);
-    const viewportScale = scaleMatch ? parseFloat(scaleMatch[1]) : 1;
-
-    // All nodes now use flexbox layout - use getBoundingClientRect to get actual position
+    // Get the port's center position in screen space
     const portRect = portElement.getBoundingClientRect();
-    const nodeRect = nodeElement.getBoundingClientRect();
-
-    // Calculate relative position within node (in screen space, affected by zoom)
-    // Divide by viewport scale to convert back to world space
-    const relativeX = (portRect.left - nodeRect.left + 6) / viewportScale; // +6 for port center
-    const relativeY = (portRect.top - nodeRect.top + 6) / viewportScale; // +6 for port center
+    const portCenterX = portRect.left + portRect.width / 2;
+    const portCenterY = portRect.top + portRect.height / 2;
 
     return {
-      x: nodeX + relativeX,
-      y: nodeY + relativeY,
+      x: portCenterX,
+      y: portCenterY,
     };
   }
 

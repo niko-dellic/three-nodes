@@ -16,13 +16,6 @@ export class EdgeRendererHTML {
     this.container = parentLayer;
   }
 
-  // Get CSS variable color
-  private getCSSColor(variableName: string): string {
-    return getComputedStyle(document.documentElement)
-      .getPropertyValue(variableName)
-      .trim();
-  }
-
   render(
     graph: Graph,
     getPortPosition: (portId: string) => { x: number; y: number } | null,
@@ -124,10 +117,6 @@ export class EdgeRendererHTML {
 
     // Check if target port has multiple connections (array connection)
     const isArrayConnection = edge.target.hasMultipleConnections();
-    const color = isArrayConnection
-      ? this.getCSSColor('--multiple-link-color')
-      : this.getCSSColor('--link-color');
-    const strokeWidth = isArrayConnection ? 4 : 2;
 
     // Calculate bounding box for this edge
     const bbox = this.calculateBoundingBox(sourcePos.x, sourcePos.y, targetPos.x, targetPos.y);
@@ -140,34 +129,24 @@ export class EdgeRendererHTML {
         .create('svg')
         .attr('class', 'edge-svg')
         .attr('data-edge-id', edge.id)
-        .style('position', 'absolute')
-        .style('pointer-events', 'none')
-        .style('overflow', 'visible')
         .node() as SVGSVGElement;
 
       // Create path within the SVG
       const path = d3
         .select(svg)
         .append('path')
-        .attr('class', 'edge')
-        .attr('fill', 'none')
-        .attr('stroke-linecap', 'round')
+        .attr('class', isArrayConnection ? 'edge edge-array' : 'edge')
         .node() as SVGPathElement;
-
-      // Set stroke using inline style to override CSS
-      path.style.stroke = color;
-      path.style.strokeWidth = `${strokeWidth}px`;
 
       edgeSVG = { svg, path };
       this.edgeSVGs.set(edge.id, edgeSVG);
       this.container.appendChild(svg);
     } else {
-      // Update existing path styling using inline styles (overrides CSS)
-      edgeSVG.path.style.stroke = color;
-      edgeSVG.path.style.strokeWidth = `${strokeWidth}px`;
+      // Update path class based on connection type
+      edgeSVG.path.setAttribute('class', isArrayConnection ? 'edge edge-array' : 'edge');
     }
 
-    // Update SVG position and size using direct style manipulation
+    // Update SVG position and size (only dynamic values as inline styles)
     edgeSVG.svg.style.left = `${bbox.x}px`;
     edgeSVG.svg.style.top = `${bbox.y}px`;
     edgeSVG.svg.setAttribute('width', String(bbox.width));
@@ -194,43 +173,28 @@ export class EdgeRendererHTML {
     // Calculate bounding box for drag connection
     const bbox = this.calculateBoundingBox(startX, startY, endX, endY);
 
-    // Determine color based on shift key state
-    const dragColor = shiftPressed
-      ? this.getCSSColor('--drag-color-array')
-      : this.getCSSColor('--drag-color');
-
     if (!this.dragSVG) {
       // Create new SVG element for drag connection
       const svg = d3
         .create('svg')
-        .attr('class', 'edge-svg edge-drag-svg')
-        .style('position', 'absolute')
-        .style('pointer-events', 'none')
-        .style('overflow', 'visible')
+        .attr('class', 'edge-svg')
         .node() as SVGSVGElement;
 
       // Create path within the SVG
       const path = d3
         .select(svg)
         .append('path')
-        .attr('class', 'edge edge-drag')
-        .attr('fill', 'none')
-        .attr('stroke-linecap', 'round')
-        .attr('stroke-dasharray', '5,5')
+        .attr('class', shiftPressed ? 'edge edge-drag array-mode' : 'edge edge-drag')
         .node() as SVGPathElement;
-
-      // Set stroke using inline style to override CSS
-      path.style.stroke = dragColor;
-      path.style.strokeWidth = '2px';
 
       this.dragSVG = { svg, path };
       this.container.appendChild(svg);
     } else {
-      // Update stroke color based on shift state using inline style
-      this.dragSVG.path.style.stroke = dragColor;
+      // Update path class based on shift state
+      this.dragSVG.path.setAttribute('class', shiftPressed ? 'edge edge-drag array-mode' : 'edge edge-drag');
     }
 
-    // Update SVG position and size using direct style manipulation
+    // Update SVG position and size (only dynamic values as inline styles)
     this.dragSVG.svg.style.left = `${bbox.x}px`;
     this.dragSVG.svg.style.top = `${bbox.y}px`;
     this.dragSVG.svg.setAttribute('width', String(bbox.width));

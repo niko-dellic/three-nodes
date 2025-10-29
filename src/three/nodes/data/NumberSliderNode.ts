@@ -97,6 +97,7 @@ export class NumberSliderNode extends TweakpaneNode<never, 'value'> {
     return {
       style: 'inline-header',
       hideInputColumn: true,
+      showOutputLabels: false,
     };
   }
 }

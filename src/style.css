@@ -81,17 +81,34 @@ body.dragging {
   pointer-events: none;
 }
 
-/* Edge styles */
+/* Edge SVG container styles */
+.edge-svg {
+  position: absolute;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* Edge path styles */
 .edge {
   pointer-events: none;
   stroke: var(--link-color);
-  stroke-width: 2;
+  stroke-width: 2px;
   fill: none;
+  stroke-linecap: round;
 }
 
 .edge-array {
   stroke: var(--multiple-link-color);
-  stroke-width: 4;
+  stroke-width: 4px;
+}
+
+.edge-drag {
+  stroke: var(--drag-color);
+  stroke-dasharray: 5, 5;
+}
+
+.edge-drag.array-mode {
+  stroke: var(--multiple-link-color);
 }
 
 .drag-connection {
@@ -281,7 +298,6 @@ body:not(#touch-device) .context-menu-pane {
   width: fit-content;
   height: fit-content;
   min-width: 120px;
-  min-height: 60px;
 }
 
 .node:hover {
@@ -303,6 +319,26 @@ body:not(#touch-device) .context-menu-pane {
   padding: 10px 10px;
   background: var(--background-color);
   white-space: nowrap;
+}
+
+/* Inline header layout (ports and controls in header) */
+.node-header-inline {
+  padding-right: 0px;
+}
+
+.node-header-inline .node-control {
+  margin-left: 10px;
+}
+
+/* Port containers for inline headers */
+.inline-port-container {
+  display: flex;
+  margin-left: 0px;
+  width: 0;
+}
+
+.inline-port-container .output {
+  width: 0;
 }
 
 .node-title {
@@ -333,6 +369,10 @@ body:not(#touch-device) .context-menu-pane {
   position: relative;
 }
 
+.node-body-hidden {
+  display: none;
+}
+
 .port {
   width: 12px;
   height: 12px;
@@ -344,12 +384,27 @@ body:not(#touch-device) .context-menu-pane {
   position: relative;
   z-index: 10;
   flex-shrink: 0;
+  transform-origin: center;
 }
 
-.port:hover {
-  transform: scale(1.2);
+.output .port {
+  transform: translateX(6px);
+}
+
+.input .port {
+  transform: translateX(-6px);
+}
+
+.input-column,
+.output-column {
+  margin-bottom: 10px;
+}
+
+/* Port hover state - applies to both user hover and drag target highlighting */
+.port:hover,
+.port.port-dragging {
+  transform: scale(1.2) translateX(6px);
   border-color: rgba(255, 255, 255, 0.8);
-  border-width: 3px;
   filter: brightness(1.3);
 }
 
@@ -384,22 +439,22 @@ body:not(#touch-device) .context-menu-pane {
 
 /* Tweakpane: Hide empty labels and make value take full width */
 .node-control .tp-lblv_l:empty {
-  display: none !important;
-  width: 0 !important;
-  min-width: 0 !important;
+  display: none;
+  width: 0;
+  min-width: 0;
 }
 
 /* Make value take full width when label is empty/hidden */
 .node-control .tp-lblv:has(.tp-lblv_l:empty) .tp-lblv_v {
-  width: 100% !important;
-  flex: 1 !important;
+  width: 100%;
+  flex: 1;
   min-width: var(--tweakpane-min-width, 250px);
 }
 
 /* Fallback for browsers without :has() - hide empty label and expand value */
 .node-control .tp-lblv_l:empty ~ .tp-lblv_v {
-  width: 100% !important;
-  flex: 1 !important;
+  width: 100%;
+  flex: 1;
   min-width: var(--tweakpane-min-width, 250px);
 }
 

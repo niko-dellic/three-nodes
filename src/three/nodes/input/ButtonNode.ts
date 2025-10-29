@@ -66,6 +66,7 @@ export class ButtonNode extends TweakpaneNode<never, 'trigger'> {
       style: 'inline-header',
       hideInputColumn: true,
       tweakpaneMinWidth: 100,
+      showOutputLabels: false,
     };
   }
 }

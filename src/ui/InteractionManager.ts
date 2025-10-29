@@ -218,7 +218,7 @@ export class InteractionManager {
       if (portId) {
         const port = this.findPort(portId);
         if (port) {
-          const pos = this.nodeRenderer.getPortWorldPosition(portId);
+          const pos = this.nodeRenderer.getPortScreenPosition(portId);
           if (pos) {
             // Check if this port has an existing connection
             let removedEdge: Edge | undefined = undefined;
@@ -235,7 +235,7 @@ export class InteractionManager {
 
                 // Switch to dragging from the OUTPUT port that was connected
                 dragFromPort = existingEdge.source; // The output port
-                const outputPos = this.nodeRenderer.getPortWorldPosition(dragFromPort.id);
+                const outputPos = this.nodeRenderer.getPortScreenPosition(dragFromPort.id);
                 if (outputPos) {
                   dragFromPos = outputPos;
                 }

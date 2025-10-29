@@ -59,6 +59,8 @@ export class BooleanInputNode extends TweakpaneNode<never, 'value'> {
     return {
       style: 'inline-header',
       hideInputColumn: true,
+      tweakpaneMinWidth: 60,
+      showOutputLabels: false,
     };
   }
 }

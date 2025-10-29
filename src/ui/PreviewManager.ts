@@ -126,14 +126,10 @@ export class PreviewManager {
    * Initialize the preview UI controls in the provided container
    */
   initializeUI(container: HTMLElement): void {
-    // Create preview mode label
-    const previewModeLabel = document.createElement('label');
-    previewModeLabel.textContent = 'Preview:';
-    container.appendChild(previewModeLabel);
-
     // Create preview mode selector
     this.previewModeSelect = document.createElement('select');
     this.previewModeSelect.id = 'preview-mode';
+    this.previewModeSelect.title = 'Preview'; // Tooltip
     this.previewModeSelect.innerHTML = `
       <option value="none">None</option>
       <option value="selected">Selected</option>
@@ -149,14 +145,10 @@ export class PreviewManager {
       this.setPreviewMode(mode);
     });
 
-    // Create preview material label
-    const materialLabel = document.createElement('label');
-    materialLabel.textContent = 'Material:';
-    container.appendChild(materialLabel);
-
     // Create preview material selector
     this.previewMaterialSelect = document.createElement('select');
     this.previewMaterialSelect.id = 'preview-material-select';
+    this.previewMaterialSelect.title = 'Material'; // Tooltip
     this.previewMaterialSelect.innerHTML = `
       <option value="0">Basic (Green)</option>
       <option value="1">Wireframe</option>

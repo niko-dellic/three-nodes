@@ -220,9 +220,28 @@ export class GraphEditor {
 
   private preventDefaultZoom(): void {
     // Prevent default pinch zoom on the entire page (Safari gesture events)
-    document.addEventListener('gesturestart', (e) => e.preventDefault());
-    document.addEventListener('gesturechange', (e) => e.preventDefault());
-    document.addEventListener('gestureend', (e) => e.preventDefault());
+    // But allow them on the canvas so they can be converted to wheel events
+    document.addEventListener('gesturestart', (e) => {
+      const target = e.target as Element;
+      const isCanvas = target.closest('.graph-canvas');
+      if (!isCanvas) {
+        e.preventDefault();
+      }
+    });
+    document.addEventListener('gesturechange', (e) => {
+      const target = e.target as Element;
+      const isCanvas = target.closest('.graph-canvas');
+      if (!isCanvas) {
+        e.preventDefault();
+      }
+    });
+    document.addEventListener('gestureend', (e) => {
+      const target = e.target as Element;
+      const isCanvas = target.closest('.graph-canvas');
+      if (!isCanvas) {
+        e.preventDefault();
+      }
+    });
 
     // Prevent pinch zoom via touch events (for touch devices)
     // The canvas handles its own zoom via wheel events in InteractionManager
@@ -230,7 +249,11 @@ export class GraphEditor {
       'touchmove',
       (e) => {
         if (e.touches.length === 2) {
-          e.preventDefault(); // Prevent pinch zoom
+          const target = e.target as Element;
+          const isCanvas = target.closest('.graph-canvas');
+          if (!isCanvas) {
+            e.preventDefault(); // Prevent pinch zoom on non-canvas elements
+          }
         }
       },
       { passive: false }
@@ -242,9 +265,9 @@ export class GraphEditor {
       'wheel',
       (e) => {
         if (e.ctrlKey || e.metaKey) {
-          // Check if the event target is within the graph SVG canvas
+          // Check if the event target is within the graph canvas
           const target = e.target as Element;
-          const isCanvas = target.closest('.graph-svg') || target.closest('svg.graph-svg');
+          const isCanvas = target.closest('.graph-canvas');
 
           if (!isCanvas) {
             // Prevent browser zoom on non-canvas elements
@@ -268,26 +291,26 @@ export class GraphEditor {
     // Update viewport damping
     this.viewport.update();
 
-    // Apply viewport transform to both nodes and edges layers
+    // Apply viewport transform only to nodes layer
+    // Edges are positioned in screen space, so they don't need the transform
     this.viewport.applyToHTML(this.nodesLayer);
-    this.viewport.applyToHTML(this.edgesLayer);
 
     // Get drag connection if any
     const dragState = this.interactionManager.getDragState();
     let dragConnection = undefined;
 
     if (dragState.type === 'connection') {
-      const pos = this.nodeRenderer.getPortWorldPosition(dragState.port.id);
+      const pos = this.nodeRenderer.getPortScreenPosition(dragState.port.id);
       if (pos) {
         // Get current mouse position from interaction manager
         const currentMouse = this.interactionManager.getCurrentMousePos();
         if (currentMouse) {
-          const worldMouse = this.viewport.screenToWorld(currentMouse.x, currentMouse.y);
+          // Both start and end positions are in screen space now
           dragConnection = {
             startX: pos.x,
             startY: pos.y,
-            endX: worldMouse.x,
-            endY: worldMouse.y,
+            endX: currentMouse.x,
+            endY: currentMouse.y,
             shiftPressed: dragState.shiftPressed,
           };
         }
@@ -297,7 +320,7 @@ export class GraphEditor {
     // Render edges (must be before nodes so they appear behind)
     this.edgeRenderer.render(
       this.graph,
-      (portId) => this.nodeRenderer.getPortWorldPosition(portId),
+      (portId) => this.nodeRenderer.getPortScreenPosition(portId),
       dragConnection
     );
 
