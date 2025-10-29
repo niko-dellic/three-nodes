@@ -5,8 +5,9 @@ import { EvaluationContext, NodeLayoutConfig } from '@/core/types';
 export class NumberSliderNode extends TweakpaneNode<never, 'value'> {
   private currentValue: number = 0;
   private params = { value: 0 };
+  private initialValue?: number;
 
-  constructor(id: string) {
+  constructor(id: string, initialValue?: number) {
     super(id, 'NumberSliderNode', 'Number Slider');
 
     // Slider configuration properties
@@ -26,8 +27,10 @@ export class NumberSliderNode extends TweakpaneNode<never, 'value'> {
     // Output
     this.addOutput({ name: 'value', type: PortType.Number });
 
-    // Initialize with default value
-    this.currentValue = 0;
+    // Store initial value if provided
+    this.initialValue = initialValue;
+    // Initialize with provided value or 0
+    this.currentValue = initialValue ?? 0;
   }
 
   protected setupTweakpaneControls(): void {
@@ -61,9 +64,10 @@ export class NumberSliderNode extends TweakpaneNode<never, 'value'> {
     if (this.currentValue < minValue) this.currentValue = minValue;
     if (this.currentValue > maxValue) this.currentValue = maxValue;
 
-    // On first evaluation, use default
+    // On first evaluation, use initial value if provided, otherwise use default
     if (this.outputs.get('value')?.value === undefined) {
-      this.currentValue = Math.max(minValue, Math.min(maxValue, defaultValue));
+      const valueToUse = this.initialValue ?? defaultValue;
+      this.currentValue = Math.max(minValue, Math.min(maxValue, valueToUse));
     }
 
     this.setOutputValue('value', this.currentValue);

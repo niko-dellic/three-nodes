@@ -109,9 +109,8 @@ directionalLightPos.position = { x: 100, y: -25 };
 directionalLightPos.setVector(10, 10, 10);
 graph.addNode(directionalLightPos);
 
-const directionaLightIntensity = registry.insertNode(NumberSliderNode, 'dir-light-intensity');
+const directionaLightIntensity = new NumberSliderNode('dir-light-intensity', 1);
 directionaLightIntensity.position = { x: 0, y: -100 };
-directionaLightIntensity.setValue(100);
 graph.addNode(directionaLightIntensity);
 
 const directionalLightNode = registry.insertNode(DirectionalLightNode, 'dir-light');

@@ -403,7 +403,7 @@ body:not(#touch-device) .context-menu-pane {
 /* Port hover state - applies to both user hover and drag target highlighting */
 .port:hover,
 .port.port-dragging {
-  transform: scale(1.2) translateX(6px);
+  transform: inherit scale(1.2);
   border-color: rgba(255, 255, 255, 0.8);
   filter: brightness(1.3);
 }

@@ -70,7 +70,7 @@ export class IntervalInputNode extends TweakpaneNode<never, 'min' | 'max'> {
     // Add interval control using Tweakpane Essentials
     this.pane
       .addBinding(interval, 'min', {
-        label: 'Interval',
+        label: '',
         min: rangeMin,
         max: rangeMax,
         step: step,
@@ -82,7 +82,7 @@ export class IntervalInputNode extends TweakpaneNode<never, 'min' | 'max'> {
 
     this.pane
       .addBinding(interval, 'max', {
-        label: ' ',
+        label: '',
         min: rangeMin,
         max: rangeMax,
         step: step,
