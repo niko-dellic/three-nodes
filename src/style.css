@@ -1254,3 +1254,7 @@ body:not(#touch-device) .properties-tabs {
 .data-flow-item:has(.inspector-expandable) {
   flex-direction: column;
 }
+
+foreignObject .tp-rotv {
+  position: fixed;
+}
