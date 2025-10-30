@@ -20,6 +20,7 @@ import {
 } from '@/three';
 import { GraphEditor, LiveViewport, ViewModeManager, PreviewManager } from '@/ui';
 import { isTouchDevice } from '@/utils/deviceDetection';
+import { CustomNodeManager } from '@/three/CustomNodeManager';
 
 // Detect touch device and add ID to body for styling
 if (isTouchDevice()) {
@@ -28,6 +29,15 @@ if (isTouchDevice()) {
 
 // Create the node registry
 const registry = createDefaultRegistry();
+
+// Load custom nodes from localStorage
+const customNodeManager = new CustomNodeManager(registry);
+const loadResult = customNodeManager.loadFromStorage();
+if (loadResult.success) {
+  console.log(loadResult.message);
+} else if (loadResult.error) {
+  console.warn('Custom nodes load warning:', loadResult.error);
+}
 
 // Create the graph
 const graph = new Graph();

@@ -66,7 +66,7 @@ export class HistoryManager {
   /**
    * Record current graph state to history
    */
-  private recordState(): void {
+  public recordState(): void {
     // Don't record if we're in the middle of applying history
     if (this.isApplyingHistory) return;
 

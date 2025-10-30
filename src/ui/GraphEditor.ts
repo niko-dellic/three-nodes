@@ -12,6 +12,10 @@ import { HistoryManager } from './HistoryManager';
 import { PropertiesPanel } from './PropertiesPanel';
 import { SaveLoadManager } from './SaveLoadManager';
 import { NodeRegistry } from '@/three/NodeRegistry';
+import { CustomNodeCreator } from './CustomNodeCreator';
+import { CustomNodeManager } from '@/three/CustomNodeManager';
+import { AutoLayoutManager } from './AutoLayoutManager';
+import { Pane } from 'tweakpane';
 
 export class GraphEditor {
   private graph: Graph;
@@ -27,6 +31,11 @@ export class GraphEditor {
   private propertiesPanel: PropertiesPanel;
   private saveLoadManager: SaveLoadManager;
   private registry: NodeRegistry;
+  private customNodeManager: CustomNodeManager;
+  private customNodeCreator: CustomNodeCreator;
+  private autoLayoutManager: AutoLayoutManager;
+  private autoLayoutPane: Pane | null = null;
+  private autoLayoutPaneContainer: HTMLElement | null = null;
 
   private graphContainer: HTMLElement; // Main graph canvas container
   private backgroundLayer: HTMLElement;
@@ -155,6 +164,24 @@ export class GraphEditor {
       const selectedNodes = this.selectionManager.getSelectedNodeObjects();
       this.propertiesPanel.setSelectedNodes(selectedNodes);
     });
+
+    // Initialize custom node system
+    this.customNodeManager = new CustomNodeManager(registry);
+    this.customNodeCreator = new CustomNodeCreator(container, this.customNodeManager);
+
+    // Connect custom node creator to context menu
+    this.contextMenu.setCustomNodeCreator(this.customNodeCreator);
+
+    // Callback to rebuild context menu when new custom nodes are created
+    this.customNodeCreator.onNodeCreatedCallback(() => {
+      // Rebuild context menu to show new custom node
+      // The context menu will automatically pick up the new node from the registry
+    });
+
+    // Initialize auto-layout system
+    const savedLayoutConfig = localStorage.getItem('autoLayoutConfig');
+    const layoutConfig = savedLayoutConfig ? JSON.parse(savedLayoutConfig) : undefined;
+    this.autoLayoutManager = new AutoLayoutManager(graph, layoutConfig);
 
     // Initialize interaction (pass graphContainer and overlayLayer)
     this.interactionManager = new InteractionManager(
@@ -412,7 +439,7 @@ export class GraphEditor {
     // Info button
     const infoButton = document.createElement('button');
     infoButton.className = 'toolbar-button info-button';
-    infoButton.textContent = '?';
+    infoButton.innerHTML = '<i class="ph ph-keyboard"></i>';
     infoButton.title = 'Keyboard shortcuts';
     infoButton.addEventListener('click', () => {
       this.infoOverlay.classList.toggle('visible');
@@ -541,7 +568,7 @@ export class GraphEditor {
     separator4.className = 'toolbar-separator';
     toolbar.appendChild(separator4);
 
-    // Group 3: Editor controls (Add node)
+    // Group 3: Editor controls (Add node, Auto-layout)
     const editorGroup = document.createElement('div');
     editorGroup.className = 'toolbar-button-group';
 
@@ -559,6 +586,16 @@ export class GraphEditor {
       this.contextMenu.show(rect.left, rect.bottom + 5);
     });
     editorGroup.appendChild(addNodeButton);
+
+    // Auto-layout button
+    const autoLayoutButton = document.createElement('button');
+    autoLayoutButton.className = 'toolbar-button auto-layout-button';
+    autoLayoutButton.title = 'Auto-arrange nodes';
+    autoLayoutButton.innerHTML = '<i class="ph ph-flow-arrow"></i>';
+    autoLayoutButton.addEventListener('click', () => {
+      this.toggleAutoLayoutPane(autoLayoutButton);
+    });
+    editorGroup.appendChild(autoLayoutButton);
 
     toolbar.appendChild(editorGroup);
 
@@ -647,9 +684,131 @@ export class GraphEditor {
     }
   }
 
+  private toggleAutoLayoutPane(button: HTMLElement): void {
+    // If pane exists, toggle visibility
+    if (this.autoLayoutPane && this.autoLayoutPaneContainer) {
+      const isHidden = this.autoLayoutPaneContainer.style.display === 'none';
+      this.autoLayoutPaneContainer.style.display = isHidden ? 'block' : 'none';
+
+      // Update position in case button moved
+      if (!isHidden) {
+        const rect = button.getBoundingClientRect();
+        this.autoLayoutPaneContainer.style.left = `${rect.left}px`;
+        this.autoLayoutPaneContainer.style.bottom = `${window.innerHeight - rect.top + 10}px`;
+      }
+      return;
+    }
+
+    // Get button position
+    const rect = button.getBoundingClientRect();
+
+    // Create pane container
+    this.autoLayoutPaneContainer = document.createElement('div');
+    this.autoLayoutPaneContainer.className = 'auto-layout-pane-container';
+    this.autoLayoutPaneContainer.style.cssText = `
+      position: fixed;
+      left: ${rect.left}px;
+      bottom: ${window.innerHeight - rect.top + 10}px;
+      z-index: 9999;
+    `;
+    document.body.appendChild(this.autoLayoutPaneContainer);
+
+    // Create Tweakpane instance
+    this.autoLayoutPane = new Pane({
+      container: this.autoLayoutPaneContainer,
+      title: 'Auto Layout',
+    });
+
+    // Get current config
+    const currentConfig = this.autoLayoutManager.getConfig();
+
+    // Load saved settings including checkbox states
+    const savedConfig = localStorage.getItem('autoLayoutConfig');
+    let savedSettings = savedConfig ? JSON.parse(savedConfig) : {};
+
+    // Create params object for Tweakpane
+    const params = {
+      horizontalEnabled:
+        savedSettings.horizontalEnabled !== undefined ? savedSettings.horizontalEnabled : true,
+      horizontalSpacing: currentConfig.horizontalSpacing,
+      verticalEnabled:
+        savedSettings.verticalEnabled !== undefined ? savedSettings.verticalEnabled : true,
+      verticalSpacing: currentConfig.verticalSpacing,
+    };
+
+    // Add horizontal spacing controls
+    const horizontalFolder = this.autoLayoutPane.addFolder({ title: 'Horizontal' });
+    horizontalFolder.addBinding(params, 'horizontalEnabled', { label: 'Enabled' });
+    horizontalFolder.addBinding(params, 'horizontalSpacing', {
+      label: 'Spacing',
+      min: 100,
+      max: 500,
+      step: 10,
+    });
+
+    // Add vertical spacing controls
+    const verticalFolder = this.autoLayoutPane.addFolder({ title: 'Vertical' });
+    verticalFolder.addBinding(params, 'verticalEnabled', { label: 'Enabled' });
+    verticalFolder.addBinding(params, 'verticalSpacing', {
+      label: 'Spacing',
+      min: 50,
+      max: 300,
+      step: 10,
+    });
+
+    // Apply layout on any change
+    const applyLayout = () => {
+      // Update config
+      this.autoLayoutManager.updateConfig({
+        horizontalSpacing: params.horizontalSpacing,
+        verticalSpacing: params.verticalSpacing,
+      });
+
+      // Save config to localStorage
+      localStorage.setItem(
+        'autoLayoutConfig',
+        JSON.stringify({
+          horizontalSpacing: params.horizontalSpacing,
+          verticalSpacing: params.verticalSpacing,
+          horizontalEnabled: params.horizontalEnabled,
+          verticalEnabled: params.verticalEnabled,
+        })
+      );
+
+      // Begin interaction
+      this.historyManager.beginInteraction();
+
+      // Apply layout with axis constraints
+      if (params.horizontalEnabled || params.verticalEnabled) {
+        this.autoLayoutManager.applyLayoutWithConstraints(
+          params.horizontalEnabled,
+          params.verticalEnabled
+        );
+      }
+
+      // End interaction after a short delay
+      setTimeout(() => {
+        this.historyManager.endInteraction();
+      }, 50);
+    };
+
+    // Listen to all parameter changes
+    this.autoLayoutPane.on('change', applyLayout);
+  }
+
   destroy(): void {
     if (this.animationId !== null) {
       cancelAnimationFrame(this.animationId);
+    }
+
+    // Cleanup auto-layout pane
+    if (this.autoLayoutPane) {
+      this.autoLayoutPane.dispose();
+      this.autoLayoutPane = null;
+    }
+    if (this.autoLayoutPaneContainer && this.autoLayoutPaneContainer.parentElement) {
+      this.autoLayoutPaneContainer.parentElement.removeChild(this.autoLayoutPaneContainer);
+      this.autoLayoutPaneContainer = null;
     }
   }
 

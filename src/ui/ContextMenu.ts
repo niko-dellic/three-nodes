@@ -1,6 +1,7 @@
 import { NodeRegistry } from '@/three/NodeRegistry';
 import { NodeMetadata } from '@/types';
 import { Pane } from 'tweakpane';
+import { CustomNodeCreator } from './CustomNodeCreator';
 
 export class ContextMenu {
   private element: HTMLElement;
@@ -12,12 +13,17 @@ export class ContextMenu {
   private searchInput: HTMLInputElement | null = null;
   private navigableButtons: HTMLButtonElement[] = [];
   private selectedButtonIndex: number = -1;
+  private customNodeCreator: CustomNodeCreator | null = null;
 
   constructor(container: HTMLElement, registry: NodeRegistry) {
     this.registry = registry;
     this.element = this.createContextMenu();
     container.appendChild(this.element);
     this.setupEventListeners();
+  }
+
+  setCustomNodeCreator(creator: CustomNodeCreator): void {
+    this.customNodeCreator = creator;
   }
 
   private createContextMenu(): HTMLElement {
@@ -367,10 +373,14 @@ export class ContextMenu {
   }
 
   private handleCustomNode(): void {
-    // For now, just log - can be expanded later
-    console.log('Custom node creation not yet implemented');
-    alert('Custom node creation will be available in a future update!');
     this.hide();
+
+    if (this.customNodeCreator) {
+      this.customNodeCreator.show();
+    } else {
+      console.error('CustomNodeCreator not initialized');
+      alert('Custom node creator is not available');
+    }
   }
 
   onNodeSelectCallback(callback: (nodeType: string, x: number, y: number) => void): void {

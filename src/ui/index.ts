@@ -12,3 +12,4 @@ export { ClipboardManager } from './ClipboardManager';
 export { HistoryManager } from './HistoryManager';
 export { SaveLoadManager } from './SaveLoadManager';
 export { ObjectInspector } from './ObjectInspector';
+export { AutoLayoutManager } from './AutoLayoutManager';

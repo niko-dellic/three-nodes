@@ -1,3 +1,6 @@
+/* Import Custom Node Creator styles */
+@import './ui/CustomNodeCreator.css';
+
 :root {
   --primary-color: #bcbcbc;
   --secondary-color: #595959;
@@ -522,8 +525,11 @@ body:not(#touch-device) .context-menu-pane {
 /* Toolbar - unified controls at top left */
 .toolbar {
   position: fixed;
-  top: 16px;
-  left: 16px;
+  left: 0;
+  right: 0;
+  bottom: 24px;
+  margin-left: auto;
+  margin-right: auto;
   z-index: 10;
   display: flex;
   flex-direction: row;
@@ -535,7 +541,7 @@ body:not(#touch-device) .context-menu-pane {
   border-radius: 8px;
   border: 1px solid var(--border-color);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  max-width: 100vw;
+  max-width: fit-content;
   overflow-x: auto;
   max-height: 75vh;
 }
@@ -659,7 +665,7 @@ body:not(#touch-device) .context-menu-pane {
 }
 
 .toolbar-button.info-button:hover {
-  background: var(--tertiary-color);
+  background: var(--background-color);
 }
 
 .toolbar-button.fullscreen-button {
@@ -672,10 +678,6 @@ body:not(#touch-device) .context-menu-pane {
   background: var(--background-color);
   border-color: var(--border-color);
   font-size: 16px;
-}
-
-.toolbar-button.fullscreen-button:hover {
-  background: var(--tertiary-color);
 }
 
 .toolbar-button.fullscreen-button i {
@@ -778,7 +780,7 @@ body:not(#touch-device) .context-menu-pane {
 /* Info overlay */
 .info {
   position: fixed;
-  top: 70px;
+  bottom: 24px;
   left: 16px;
   z-index: 9;
   color: var(--text-color);

@@ -13,9 +13,17 @@
     "add-node-types": "python3 scripts/add_type_safety.py"
   },
   "dependencies": {
+    "@babel/runtime": "^7.28.4",
+    "@codemirror/commands": "^6.10.0",
+    "@codemirror/lang-javascript": "^6.2.4",
+    "@codemirror/language": "^6.11.3",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.38.6",
     "@phosphor-icons/web": "^2.1.2",
     "@tweakpane/plugin-essentials": "^0.2.1",
     "@types/d3": "^7.4.3",
+    "@uiw/codemirror-theme-vscode": "^4.25.2",
+    "codemirror": "^6.0.2",
     "d3": "^7.9.0",
     "three": "^0.180.0",
     "tweakpane": "^4.0.5"

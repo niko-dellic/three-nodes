@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 
+// Re-export custom node types
+export * from './customNode';
+
 // Port types for the node system
 export enum PortType {
   Number = 'number',
