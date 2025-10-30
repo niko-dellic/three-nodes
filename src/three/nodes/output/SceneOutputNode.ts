@@ -40,7 +40,7 @@ export class SceneOutputNode extends BaseThreeNode<'compiled' | 'update', 'outpu
       return;
     }
 
-    const { scene, objects, camera } = compiled;
+    const { scene, objects, camera, fog } = compiled;
 
     if (!scene) {
       console.warn('SceneOutputNode: No scene in compiled data');
@@ -79,6 +79,13 @@ export class SceneOutputNode extends BaseThreeNode<'compiled' | 'update', 'outpu
         // Track this object for next evaluation
         this.previousObjects.push(obj);
       }
+    }
+
+    // Apply fog if provided (or clear if not)
+    scene.fog = fog ?? null;
+    
+    if (fog) {
+      console.log('SceneOutputNode: Applied fog to scene', fog);
     }
 
     const output: SceneOutput = {

@@ -29,29 +29,34 @@ export class SetMaterialNode extends BaseThreeNode<'object' | 'material', 'objec
 
     if (!material) {
       console.warn('SetMaterialNode: No material provided');
-      this.setOutputValue('object', object);
+      // Still clone to maintain non-destructive workflow
+      this.setOutputValue('object', object.clone());
       return;
     }
 
+    // Clone the object to avoid mutating upstream nodes (non-destructive workflow)
+    // This shares geometry (memory efficient) but clones materials when necessary
+    const clonedObject = object.clone();
+
     // Check if the object is a Mesh or InstancedMesh
-    if (object instanceof THREE.Mesh || object instanceof THREE.InstancedMesh) {
-      object.material = material;
+    if (clonedObject instanceof THREE.Mesh || clonedObject instanceof THREE.InstancedMesh) {
+      clonedObject.material = material;
     }
     // Check if it's a Line
-    else if (object instanceof THREE.Line || object instanceof THREE.LineSegments) {
-      object.material = material;
+    else if (clonedObject instanceof THREE.Line || clonedObject instanceof THREE.LineSegments) {
+      clonedObject.material = material;
     }
     // Check if it's Points
-    else if (object instanceof THREE.Points) {
-      object.material = material;
+    else if (clonedObject instanceof THREE.Points) {
+      clonedObject.material = material;
     }
     // Check if it's a Sprite
-    else if (object instanceof THREE.Sprite) {
-      object.material = material as THREE.SpriteMaterial;
+    else if (clonedObject instanceof THREE.Sprite) {
+      clonedObject.material = material as THREE.SpriteMaterial;
     }
     // If it's a group or Object3D, try to set material on all children
-    else if (object instanceof THREE.Group || object instanceof THREE.Object3D) {
-      object.traverse((child) => {
+    else if (clonedObject instanceof THREE.Group || clonedObject instanceof THREE.Object3D) {
+      clonedObject.traverse((child) => {
         if (
           child instanceof THREE.Mesh ||
           child instanceof THREE.InstancedMesh ||
@@ -66,6 +71,6 @@ export class SetMaterialNode extends BaseThreeNode<'object' | 'material', 'objec
       console.warn('SetMaterialNode: Object type does not support materials');
     }
 
-    this.setOutputValue('object', object);
+    this.setOutputValue('object', clonedObject);
   }
 }

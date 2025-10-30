@@ -6,7 +6,7 @@ import * as THREE from 'three';
 /**
  * Scene Compiler Node
  *
- * Collects scene, objects, and camera without mutating the scene.
+ * Collects scene, objects, camera, and fog without mutating the scene.
  * Acts as an intermediary that gathers all data needed for the final scene output.
  * Does NOT add objects to the scene - that's done by SceneOutputNode.
  */
@@ -14,10 +14,11 @@ export interface CompiledScene {
   scene: THREE.Scene;
   objects: THREE.Object3D[];
   camera: THREE.Camera;
+  fog?: THREE.Fog | THREE.FogExp2;
 }
 
 export class SceneCompilerNode extends BaseThreeNode<
-  'scene' | 'objects' | 'camera',
+  'scene' | 'objects' | 'camera' | 'fog',
   'compiled'
 > {
   constructor(id: string) {
@@ -25,6 +26,7 @@ export class SceneCompilerNode extends BaseThreeNode<
     this.addInput({ name: 'scene', type: PortType.Scene });
     this.addInput({ name: 'objects', type: PortType.Object3D });
     this.addInput({ name: 'camera', type: PortType.Camera });
+    this.addInput({ name: 'fog', type: PortType.Any });
     this.addOutput({ name: 'compiled', type: PortType.Any });
   }
 
@@ -32,6 +34,7 @@ export class SceneCompilerNode extends BaseThreeNode<
     const scene = this.getInputValue<THREE.Scene>('scene');
     const camera = this.getInputValue<THREE.Camera>('camera');
     const objectInputs = this.getInputValues<THREE.Object3D>('objects');
+    const fog = this.getInputValue<THREE.Fog | THREE.FogExp2>('fog');
 
     if (!scene) {
       console.warn('SceneCompilerNode: No scene provided');
@@ -64,6 +67,7 @@ export class SceneCompilerNode extends BaseThreeNode<
       scene,
       objects,
       camera,
+      fog,
     };
 
     this.setOutputValue('compiled', compiled);

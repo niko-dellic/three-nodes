@@ -7,12 +7,16 @@ export class Graph {
   public nodes: Map<string, Node> = new Map();
   public edges: Map<string, Edge> = new Map();
   public defaultScene: THREE.Scene; // Always available for preview/rendering
+  public defaultCamera: THREE.PerspectiveCamera; // Always available for preview/rendering
 
   private _listeners: Set<(graph: Graph) => void> = new Set();
 
   constructor() {
     // Create a default scene that's always available
     this.defaultScene = new THREE.Scene();
+    this.defaultCamera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+    this.defaultCamera.position.set(10, 10, 10);
+    this.defaultCamera.lookAt(0, 0, 0);
   }
 
   // Add a node to the graph

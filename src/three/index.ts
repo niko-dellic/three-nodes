@@ -50,6 +50,7 @@ import { CreateInstancedMeshNode } from './nodes/scene/CreateInstancedMeshNode';
 import { UpdateInstancePositionsNode } from './nodes/scene/UpdateInstancePositionsNode';
 import { SetMaterialNode } from './nodes/scene/SetMaterialNode';
 import { GridHelperNode } from './nodes/scene/GridHelperNode';
+import { FogNode } from './nodes/scene/FogNode';
 
 // Scene utility nodes
 import { GLTFExporterNode } from './nodes/scene/utils/GLTFExporterNode';
@@ -179,6 +180,7 @@ export { CreateInstancedMeshNode } from './nodes/scene/CreateInstancedMeshNode';
 export { UpdateInstancePositionsNode } from './nodes/scene/UpdateInstancePositionsNode';
 export { SetMaterialNode } from './nodes/scene/SetMaterialNode';
 export { GridHelperNode } from './nodes/scene/GridHelperNode';
+export { FogNode } from './nodes/scene/FogNode';
 export { GLTFExporterNode } from './nodes/scene/utils/GLTFExporterNode';
 export { GetObjectByNameNode } from './nodes/scene/utils/GetObjectByNameNode';
 export { TraverseNode } from './nodes/scene/utils/TraverseNode';
@@ -467,7 +469,7 @@ export function createDefaultRegistry(): NodeRegistry {
     type: 'SceneCompilerNode',
     category: 'Scene',
     label: 'Scene Compiler',
-    description: 'Compiles scene, objects, and camera for output',
+    description: 'Compiles scene, objects, camera, and fog for output',
     icon: '📦',
   });
 
@@ -509,6 +511,14 @@ export function createDefaultRegistry(): NodeRegistry {
     label: 'Grid Helper',
     description: 'Visual grid helper with customizable size, divisions, and colors',
     icon: '⊞',
+  });
+
+  registry.register(FogNode, {
+    type: 'FogNode',
+    category: 'Scene',
+    label: 'Fog',
+    description: 'Atmospheric fog effect (linear or exponential)',
+    icon: '🌫️',
   });
 
   // Register scene utility nodes

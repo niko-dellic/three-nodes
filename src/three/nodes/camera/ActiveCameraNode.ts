@@ -16,7 +16,6 @@ export class ActiveCameraNode extends BaseThreeNode<
   constructor(id: string) {
     super(id, 'ActiveCameraNode', 'Active Camera');
 
-    this.addInput({ name: 'camera', type: PortType.Camera });
     this.addInput({ name: 'update', type: PortType.Boolean, defaultValue: false });
     this.addInput({ name: 'position', type: PortType.Vector3 });
     this.addInput({ name: 'target', type: PortType.Vector3 });
@@ -25,7 +24,7 @@ export class ActiveCameraNode extends BaseThreeNode<
   }
 
   evaluate(context: EvaluationContext): void {
-    const camera = this.getInputValue<THREE.Camera>('camera');
+    const camera = context.graph?.defaultCamera;
     const update = this.getInputValue<boolean>('update') ?? false;
     const position = this.getInputValue<THREE.Vector3>('position');
     const target = this.getInputValue<THREE.Vector3>('target');

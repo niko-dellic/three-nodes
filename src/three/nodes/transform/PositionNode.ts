@@ -3,10 +3,7 @@ import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
 import * as THREE from 'three';
 
-export class PositionNode extends BaseThreeNode<
-  'object' | 'position',
-  'object'
-> {
+export class PositionNode extends BaseThreeNode<'object' | 'position', 'object'> {
   constructor(id: string) {
     super(id, 'PositionNode', 'Position');
     this.addInput({ name: 'object', type: PortType.Object3D });
@@ -22,11 +19,16 @@ export class PositionNode extends BaseThreeNode<
       return;
     }
 
+    // Clone the object to avoid mutating upstream nodes (non-destructive workflow)
+    // This shares geometry/materials (memory efficient) but clones transform hierarchy
+    const clonedObject = object.clone();
+
     // Check if position vector is provided
     const positionVector = this.getInputValue<THREE.Vector3>('position');
     if (positionVector) {
-      object.position.copy(positionVector);
+      clonedObject.position.copy(positionVector);
     }
-    this.setOutputValue('object', object);
+
+    this.setOutputValue('object', clonedObject);
   }
 }

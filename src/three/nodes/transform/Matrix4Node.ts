@@ -37,27 +37,31 @@ export class Matrix4Node extends BaseThreeNode<
     }
 
     if (!matrix || !(matrix instanceof THREE.Matrix4)) {
-      // If no valid matrix, just pass through
-      this.setOutputValue('object', object);
+      // If no valid matrix, pass through a clone to maintain non-destructive workflow
+      this.setOutputValue('object', object.clone());
       return;
     }
+
+    // Clone the object to avoid mutating upstream nodes (non-destructive workflow)
+    // This shares geometry/materials (memory efficient) but clones transform hierarchy
+    const clonedObject = object.clone();
 
     const mode = this.getProperty('mode') || 'set';
 
     switch (mode) {
       case 'set':
-        object.matrix.copy(matrix);
-        object.matrix.decompose(object.position, object.quaternion, object.scale);
+        clonedObject.matrix.copy(matrix);
+        clonedObject.matrix.decompose(clonedObject.position, clonedObject.quaternion, clonedObject.scale);
         break;
       case 'multiply':
-        object.applyMatrix4(matrix);
+        clonedObject.applyMatrix4(matrix);
         break;
       case 'premultiply':
-        object.matrix.premultiply(matrix);
-        object.matrix.decompose(object.position, object.quaternion, object.scale);
+        clonedObject.matrix.premultiply(matrix);
+        clonedObject.matrix.decompose(clonedObject.position, clonedObject.quaternion, clonedObject.scale);
         break;
     }
 
-    this.setOutputValue('object', object);
+    this.setOutputValue('object', clonedObject);
   }
 }

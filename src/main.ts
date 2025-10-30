@@ -18,6 +18,8 @@ import {
   NumberSliderNode,
   MeshMatcapMaterialNode,
   GridHelperNode,
+  ActiveCameraNode,
+  BooleanInputNode,
 } from '@/three';
 import { GraphEditor, LiveViewport, ViewModeManager, PreviewManager } from '@/ui';
 import { isTouchDevice } from '@/utils/deviceDetection';
@@ -97,17 +99,20 @@ graph.addNode(sceneNode);
 // 7. Create camera
 const cameraPosNode = registry.insertNode(Vector3Node, 'camera-pos');
 cameraPosNode.position = { x: 800, y: 450 };
-cameraPosNode.inputs.get('x')!.value = 0;
-cameraPosNode.inputs.get('y')!.value = 0;
-cameraPosNode.inputs.get('z')!.value = 5;
+cameraPosNode.setVector(10, 10, 10);
 graph.addNode(cameraPosNode);
 
-const cameraNode = registry.insertNode(PerspectiveCameraNode, 'camera');
+const booleanToggleNode = registry.insertNode(BooleanInputNode, 'update-camera');
+booleanToggleNode.position = { x: 850, y: 400 };
+booleanToggleNode.setProperty('default', true);
+graph.addNode(booleanToggleNode);
+
+const cameraNode = registry.insertNode(ActiveCameraNode, 'camera');
 cameraNode.position = { x: 1150, y: 450 };
 graph.addNode(cameraNode);
 
 graph.connect(cameraPosNode.output('vector'), cameraNode.input('position'));
-
+graph.connect(booleanToggleNode.output('value'), cameraNode.input('update'));
 // 8. Add lights
 const ambientLightNode = registry.insertNode(AmbientLightNode, 'ambient-light');
 ambientLightNode.position = { x: 550, y: 100 };
@@ -133,7 +138,7 @@ graph.connect(directionalLightPos.output('vector'), directionalLightNode.input('
 graph.connect(directionaLightIntensity.output('value'), directionalLightNode.input('intensity'));
 
 const gridHelperNode = registry.insertNode(GridHelperNode, 'grid-helper');
-gridHelperNode.position = { x: 450, y: 500 };
+gridHelperNode.position = { x: 850, y: -150 };
 graph.addNode(gridHelperNode);
 
 // 9. Scene Compiler - Collects all objects and camera for the scene

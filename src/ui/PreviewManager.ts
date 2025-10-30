@@ -38,18 +38,26 @@ export class PreviewManager {
         transparent: true,
         opacity: 0.5,
         side: THREE.DoubleSide,
+        fog: true,
       }),
       new THREE.MeshBasicMaterial({
         color: 0x00ff00,
         wireframe: true,
         transparent: true,
         opacity: 0.7,
+        fog: true,
       }),
-      new THREE.MeshNormalMaterial({ wireframe: false, transparent: true, opacity: 0.8 }),
+      new THREE.MeshNormalMaterial({ 
+        wireframe: false, 
+        transparent: true, 
+        opacity: 0.8,
+        fog: true,
+      }),
       new THREE.MeshBasicMaterial({
         color: 0xff9900,
         transparent: true,
         opacity: 0.6,
+        fog: true,
       }),
     ];
 
@@ -375,7 +383,74 @@ export class PreviewManager {
         continue;
       }
 
-      // Handle different Three.js object types
+      // Handle arrays of objects
+      if (Array.isArray(value)) {
+        // Check if this is an array of Vector3 (for point cloud visualization)
+        if (value.length > 0 && value[0] instanceof THREE.Vector3) {
+          const pointsId = node.id + '_points_array';
+          if (!addedObjects.has(pointsId)) {
+            addedObjects.add(pointsId);
+            this.addVector3ArrayToPreview(pointsId, value as THREE.Vector3[]);
+          }
+          continue;
+        }
+
+        // Handle other array types
+        for (let i = 0; i < value.length; i++) {
+          const item = value[i];
+          if (!item) continue;
+
+          // Handle Object3D in array
+          if (item instanceof THREE.Object3D) {
+            const objId = node.id + '_arr_' + i + '_' + item.uuid;
+            if (!addedObjects.has(objId)) {
+              addedObjects.add(objId);
+              this.addObject3DToPreview(objId, item, true);
+            }
+          }
+          // Handle BufferGeometry in array
+          else if (item instanceof THREE.BufferGeometry) {
+            const geomId = node.id + '_arr_geom_' + i + '_' + item.uuid;
+            if (!addedObjects.has(geomId)) {
+              addedObjects.add(geomId);
+              this.addGeometryToPreview(geomId, item);
+            }
+          }
+          // Handle Material in array
+          else if (item instanceof THREE.Material) {
+            const matId = node.id + '_arr_mat_' + i + '_' + item.uuid;
+            if (!addedObjects.has(matId)) {
+              addedObjects.add(matId);
+              this.addMaterialPreview(matId, item);
+            }
+          }
+          // Handle lights in arrays
+          else if (item instanceof THREE.DirectionalLight) {
+            const lightId = node.id + '_arr_light_' + i + '_' + item.uuid;
+            if (!addedObjects.has(lightId)) {
+              addedObjects.add(lightId);
+              this.addDirectionalLightToPreview(lightId, item);
+            }
+          }
+          else if (item instanceof THREE.PointLight) {
+            const lightId = node.id + '_arr_light_' + i + '_' + item.uuid;
+            if (!addedObjects.has(lightId)) {
+              addedObjects.add(lightId);
+              this.addPointLightToPreview(lightId, item);
+            }
+          }
+          else if (item instanceof THREE.SpotLight) {
+            const lightId = node.id + '_arr_light_' + i + '_' + item.uuid;
+            if (!addedObjects.has(lightId)) {
+              addedObjects.add(lightId);
+              this.addSpotLightToPreview(lightId, item);
+            }
+          }
+        }
+        continue; // Skip to next output port
+      }
+
+      // Handle different Three.js object types (single instances)
       if (value instanceof THREE.Object3D) {
         const objId = node.id + '_' + value.uuid;
         if (!addedObjects.has(objId)) {
@@ -429,10 +504,12 @@ export class PreviewManager {
             material.forEach((m) => {
               m.transparent = true;
               m.opacity = 0.7;
+              m.fog = true; // Ensure fog is enabled
             });
           } else {
             material.transparent = true;
             material.opacity = 0.7;
+            material.fog = true; // Ensure fog is enabled
           }
 
           child.material = material;
@@ -447,22 +524,11 @@ export class PreviewManager {
   private addGeometryToPreview(nodeId: string, geometry: THREE.BufferGeometry): void {
     const scene = this.getPreviewScene();
 
-    // Handle both single geometry and arrays
-    if (Array.isArray(geometry)) {
-      // Create a group for multiple geometries
-      const group = new THREE.Group();
-      for (const geom of geometry) {
-        const mesh = new THREE.Mesh(geom.clone(), this.previewMaterial);
-        group.add(mesh);
-      }
-      this.nodeObjects.set(nodeId, group);
-      scene.add(group);
-    } else {
-      // Create a mesh with the preview material
-      const mesh = new THREE.Mesh(geometry.clone(), this.previewMaterial);
-      this.nodeObjects.set(nodeId, mesh);
-      scene.add(mesh);
-    }
+    // Create a mesh with the preview material
+    // Note: Arrays are now handled at a higher level in addNodeToPreview
+    const mesh = new THREE.Mesh(geometry.clone(), this.previewMaterial);
+    this.nodeObjects.set(nodeId, mesh);
+    scene.add(mesh);
   }
 
   private addMaterialPreview(nodeId: string, material: THREE.Material): void {
@@ -527,6 +593,33 @@ export class PreviewManager {
 
     this.nodeObjects.set(nodeId, group);
     scene.add(group);
+  }
+
+  private addVector3ArrayToPreview(nodeId: string, positions: THREE.Vector3[]): void {
+    const scene = this.getPreviewScene();
+
+    if (!positions || positions.length === 0) {
+      return;
+    }
+
+    // Create geometry from Vector3 array
+    const geometry = new THREE.BufferGeometry();
+    geometry.setFromPoints(positions);
+
+    // Create a points material for visualization
+    const pointsMaterial = new THREE.PointsMaterial({
+      color: 0x00ff00,
+      size: 0.1,
+      transparent: true,
+      opacity: 0.7,
+      fog: true,
+    });
+
+    // Create Points object
+    const points = new THREE.Points(geometry, pointsMaterial);
+
+    this.nodeObjects.set(nodeId, points);
+    scene.add(points);
   }
 
   /**

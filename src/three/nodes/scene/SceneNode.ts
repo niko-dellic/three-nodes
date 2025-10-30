@@ -8,9 +8,9 @@ export class SceneNode extends BaseThreeNode<never, 'scene'> {
     this.addOutput({ name: 'scene', type: PortType.Scene });
   }
 
-  evaluate(_context: EvaluationContext): void {
+  evaluate(context: EvaluationContext): void {
     // Output the graph's default scene
-    const scene = _context.graph?.defaultScene;
+    const scene = context.graph?.defaultScene;
     if (scene) {
       this.setOutputValue('scene', scene);
     } else {

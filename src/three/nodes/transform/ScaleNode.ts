@@ -26,27 +26,31 @@ export class ScaleNode extends BaseThreeNode<
       return;
     }
 
+    // Clone the object to avoid mutating upstream nodes (non-destructive workflow)
+    // This shares geometry/materials (memory efficient) but clones transform hierarchy
+    const clonedObject = object.clone();
+
     // Check if uniform scale is provided
     const uniform = this.getInputValue<number>('uniform');
     if (uniform !== undefined) {
-      object.scale.set(uniform, uniform, uniform);
+      clonedObject.scale.set(uniform, uniform, uniform);
     } else {
       // Check if scale vector is provided
       const scaleVector = this.getInputValue<THREE.Vector3>('scale');
       if (scaleVector) {
-        object.scale.copy(scaleVector);
+        clonedObject.scale.copy(scaleVector);
       } else {
         // Use individual x, y, z values if provided
         const x = this.getInputValue<number>('x');
         const y = this.getInputValue<number>('y');
         const z = this.getInputValue<number>('z');
 
-        if (x !== undefined) object.scale.x = x;
-        if (y !== undefined) object.scale.y = y;
-        if (z !== undefined) object.scale.z = z;
+        if (x !== undefined) clonedObject.scale.x = x;
+        if (y !== undefined) clonedObject.scale.y = y;
+        if (z !== undefined) clonedObject.scale.z = z;
       }
     }
 
-    this.setOutputValue('object', object);
+    this.setOutputValue('object', clonedObject);
   }
 }

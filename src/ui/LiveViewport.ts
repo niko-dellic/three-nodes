@@ -28,8 +28,7 @@ export class LiveViewport {
     container.appendChild(this.renderer.domElement);
 
     // Create default camera for controls
-    this.defaultCamera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-    this.defaultCamera.position.set(0, 0, 5);
+    this.defaultCamera = graph.defaultCamera;
 
     // Create orbit controls
     this.controls = new OrbitControls(this.defaultCamera, this.renderer.domElement);

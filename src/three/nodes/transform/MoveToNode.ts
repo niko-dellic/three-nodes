@@ -7,10 +7,7 @@ import * as THREE from 'three';
  * MoveToNode - Move object relative to its current position
  * Unlike PositionNode which sets absolute position, this adds to current position
  */
-export class MoveToNode extends BaseThreeNode<
-  'object' | 'offset',
-  'object'
-> {
+export class MoveToNode extends BaseThreeNode<'object' | 'offset', 'object'> {
   constructor(id: string) {
     super(id, 'MoveToNode', 'Move To');
     this.addInput({ name: 'object', type: PortType.Object3D });
@@ -26,13 +23,17 @@ export class MoveToNode extends BaseThreeNode<
       return;
     }
 
+    // Clone the object to avoid mutating upstream nodes (non-destructive workflow)
+    // This shares geometry/materials (memory efficient) but clones transform hierarchy
+    const clonedObject = object.clone();
+
     // Check if offset vector is provided
     const offsetVector = this.getInputValue<THREE.Vector3>('offset');
     if (offsetVector) {
       // Move relative to current position
-      object.position.add(offsetVector);
+      clonedObject.position.add(offsetVector);
     }
 
-    this.setOutputValue('object', object);
+    this.setOutputValue('object', clonedObject);
   }
 }
