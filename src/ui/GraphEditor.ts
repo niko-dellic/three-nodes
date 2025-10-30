@@ -169,6 +169,20 @@ export class GraphEditor {
     // Connect custom node manager to properties panel
     this.propertiesPanel.setCustomNodeManager(this.customNodeManager);
 
+    // Set callback for when a custom node is created from duplication
+    this.propertiesPanel.setOnCustomNodeCreated((nodeType, position) => {
+      const newNode = this.registry.createNode(nodeType);
+      if (newNode) {
+        newNode.position = position;
+        this.graph.addNode(newNode);
+
+        // Select the new node to show the custom node editor
+        this.selectionManager.clearSelection();
+        this.selectionManager.selectNode(newNode.id);
+        this.propertiesPanel.show();
+      }
+    });
+
     // Initialize auto-layout system
     const savedLayoutConfig = localStorage.getItem('autoLayoutConfig');
     const layoutConfig = savedLayoutConfig ? JSON.parse(savedLayoutConfig) : undefined;

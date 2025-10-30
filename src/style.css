@@ -1,4 +1,5 @@
 @import './ui/CustomNodeCreator.css';
+@import './ui/PropertiesPanel.css';
 
 :root {
   --primary-color: #bcbcbc;

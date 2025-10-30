@@ -310,7 +310,16 @@ export class CustomNodeManager {
       };
 
       // Create the custom node
-      return this.createCustomNode(definition);
+      const result = this.createCustomNode(definition);
+      
+      // Add the node name to the result for easy access
+      if (result.success) {
+        return {
+          ...result,
+          nodeName: definition.name,
+        };
+      }
+      return result;
     } catch (error) {
       return {
         success: false,

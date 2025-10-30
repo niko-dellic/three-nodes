@@ -36,6 +36,7 @@ export interface CustomNodeOperationResult {
   message?: string;
   error?: string;
   nodeId?: string;
+  nodeName?: string;
 }
 
 /**
