@@ -49,6 +49,7 @@ import { Object3DNode } from './nodes/scene/Object3DNode';
 import { CreateInstancedMeshNode } from './nodes/scene/CreateInstancedMeshNode';
 import { UpdateInstancePositionsNode } from './nodes/scene/UpdateInstancePositionsNode';
 import { SetMaterialNode } from './nodes/scene/SetMaterialNode';
+import { GridHelperNode } from './nodes/scene/GridHelperNode';
 
 // Scene utility nodes
 import { GLTFExporterNode } from './nodes/scene/utils/GLTFExporterNode';
@@ -177,6 +178,7 @@ export { Object3DNode } from './nodes/scene/Object3DNode';
 export { CreateInstancedMeshNode } from './nodes/scene/CreateInstancedMeshNode';
 export { UpdateInstancePositionsNode } from './nodes/scene/UpdateInstancePositionsNode';
 export { SetMaterialNode } from './nodes/scene/SetMaterialNode';
+export { GridHelperNode } from './nodes/scene/GridHelperNode';
 export { GLTFExporterNode } from './nodes/scene/utils/GLTFExporterNode';
 export { GetObjectByNameNode } from './nodes/scene/utils/GetObjectByNameNode';
 export { TraverseNode } from './nodes/scene/utils/TraverseNode';
@@ -499,6 +501,14 @@ export function createDefaultRegistry(): NodeRegistry {
     label: 'Set Material',
     description: 'Changes the material of a mesh or object',
     icon: '🎨',
+  });
+
+  registry.register(GridHelperNode, {
+    type: 'GridHelperNode',
+    category: 'Scene',
+    label: 'Grid Helper',
+    description: 'Visual grid helper with customizable size, divisions, and colors',
+    icon: '⊞',
   });
 
   // Register scene utility nodes

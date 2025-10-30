@@ -4,6 +4,8 @@ import { Port } from '@/core/Port';
 import { PortType } from '@/types';
 import { TweakpaneNode } from '@/three/TweakpaneNode';
 import { HistoryManager } from './HistoryManager';
+import { NodeRegistry } from '@/three/NodeRegistry';
+import './NodeRenderer.css';
 
 const PORT_COLORS: Record<PortType, string> = {
   [PortType.Number]: '#3b82f6',
@@ -28,13 +30,26 @@ export class NodeRenderer {
   private nodeElements: Map<string, HTMLElement> = new Map();
   private graph: Graph;
   private historyManager: HistoryManager;
+  private registry: NodeRegistry;
   private previewManager: any = null; // Will be set later to avoid circular dependency
   private previewMode: string = 'none';
+  private tooltipElement: HTMLElement | null = null;
+  private currentMouseX: number = 0;
+  private currentMouseY: number = 0;
+  private tooltipTimeout: number | null = null;
+  private readonly TOOLTIP_DELAY = 500; // ms delay before showing tooltip
 
-  constructor(parentLayer: HTMLElement, graph: Graph, historyManager: HistoryManager) {
+  constructor(
+    parentLayer: HTMLElement,
+    graph: Graph,
+    historyManager: HistoryManager,
+    registry: NodeRegistry
+  ) {
     this.container = parentLayer;
     this.graph = graph;
     this.historyManager = historyManager;
+    this.registry = registry;
+    this.createTooltipElement();
   }
 
   setPreviewManager(previewManager: any): void {
@@ -47,6 +62,13 @@ export class NodeRenderer {
         this.render(this.graph);
       });
     }
+  }
+
+  private createTooltipElement(): void {
+    this.tooltipElement = document.createElement('div');
+    this.tooltipElement.classList.add('node-tooltip');
+    this.tooltipElement.style.display = 'none';
+    document.body.appendChild(this.tooltipElement);
   }
 
   render(graph: Graph, selectedNodes: Set<string> = new Set(), hoveringPortId?: string): void {
@@ -78,6 +100,21 @@ export class NodeRenderer {
     nodeDiv.dataset.nodeId = node.id;
     nodeDiv.classList.add('node');
     nodeDiv.style.position = 'absolute';
+
+    // Add hover event listeners for tooltip
+    nodeDiv.addEventListener('mouseenter', (e) => {
+      this.currentMouseX = e.clientX;
+      this.currentMouseY = e.clientY;
+      this.showTooltip(node);
+    });
+    nodeDiv.addEventListener('mouseleave', () => {
+      this.hideTooltip();
+    });
+    nodeDiv.addEventListener('mousemove', (e) => {
+      this.currentMouseX = e.clientX;
+      this.currentMouseY = e.clientY;
+      this.updateTooltipPosition();
+    });
 
     // Header
     const header = document.createElement('div');
@@ -715,66 +752,26 @@ export class NodeRenderer {
         ? (node as any).hasLoadedTexture(port.name)
         : false;
 
-    // Create container for buttons (simple HTML, no foreignObject!)
+    // Create container for buttons
     const container = document.createElement('div');
     container.classList.add('file-picker-button-container');
-    container.style.cssText = `
-      display: flex;
-      gap: 2px;
-      align-items: center;
-    `;
 
     // Create load/folder button
     const loadButton = document.createElement('div');
     const folderIcon = document.createElement('i');
     folderIcon.className = 'ph ph-folder';
-    folderIcon.style.pointerEvents = 'none';
     loadButton.appendChild(folderIcon);
-    loadButton.className = 'port-file-picker-button';
+    loadButton.className = 'port-file-picker-button load-button';
+    if (hasTexture) {
+      loadButton.classList.add('has-texture');
+    }
     loadButton.setAttribute('data-file-picker-button', 'true');
     loadButton.title = `Load ${port.name} texture`;
-    loadButton.style.cssText = `
-      width: 18px;
-      height: 16px;
-      padding: 0;
-      font-size: 12px;
-      border: 1px solid ${hasTexture ? '#4ade80' : '#555'};
-      background: ${hasTexture ? '#166534' : '#2a2a2a'};
-      color: ${hasTexture ? '#4ade80' : '#999'};
-      border-radius: 3px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      pointer-events: auto;
-      position: relative;
-      z-index: 1000;
-    `;
 
     loadButton.addEventListener('pointerup', (e) => {
       e.stopPropagation();
       e.preventDefault();
       this.handleFilePickerClick(port);
-    });
-
-    loadButton.addEventListener('mouseenter', () => {
-      if (hasTexture) {
-        loadButton.style.background = '#15803d';
-        loadButton.style.color = '#86efac';
-      } else {
-        loadButton.style.background = '#3a3a3a';
-        loadButton.style.color = '#fff';
-      }
-    });
-
-    loadButton.addEventListener('mouseleave', () => {
-      if (hasTexture) {
-        loadButton.style.background = '#166534';
-        loadButton.style.color = '#4ade80';
-      } else {
-        loadButton.style.background = '#2a2a2a';
-        loadButton.style.color = '#999';
-      }
     });
 
     container.appendChild(loadButton);
@@ -784,43 +781,15 @@ export class NodeRenderer {
       const clearButton = document.createElement('div');
       const clearIcon = document.createElement('i');
       clearIcon.className = 'ph ph-x';
-      clearIcon.style.pointerEvents = 'none';
       clearButton.appendChild(clearIcon);
-      clearButton.className = 'port-file-picker-button';
+      clearButton.className = 'port-file-picker-button clear-button';
       clearButton.setAttribute('data-file-picker-button', 'true');
       clearButton.title = `Clear ${port.name} texture`;
-      clearButton.style.cssText = `
-        width: 18px;
-        height: 16px;
-        padding: 0;
-        font-size: 10px;
-        border: 1px solid #555;
-        background: #2a2a2a;
-        color: #999;
-        border-radius: 3px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        pointer-events: auto;
-        position: relative;
-        z-index: 1000;
-      `;
 
       clearButton.addEventListener('pointerup', (e) => {
         e.stopPropagation();
         e.preventDefault();
         this.handleClearTexture(port);
-      });
-
-      clearButton.addEventListener('mouseenter', () => {
-        clearButton.style.background = '#7f1d1d';
-        clearButton.style.color = '#fca5a5';
-      });
-
-      clearButton.addEventListener('mouseleave', () => {
-        clearButton.style.background = '#2a2a2a';
-        clearButton.style.color = '#999';
       });
 
       container.appendChild(clearButton);
@@ -884,16 +853,6 @@ export class NodeRenderer {
     };
   }
 
-  // Get port element for a given port ID
-  getPortElement(portId: string): HTMLElement | null {
-    return this.container.querySelector(`[data-port-id="${portId}"]`) as HTMLElement | null;
-  }
-
-  getNodeAt(_x: number, _y: number): Node | null {
-    // This is simplified - in production you'd do proper hit testing
-    return null;
-  }
-
   private updateResizeHandle(element: HTMLElement, node: Node): void {
     const handleClass = 'resize-handle';
     let handle = element.querySelector(`.${handleClass}`) as HTMLElement;
@@ -902,25 +861,6 @@ export class NodeRenderer {
       // Create corner resize handle (triangle div in bottom-right corner)
       handle = document.createElement('div');
       handle.classList.add(handleClass);
-      handle.style.cssText = `
-        position: absolute;
-        bottom: 0;
-        right: 0;
-        width: 0;
-        height: 0;
-        border-style: solid;
-        border-width: 0 0 12px 12px;
-        border-color: transparent transparent rgba(255, 255, 255, 0.2) transparent;
-        cursor: nwse-resize;
-      `;
-
-      // Add hover effect
-      handle.addEventListener('mouseenter', () => {
-        handle.style.borderColor = 'transparent transparent rgba(255, 255, 255, 0.4) transparent';
-      });
-      handle.addEventListener('mouseleave', () => {
-        handle.style.borderColor = 'transparent transparent rgba(255, 255, 255, 0.2) transparent';
-      });
 
       // Set up resize drag handlers
       let startX = 0;
@@ -1006,39 +946,10 @@ export class NodeRenderer {
       // Create visibility icon using Phosphor icon font
       icon = document.createElement('div');
       icon.classList.add(iconClass);
-      icon.style.cssText = `
-        position: absolute;
-        top: 5px;
-        right: 5px;
-        width: 24px;
-        height: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.1);
-        cursor: pointer;
-        transition: background 0.2s;
-        pointer-events: auto;
-        z-index: 10;
-      `;
 
       const iconElement = document.createElement('i');
       iconElement.classList.add('ph');
-      iconElement.style.cssText = `
-        font-size: 16px;
-        color: #ffffff;
-        pointer-events: none;
-      `;
       icon.appendChild(iconElement);
-
-      // Hover effects
-      icon.addEventListener('mouseenter', () => {
-        icon.style.background = 'rgba(255, 255, 255, 0.2)';
-      });
-      icon.addEventListener('mouseleave', () => {
-        icon.style.background = 'rgba(255, 255, 255, 0.1)';
-      });
 
       // Click to toggle visibility
       icon.addEventListener('click', (e) => {
@@ -1064,11 +975,76 @@ export class NodeRenderer {
       // Use Phosphor icon classes for eye / eye-slash
       if (isVisible) {
         iconElement.className = 'ph ph-eye';
-        iconElement.style.color = '#ffffff';
+        iconElement.classList.remove('hidden');
       } else {
-        iconElement.className = 'ph ph-eye-slash';
-        iconElement.style.color = '#ef4444';
+        iconElement.className = 'ph ph-eye-slash hidden';
       }
     }
+  }
+
+  private showTooltip(node: Node): void {
+    // Clear any existing timeout
+    if (this.tooltipTimeout !== null) {
+      window.clearTimeout(this.tooltipTimeout);
+    }
+
+    // Set a timeout to show the tooltip after a delay
+    this.tooltipTimeout = window.setTimeout(() => {
+      const metadata = this.registry.getMetadata(node.type);
+      const description = metadata?.description;
+
+      if (description && this.tooltipElement) {
+        this.tooltipElement.textContent = description;
+        // Set initial position before displaying to avoid flash at wrong location
+        this.tooltipElement.style.left = `${this.currentMouseX + 15}px`;
+        this.tooltipElement.style.top = `${this.currentMouseY + 15}px`;
+        this.tooltipElement.style.display = 'block';
+        // Update position after display to handle edge cases
+        requestAnimationFrame(() => this.updateTooltipPosition());
+      }
+    }, this.TOOLTIP_DELAY);
+  }
+
+  private hideTooltip(): void {
+    // Clear any pending tooltip
+    if (this.tooltipTimeout !== null) {
+      window.clearTimeout(this.tooltipTimeout);
+      this.tooltipTimeout = null;
+    }
+
+    // Hide tooltip
+    if (this.tooltipElement) {
+      this.tooltipElement.style.display = 'none';
+    }
+  }
+
+  private updateTooltipPosition(): void {
+    if (!this.tooltipElement || this.tooltipElement.style.display === 'none') {
+      return;
+    }
+
+    // Position tooltip near the cursor with some offset
+    const offsetX = 15;
+    const offsetY = 15;
+
+    // Get tooltip dimensions
+    const tooltipRect = this.tooltipElement.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // Calculate position, flipping to the left/top if it would go off-screen
+    let left = this.currentMouseX + offsetX;
+    let top = this.currentMouseY + offsetY;
+
+    if (left + tooltipRect.width > viewportWidth) {
+      left = this.currentMouseX - tooltipRect.width - offsetX;
+    }
+
+    if (top + tooltipRect.height > viewportHeight) {
+      top = this.currentMouseY - tooltipRect.height - offsetY;
+    }
+
+    this.tooltipElement.style.left = `${left}px`;
+    this.tooltipElement.style.top = `${top}px`;
   }
 }

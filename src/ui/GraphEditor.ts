@@ -136,7 +136,7 @@ export class GraphEditor {
 
     // Initialize renderers with HTML layers
     this.edgeRenderer = new EdgeRendererHTML(this.edgesLayer);
-    this.nodeRenderer = new NodeRenderer(this.nodesLayer, graph, this.historyManager);
+    this.nodeRenderer = new NodeRenderer(this.nodesLayer, graph, this.historyManager, registry);
 
     // Initialize context menu
     this.contextMenu = new ContextMenu(container, registry);
@@ -596,9 +596,9 @@ export class GraphEditor {
 
     // Properties button (outside group so it stays visible when collapsed)
     const propertiesButton = document.createElement('button');
+    propertiesButton.innerHTML = '<i class="ph ph-table"></i>';
     propertiesButton.className = 'toolbar-button';
     propertiesButton.id = 'properties-button';
-    propertiesButton.textContent = 'Properties';
     propertiesButton.addEventListener('click', () => {
       this.propertiesPanel.toggle();
     });

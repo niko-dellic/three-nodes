@@ -17,6 +17,7 @@ import {
   Vector3DecomposeNode,
   NumberSliderNode,
   MeshMatcapMaterialNode,
+  GridHelperNode,
 } from '@/three';
 import { GraphEditor, LiveViewport, ViewModeManager, PreviewManager } from '@/ui';
 import { isTouchDevice } from '@/utils/deviceDetection';
@@ -131,6 +132,10 @@ graph.addNode(directionalLightNode);
 graph.connect(directionalLightPos.output('vector'), directionalLightNode.input('position'));
 graph.connect(directionaLightIntensity.output('value'), directionalLightNode.input('intensity'));
 
+const gridHelperNode = registry.insertNode(GridHelperNode, 'grid-helper');
+gridHelperNode.position = { x: 450, y: 500 };
+graph.addNode(gridHelperNode);
+
 // 9. Scene Compiler - Collects all objects and camera for the scene
 const sceneCompiler = registry.insertNode(SceneCompilerNode, 'scene-compiler');
 sceneCompiler.position = { x: 1350, y: 250 };
@@ -146,6 +151,9 @@ graph.connect(directionalLightNode.output('light'), sceneCompiler.input('objects
 
 // Connect camera
 graph.connect(cameraNode.output('camera'), sceneCompiler.input('camera'));
+
+// add to compiler
+graph.connect(gridHelperNode.output('grid'), sceneCompiler.input('objects'), true);
 
 // 10. Add update toggle
 // Using insertNode for type safety

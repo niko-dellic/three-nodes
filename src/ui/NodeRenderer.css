@@ -1,0 +1,122 @@
+/* NodeRenderer Styles */
+
+/* File Picker Button Container */
+.file-picker-button-container {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+/* Port File Picker Button Base */
+.port-file-picker-button {
+  width: 18px;
+  height: 16px;
+  padding: 0;
+  font-size: 12px;
+  border: 1px solid #555;
+  background: #2a2a2a;
+  color: #999;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  position: relative;
+  z-index: 1000;
+}
+
+/* Port File Picker Button - Load (with texture loaded) */
+.port-file-picker-button.has-texture {
+  border-color: #4ade80;
+  background: #166534;
+  color: #4ade80;
+}
+
+/* Port File Picker Button - Load Hover */
+.port-file-picker-button.load-button:hover {
+  background: #3a3a3a;
+  color: #fff;
+}
+
+.port-file-picker-button.load-button.has-texture:hover {
+  background: #15803d;
+  color: #86efac;
+}
+
+/* Port File Picker Button - Clear */
+.port-file-picker-button.clear-button {
+  font-size: 10px;
+}
+
+.port-file-picker-button.clear-button:hover {
+  background: #7f1d1d;
+  color: #fca5a5;
+}
+
+/* Port File Picker Button Icon */
+.port-file-picker-button i {
+  pointer-events: none;
+}
+
+/* Resize Handle */
+.resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 0 12px 12px;
+  border-color: transparent transparent rgba(255, 255, 255, 0.2) transparent;
+  cursor: nwse-resize;
+}
+
+.resize-handle:hover {
+  border-color: transparent transparent rgba(255, 255, 255, 0.4) transparent;
+}
+
+/* Visibility Icon */
+.visibility-icon {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: background 0.2s;
+  pointer-events: auto;
+  z-index: 10;
+}
+
+.visibility-icon:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.visibility-icon i {
+  font-size: 16px;
+  color: #ffffff;
+  pointer-events: none;
+}
+
+.visibility-icon i.hidden {
+  color: #ef4444;
+}
+
+/* Node tooltip */
+.node-tooltip {
+  position: fixed;
+  background: var(--background-color);
+  padding: 8px 12px;
+  border-radius: var(--border-radius);
+  max-width: 300px;
+  pointer-events: none;
+  z-index: 10000;
+  word-wrap: break-word;
+  border: 1px solid var(--border-color);
+}

@@ -1,21 +1,14 @@
 import { Node } from '@/core/Node';
 import { Pane } from 'tweakpane';
 import { ObjectInspector } from './ObjectInspector';
-import { EditorView, basicSetup } from 'codemirror';
-import { EditorState } from '@codemirror/state';
-import { javascript } from '@codemirror/lang-javascript';
-import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 import { CustomNodeDefinition, AIGenerationRequest } from '@/types/customNode';
-import { PortType, PortDefinition } from '@/types';
-import { PropertyConfig, PropertyType } from '@/core/types';
+import { PortDefinition } from '@/types';
+import { PropertyConfig } from '@/core/types';
 import { CustomNodeManager } from '@/three/CustomNodeManager';
 import { AIAssistant } from '@/utils/AIAssistant';
-import { exportCustomNodeToFile, importCustomNodeFromFile } from '@/utils/customNodeIO';
-import * as prettier from 'prettier/standalone';
-import prettierPluginTypescript from 'prettier/plugins/typescript';
-import prettierPluginEstree from 'prettier/plugins/estree';
-import { getNodeSourcePath } from '@/three/nodeSourceMap';
-
+import { CodeMirrorEditor } from './CodeMirrorEditor';
+import { CustomNodeFieldsManager } from './CustomNodeFieldsManager';
+import { BaseThreeNode } from '@/three';
 export class PropertiesPanel {
   private panel: HTMLElement;
   private tabsContainer: HTMLElement;
@@ -31,17 +24,13 @@ export class PropertiesPanel {
 
   // Custom node editor state
   private customNodeManager?: CustomNodeManager;
-  private editorView?: EditorView;
-  private codeViewerView?: EditorView; // For read-only code viewer
-  private codeEditorOriginalParent?: HTMLElement; // Track original parent for fullscreen
-  private codeViewerOriginalParent?: HTMLElement; // Track original parent for fullscreen
+  private codeEditor?: CodeMirrorEditor; // Unified code editor (readonly/editable)
+  private customNodeFieldsManager: CustomNodeFieldsManager;
   private currentCustomNodeDef?: Partial<CustomNodeDefinition>;
   private customNodeInputs: PortDefinition[] = [];
   private customNodeOutputs: PortDefinition[] = [];
   private customNodeProperties: PropertyConfig[] = [];
-  private autosaveTimer?: number;
   private currentEditingNode?: Node;
-  private nameUpdateTimer?: number; // Separate timer for name updates (250ms)
   private isUpdatingFromCode: boolean = false; // Flag to prevent circular updates
   private isUpdatingFromField: boolean = false; // Flag to prevent circular updates
 
@@ -70,6 +59,12 @@ export class PropertiesPanel {
     this.panel.appendChild(this.contentContainer);
 
     container.appendChild(this.panel);
+
+    // Initialize custom node fields manager
+    this.customNodeFieldsManager = new CustomNodeFieldsManager({
+      onRegenerateCode: () => this.regenerateClassCode(),
+      onTriggerAutosave: () => this.triggerNodeAutosave(),
+    });
 
     // Set up resize functionality
     this.setupResize();
@@ -146,6 +141,12 @@ export class PropertiesPanel {
 
   setCustomNodeManager(manager: CustomNodeManager): void {
     this.customNodeManager = manager;
+    // Update the fields manager with the custom node manager
+    this.customNodeFieldsManager = new CustomNodeFieldsManager({
+      customNodeManager: manager,
+      onRegenerateCode: () => this.regenerateClassCode(),
+      onTriggerAutosave: () => this.triggerNodeAutosave(),
+    });
   }
 
   /**
@@ -191,10 +192,10 @@ export class PropertiesPanel {
         tab.classList.add('active');
       }
       tab.textContent = node.label;
-      tab.addEventListener('click', () => {
+      tab.addEventListener('click', async () => {
         this.activeNodeIndex = i;
         this.renderTabs();
-        this.renderContent();
+        await this.renderContent();
       });
       this.tabsContainer.appendChild(tab);
     }
@@ -204,6 +205,12 @@ export class PropertiesPanel {
    * Check if a node is a custom node
    */
   private isCustomNode(node: Node): boolean {
+    // If we're currently editing this node and it has a custom node definition, it's custom
+    // This handles the case where the name has been changed but not yet saved
+    if (this.currentEditingNode === node && this.currentCustomNodeDef) {
+      return true;
+    }
+
     // Check if this node exists in the custom node registry
     // This is the most reliable way to detect custom nodes
     if (this.customNodeManager?.getCustomNode(node.type) !== undefined) {
@@ -214,29 +221,48 @@ export class PropertiesPanel {
     return node.type === 'CustomNode';
   }
 
-  private renderContent(): void {
+  /**
+   * Helper method to trigger autosave on the current editing node
+   */
+  private triggerNodeAutosave(): void {
+    if (
+      this.currentEditingNode &&
+      typeof (this.currentEditingNode as any).triggerAutosave === 'function'
+    ) {
+      (this.currentEditingNode as any).triggerAutosave();
+    }
+  }
+
+  private async renderContent(): Promise<void> {
     if (this.selectedNodes.length === 0) {
       this.renderEmpty();
       return;
     }
 
     const node = this.selectedNodes[this.activeNodeIndex];
+
+    // Dispose the code editor before clearing the container
+    if (this.codeEditor) {
+      this.codeEditor.dispose();
+      this.codeEditor = undefined;
+    }
+
     this.contentContainer.innerHTML = '';
 
     // Branch based on node type
     if (this.isCustomNode(node)) {
       // Render custom node editor interface
-      this.renderCustomNodeEditor(node);
+      await this.renderCustomNodeEditor(node);
     } else {
       // Render standard properties panel for built-in nodes
-      this.renderStandardNodePanel(node);
+      await this.renderStandardNodePanel(node);
     }
   }
 
   /**
    * Render the standard properties panel for built-in nodes
    */
-  private renderStandardNodePanel(node: Node): void {
+  private async renderStandardNodePanel(node: Node): Promise<void> {
     // Create sections container
     const sectionsContainer = document.createElement('div');
     sectionsContainer.className = 'properties-sections';
@@ -251,9 +277,11 @@ export class PropertiesPanel {
     const dataFlowSection = this.createDataFlowSection(node);
     sectionsContainer.appendChild(dataFlowSection);
 
-    // Render code viewer section
-    const codeViewerSection = this.createCodeViewerSection(node);
-    sectionsContainer.appendChild(codeViewerSection);
+    // Try to render code viewer section (only if source is available)
+    const codeViewerSection = await this.createCodeSection(node, false);
+    if (codeViewerSection) {
+      sectionsContainer.appendChild(codeViewerSection);
+    }
 
     // Render duplicate button for built-in nodes
     const duplicateSection = this.createDuplicateButtonSection(node);
@@ -265,25 +293,37 @@ export class PropertiesPanel {
   /**
    * Render the custom node editor interface
    */
-  private renderCustomNodeEditor(node: Node): void {
+  private async renderCustomNodeEditor(node: Node): Promise<void> {
     // Store current editing node
     this.currentEditingNode = node;
 
     // Initialize custom node definition from node
     this.initializeCustomNodeDefinition(node);
 
+    // Set state on fields manager
+    this.customNodeFieldsManager.setState(
+      this.currentCustomNodeDef,
+      this.customNodeInputs,
+      this.customNodeOutputs,
+      this.customNodeProperties,
+      this.currentEditingNode
+    );
+
     const container = document.createElement('div');
     container.className = 'custom-node-editor';
 
     // Add all editor sections (AI assistant at top to help with everything)
     container.appendChild(this.createCustomNodeAISection());
-    container.appendChild(this.createCustomNodeDefinitionSection());
-    container.appendChild(this.createCustomNodePortsSection('Inputs', this.customNodeInputs, true));
-    container.appendChild(
-      this.createCustomNodePortsSection('Outputs', this.customNodeOutputs, false)
-    );
-    container.appendChild(this.createCustomNodePropertiesSection());
-    container.appendChild(this.createCustomNodeCodeEditorSection());
+    container.appendChild(this.customNodeFieldsManager.createCustomNodeDefinitionSection());
+    container.appendChild(this.customNodeFieldsManager.createCustomNodePortsSections());
+    container.appendChild(this.customNodeFieldsManager.createCustomNodePropertiesSection());
+
+    // Code section (always shown for custom nodes, even if it fails to load)
+    const codeSection = await this.createCodeSection(node, true);
+    if (codeSection) {
+      container.appendChild(codeSection);
+    }
+
     container.appendChild(this.createCustomNodeActionsSection());
 
     this.contentContainer.appendChild(container);
@@ -303,7 +343,7 @@ export class PropertiesPanel {
     this.currentCustomNodeDef = {
       name: node.type,
       label: node.type, // Use name as label
-      category: 'Custom',
+      category: 'User',
       icon: '✨',
       description: '',
       evaluateCode: fullClassCode,
@@ -399,25 +439,6 @@ export class PropertiesPanel {
     const updateButton = document.createElement('button');
     updateButton.className = 'properties-update-button';
     updateButton.textContent = 'Update';
-    updateButton.style.cssText = `
-      width: 100%;
-      padding: 8px;
-      background-color: #4a90e2;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-    `;
-
-    updateButton.addEventListener('mouseenter', () => {
-      updateButton.style.backgroundColor = '#357abd';
-    });
-
-    updateButton.addEventListener('mouseleave', () => {
-      updateButton.style.backgroundColor = '#4a90e2';
-    });
 
     updateButton.addEventListener('click', () => {
       // Trigger graph evaluation when button is clicked
@@ -514,17 +535,48 @@ export class PropertiesPanel {
     return section;
   }
 
-  updateDataFlow(): void {
+  async updateDataFlow(): Promise<void> {
     // Re-render the content to update data flow values
     if (this.isVisible && this.selectedNodes.length > 0) {
-      this.renderContent();
+      await this.renderContent();
     }
   }
 
   /**
-   * Create a code viewer section showing the evaluate function
+   * Create a unified code section that handles both readonly and editable modes
+   * Returns null if code cannot be loaded (for built-in nodes)
    */
-  private createCodeViewerSection(node: Node): HTMLElement {
+  private async createCodeSection(
+    node: Node,
+    showFormatButton: boolean = false
+  ): Promise<HTMLElement | null> {
+    // Try to get the code first before creating any DOM elements
+    let code: string;
+    try {
+      code = showFormatButton
+        ? this.currentCustomNodeDef?.evaluateCode || '// Add your custom logic here'
+        : await this.getNodeEvaluateCode(node);
+
+      // If we couldn't get code for a built-in node, don't render the section
+      if (
+        !showFormatButton &&
+        (!code ||
+          code.startsWith('// Error extracting code') ||
+          code === '// No source code available')
+      ) {
+        console.log(`No source code available for ${node.type}, skipping code viewer section`);
+        return null;
+      }
+    } catch (error) {
+      console.warn(`Failed to load source code for ${node.type}:`, error);
+      // For built-in nodes, return null to hide the section
+      if (!showFormatButton) {
+        return null;
+      }
+      // For custom nodes, use fallback
+      code = '// Add your custom logic here';
+    }
+
     const section = document.createElement('div');
     section.className = 'properties-section';
 
@@ -540,18 +592,26 @@ export class PropertiesPanel {
     titleEl.style.margin = '0';
     header.appendChild(titleEl);
 
-    const fullscreenBtn = document.createElement('button');
-    fullscreenBtn.textContent = '⛶ Fullscreen';
-    fullscreenBtn.style.padding = '4px 8px';
-    fullscreenBtn.style.fontSize = '12px';
-    fullscreenBtn.style.background = 'var(--secondary-color)';
-    fullscreenBtn.style.border = '1px solid var(--border-color)';
-    fullscreenBtn.style.borderRadius = '4px';
-    fullscreenBtn.style.color = 'var(--text-color)';
-    fullscreenBtn.style.cursor = 'pointer';
-    fullscreenBtn.onclick = () => this.toggleCodeViewerFullscreen();
-    header.appendChild(fullscreenBtn);
+    // Create button container
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.gap = '8px';
 
+    // Add format button if requested
+    if (showFormatButton) {
+      const formatBtn = document.createElement('button');
+      formatBtn.textContent = '✨ Format';
+      formatBtn.onclick = () => this.formatEditorCode();
+      buttonContainer.appendChild(formatBtn);
+    }
+
+    // Add fullscreen button
+    const fullscreenBtn = document.createElement('button');
+    fullscreenBtn.innerHTML = '<i class="ph ph-corners-out"></i>';
+    fullscreenBtn.onclick = () => this.toggleCodeEditorFullscreen();
+    buttonContainer.appendChild(fullscreenBtn);
+
+    header.appendChild(buttonContainer);
     section.appendChild(header);
 
     // Add helper text
@@ -560,81 +620,50 @@ export class PropertiesPanel {
     helperText.style.color = '#888';
     helperText.style.marginBottom = '8px';
     helperText.style.fontStyle = 'italic';
-    helperText.textContent =
-      'Full class source code (read-only). Click "Duplicate as Custom Node" below to create an editable copy.';
+    helperText.textContent = showFormatButton
+      ? 'Full class source code. You can edit the evaluate() function body directly. To modify inputs/outputs/properties, use the form fields above.'
+      : 'Full class source code (read-only). Click "Duplicate as Custom Node" below to create an editable copy.';
     section.appendChild(helperText);
 
     // Create CodeMirror editor container
     const editorContainer = document.createElement('div');
-    editorContainer.className = 'code-viewer-container';
-    editorContainer.id = 'built-in-code-viewer';
+    editorContainer.className = showFormatButton
+      ? 'code-editor-container'
+      : 'code-viewer-container';
+    editorContainer.id = 'unified-code-editor';
     section.appendChild(editorContainer);
 
-    // Initialize CodeMirror in read-only mode with formatted code
+    // Initialize code editor
     requestAnimationFrame(async () => {
-      // Get the full source code
-      const evaluateCode = await this.getNodeEvaluateCode(node);
-
-      // Format the code before displaying
-      const formattedCode = await this.formatCode(evaluateCode);
-
-      this.codeViewerView = new EditorView({
-        state: EditorState.create({
-          doc: formattedCode,
-          extensions: [
-            basicSetup,
-            javascript({ typescript: true }),
-            EditorView.lineWrapping,
-            vscodeDark,
-            EditorView.editable.of(false), // Read-only
-            EditorState.readOnly.of(true),
-          ],
-        }),
-        parent: editorContainer,
-      });
+      try {
+        if (!this.codeEditor) {
+          // Create new editor with the appropriate readonly state
+          this.codeEditor = new CodeMirrorEditor({
+            containerId: 'unified-code-editor',
+            readOnly: !showFormatButton, // false for custom nodes (editable), true for built-in (readonly)
+          });
+          await this.codeEditor.initialize(code);
+        } else {
+          // This shouldn't happen as we dispose the editor before re-rendering
+          console.warn('Code editor already exists, updating content');
+          await this.codeEditor.setCode(code);
+        }
+      } catch (error) {
+        console.error('Failed to initialize code editor:', error);
+      }
     });
 
     return section;
   }
 
   /**
-   * Get the source code for a node (full file for built-in, full class for custom)
+   * Get the source code for a node (uses getRawCode from BaseThreeNode)
    */
   private async getNodeEvaluateCode(node: Node): Promise<string> {
     try {
-      // Try to get the full source file for built-in nodes
-      const sourcePath = getNodeSourcePath(node.type);
-
-      if (sourcePath) {
-        try {
-          // Use dynamic import with ?raw to get the file contents
-          const sourceModule = await import(/* @vite-ignore */ `${sourcePath}?raw`);
-          return sourceModule.default || '// No source code available';
-        } catch (importError) {
-          console.warn(`Failed to load source file for ${node.type}:`, importError);
-          // Fall through to generate class code below
-        }
-      }
-
-      // For custom nodes, generate the full class code
-      if (this.isCustomNode(node)) {
-        return this.generateCustomNodeClassCode(node);
-      }
-
-      // Fallback: extract the evaluate function
-      if (typeof (node as any).evaluate === 'function') {
-        const evaluateFunc = (node as any).evaluate;
-        // Convert function to string and clean up
-        let code = evaluateFunc.toString();
-
-        // Remove the function wrapper to show just the body
-        code = code
-          .replace(/^[^{]*{/, '')
-          .replace(/}[^}]*$/, '')
-          .trim();
-
-        return code || '// No implementation';
-      }
+      // Use the node's getRawCode method (works for both built-in and custom nodes)
+      if (typeof (node as BaseThreeNode).getRawCode === 'function')
+        return (node as BaseThreeNode).getRawCode();
 
       return '// No evaluate function found';
     } catch (error) {
@@ -669,6 +698,19 @@ export class PropertiesPanel {
    * Generate a full class code representation for a custom node
    */
   private generateCustomNodeClassCode(node: Node): string {
+    // Use the node's getRawCode method if available
+    if (typeof (node as any).getRawCode === 'function') {
+      return (node as any).getRawCode();
+    }
+
+    // Fallback to the old method if getRawCode is not available
+    return this.generateCustomNodeClassCodeFallback(node);
+  }
+
+  /**
+   * Fallback method for generating class code (kept for compatibility)
+   */
+  private generateCustomNodeClassCodeFallback(node: Node): string {
     const inputs = Array.from(node.inputs.values());
     const outputs = Array.from(node.outputs.values());
     const properties = Array.from(node.properties.values());
@@ -764,27 +806,12 @@ ${evaluateBody
    * Create a simple duplicate button section
    */
   private createDuplicateButtonSection(node: Node): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'properties-section';
-    section.style.paddingTop = '8px';
-
     const duplicateBtn = document.createElement('button');
-    duplicateBtn.textContent = '📋 Duplicate as Custom Node';
-    duplicateBtn.className = 'duplicate-btn';
-    duplicateBtn.style.width = '100%';
-    duplicateBtn.style.padding = '10px';
-    duplicateBtn.style.background = 'var(--selection-color)';
-    duplicateBtn.style.border = '1px solid var(--selection-color)';
-    duplicateBtn.style.borderRadius = '4px';
-    duplicateBtn.style.color = 'white';
-    duplicateBtn.style.cursor = 'pointer';
-    duplicateBtn.style.fontSize = '13px';
-    duplicateBtn.style.fontWeight = '500';
+    duplicateBtn.textContent = 'Duplicate Node';
+
     duplicateBtn.onclick = () => this.duplicateNodeAsCustom(node);
 
-    section.appendChild(duplicateBtn);
-
-    return section;
+    return duplicateBtn;
   }
 
   /**
@@ -818,648 +845,24 @@ ${evaluateBody
     }
   }
 
-  /**
-   * Custom node editor helper methods
-   */
-  private createCustomNodeDefinitionSection(): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'custom-node-section';
-
-    const header = document.createElement('h3');
-    header.textContent = 'Node Definition';
-    section.appendChild(header);
-
-    // Name input (also serves as label)
-    const nameGroup = this.createFormGroup('Name', 'text', 'name', 'CustomNode');
-    section.appendChild(nameGroup);
-
-    // Category dropdown
-    const categoryGroup = this.createCategoryDropdown();
-    section.appendChild(categoryGroup);
-
-    // Description textarea
-    const descGroup = this.createFormGroup('Description', 'textarea', 'description', '');
-    section.appendChild(descGroup);
-
-    return section;
-  }
-
-  /**
-   * Create a dropdown for selecting category
-   */
-  private createCategoryDropdown(): HTMLElement {
-    const group = document.createElement('div');
-    group.className = 'form-group';
-
-    const labelEl = document.createElement('label');
-    labelEl.textContent = 'Category';
-    group.appendChild(labelEl);
-
-    const select = document.createElement('select');
-    select.dataset.field = 'category';
-    select.style.width = '100%';
-    select.style.padding = '8px';
-    select.style.background = 'var(--secondary-color)';
-    select.style.border = '1px solid var(--border-color)';
-    select.style.borderRadius = '4px';
-    select.style.color = 'var(--text-color)';
-
-    // Get all categories from the node registry
-    const categories = this.getAllCategories();
-
-    // Always include "Custom" category
-    if (!categories.includes('Custom')) {
-      categories.unshift('Custom');
-    }
-
-    // Populate dropdown
-    for (const category of categories) {
-      const option = document.createElement('option');
-      option.value = category;
-      option.textContent = category;
-      if (category === (this.currentCustomNodeDef?.category || 'Custom')) {
-        option.selected = true;
-      }
-      select.appendChild(option);
-    }
-
-    group.appendChild(select);
-    return group;
-  }
-
-  /**
-   * Get all unique categories from the node registry
-   */
-  private getAllCategories(): string[] {
-    if (!this.customNodeManager) return ['Custom'];
-
-    const registry = (this.customNodeManager as any).registry;
-    if (!registry || typeof registry.getAllTypes !== 'function') {
-      return ['Custom'];
-    }
-
-    const allTypes = registry.getAllTypes();
-    const categories = new Set<string>();
-
-    for (const metadata of allTypes) {
-      if (metadata.category) {
-        categories.add(metadata.category);
-      }
-    }
-
-    return Array.from(categories).sort();
-  }
-
-  private createFormGroup(
-    label: string,
-    type: string,
-    field: string,
-    placeholder: string
-  ): HTMLElement {
-    const group = document.createElement('div');
-    group.className = 'form-group';
-
-    const labelEl = document.createElement('label');
-    labelEl.textContent = label;
-    group.appendChild(labelEl);
-
-    if (type === 'textarea') {
-      const textarea = document.createElement('textarea');
-      textarea.placeholder = placeholder;
-      textarea.dataset.field = field;
-      textarea.value = (this.currentCustomNodeDef as any)?.[field] || '';
-      textarea.rows = 3;
-      group.appendChild(textarea);
-    } else {
-      const input = document.createElement('input');
-      input.type = type;
-      input.placeholder = placeholder;
-      input.dataset.field = field;
-      input.value = (this.currentCustomNodeDef as any)?.[field] || '';
-      group.appendChild(input);
-    }
-
-    return group;
-  }
-
-  private createCustomNodePortsSection(
-    title: string,
-    ports: PortDefinition[],
-    isInput: boolean
-  ): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'custom-node-section';
-
-    const header = document.createElement('div');
-    header.style.display = 'flex';
-    header.style.justifyContent = 'space-between';
-    header.style.alignItems = 'center';
-
-    const titleEl = document.createElement('h3');
-    titleEl.textContent = title;
-    header.appendChild(titleEl);
-
-    const addBtn = document.createElement('button');
-    addBtn.textContent = '+ Add';
-    addBtn.className = 'add-port-btn';
-    addBtn.onclick = () => this.addPort(isInput);
-    header.appendChild(addBtn);
-
-    section.appendChild(header);
-
-    const portsList = document.createElement('div');
-    portsList.className = 'ports-list';
-    portsList.id = isInput ? 'inputs-list' : 'outputs-list';
-    this.renderPortsList(portsList, ports, isInput);
-    section.appendChild(portsList);
-
-    return section;
-  }
-
-  private renderPortsList(container: HTMLElement, ports: PortDefinition[], isInput: boolean): void {
-    container.innerHTML = '';
-
-    if (ports.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'empty-list';
-      empty.textContent = `No ${isInput ? 'inputs' : 'outputs'} defined`;
-      container.appendChild(empty);
-      return;
-    }
-
-    ports.forEach((port, index) => {
-      const item = document.createElement('div');
-      item.className = 'port-item';
-
-      const nameInput = document.createElement('input');
-      nameInput.type = 'text';
-      nameInput.placeholder = 'Name';
-      nameInput.value = port.name;
-      nameInput.onchange = () => {
-        this.updatePortName(index, nameInput.value, isInput);
-      };
-      item.appendChild(nameInput);
-
-      const typeSelect = document.createElement('select');
-      typeSelect.innerHTML = `
-        <option value="number">Number</option>
-        <option value="string">String</option>
-        <option value="boolean">Boolean</option>
-        <option value="object">Object</option>
-        <option value="array">Array</option>
-        <option value="any">Any</option>
-      `;
-      typeSelect.value = port.type;
-      typeSelect.onchange = () => {
-        this.updatePortType(index, typeSelect.value as PortType, isInput);
-      };
-      item.appendChild(typeSelect);
-
-      const deleteBtn = document.createElement('button');
-      deleteBtn.textContent = '✕';
-      deleteBtn.className = 'delete-btn';
-      deleteBtn.onclick = () => this.removePort(index, isInput);
-      item.appendChild(deleteBtn);
-
-      container.appendChild(item);
-    });
-  }
-
-  /**
-   * Update a port's name (handles renaming in the node's port map)
-   */
-  private updatePortName(index: number, newName: string, isInput: boolean): void {
-    const ports = isInput ? this.customNodeInputs : this.customNodeOutputs;
-    const port = ports[index];
-    if (!port || !this.currentEditingNode) return;
-
-    const oldName = port.name;
-    port.name = newName;
-
-    // Update the actual node's port map
-    const portMap = isInput ? this.currentEditingNode.inputs : this.currentEditingNode.outputs;
-    const portObj = portMap.get(oldName);
-    if (portObj) {
-      // Remove old port
-      portMap.delete(oldName);
-      // Add with new name
-      portObj.name = newName;
-      portMap.set(newName, portObj);
-    }
-
-    this.regenerateClassCode();
-    this.triggerAutosave();
-  }
-
-  /**
-   * Update a port's type
-   */
-  private updatePortType(index: number, newType: PortType, isInput: boolean): void {
-    const ports = isInput ? this.customNodeInputs : this.customNodeOutputs;
-    const port = ports[index];
-    if (!port || !this.currentEditingNode) return;
-
-    port.type = newType;
-
-    // Update the actual node's port
-    const portMap = isInput ? this.currentEditingNode.inputs : this.currentEditingNode.outputs;
-    const portObj = portMap.get(port.name);
-    if (portObj) {
-      portObj.type = newType;
-    }
-
-    this.regenerateClassCode();
-    this.triggerAutosave();
-  }
-
-  private addPort(isInput: boolean): void {
-    // Generate unique name by counting existing ports
-    const existingPorts = isInput ? this.customNodeInputs : this.customNodeOutputs;
-    const baseName = isInput ? 'input' : 'output';
-    let counter = 1;
-    let uniqueName = baseName;
-
-    // Find a unique name
-    while (existingPorts.some((p) => p.name === uniqueName)) {
-      uniqueName = `${baseName}${counter}`;
-      counter++;
-    }
-
-    const newPort: PortDefinition = {
-      name: uniqueName,
-      type: 'number' as PortType,
-    };
-
-    if (isInput) {
-      this.customNodeInputs.push(newPort);
-      // Add to actual node using protected method
-      if (this.currentEditingNode) {
-        (this.currentEditingNode as any).addInput(newPort);
-      }
-    } else {
-      this.customNodeOutputs.push(newPort);
-      // Add to actual node using protected method
-      if (this.currentEditingNode) {
-        (this.currentEditingNode as any).addOutput(newPort);
-      }
-    }
-
-    this.refreshPortsList();
-    this.regenerateClassCode();
-    this.triggerAutosave();
-  }
-
-  private removePort(index: number, isInput: boolean): void {
-    if (isInput) {
-      const portName = this.customNodeInputs[index]?.name;
-      this.customNodeInputs.splice(index, 1);
-      // Remove from actual node
-      if (this.currentEditingNode && portName) {
-        this.currentEditingNode.inputs.delete(portName);
-      }
-    } else {
-      const portName = this.customNodeOutputs[index]?.name;
-      this.customNodeOutputs.splice(index, 1);
-      // Remove from actual node
-      if (this.currentEditingNode && portName) {
-        this.currentEditingNode.outputs.delete(portName);
-      }
-    }
-
-    this.refreshPortsList();
-    this.regenerateClassCode();
-    this.triggerAutosave();
-  }
-
-  private refreshPortsList(): void {
-    const inputsList = document.getElementById('inputs-list');
-    const outputsList = document.getElementById('outputs-list');
-
-    if (inputsList) {
-      this.renderPortsList(inputsList, this.customNodeInputs, true);
-    }
-    if (outputsList) {
-      this.renderPortsList(outputsList, this.customNodeOutputs, false);
-    }
-  }
-
-  private createCustomNodePropertiesSection(): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'custom-node-section';
-
-    const header = document.createElement('div');
-    header.style.display = 'flex';
-    header.style.justifyContent = 'space-between';
-    header.style.alignItems = 'center';
-
-    const titleEl = document.createElement('h3');
-    titleEl.textContent = 'Properties';
-    header.appendChild(titleEl);
-
-    const addBtn = document.createElement('button');
-    addBtn.textContent = '+ Add';
-    addBtn.className = 'add-property-btn';
-    addBtn.onclick = () => this.addProperty();
-    header.appendChild(addBtn);
-
-    section.appendChild(header);
-
-    const propsList = document.createElement('div');
-    propsList.className = 'properties-list';
-    propsList.id = 'properties-list';
-    this.renderPropertiesList(propsList);
-    section.appendChild(propsList);
-
-    return section;
-  }
-
-  private renderPropertiesList(container: HTMLElement): void {
-    container.innerHTML = '';
-
-    if (this.customNodeProperties.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'empty-list';
-      empty.textContent = 'No properties defined';
-      container.appendChild(empty);
-      return;
-    }
-
-    this.customNodeProperties.forEach((prop, index) => {
-      const item = document.createElement('div');
-      item.className = 'property-item';
-
-      const nameInput = document.createElement('input');
-      nameInput.type = 'text';
-      nameInput.placeholder = 'Name';
-      nameInput.value = prop.name;
-      nameInput.onchange = () => {
-        prop.name = nameInput.value;
-      };
-      item.appendChild(nameInput);
-
-      const typeSelect = document.createElement('select');
-      typeSelect.innerHTML = `
-        <option value="number">Number</option>
-        <option value="string">String</option>
-        <option value="boolean">Boolean</option>
-        <option value="color">Color</option>
-        <option value="list">List</option>
-      `;
-      typeSelect.value = prop.type;
-      typeSelect.onchange = () => {
-        prop.type = typeSelect.value as PropertyType;
-      };
-      item.appendChild(typeSelect);
-
-      const deleteBtn = document.createElement('button');
-      deleteBtn.textContent = '✕';
-      deleteBtn.className = 'delete-btn';
-      deleteBtn.onclick = () => this.removeProperty(index);
-      item.appendChild(deleteBtn);
-
-      container.appendChild(item);
-    });
-  }
-
-  private addProperty(): void {
-    const newProp: PropertyConfig = {
-      name: 'property',
-      type: 'number',
-      value: 0,
-    };
-
-    this.customNodeProperties.push(newProp);
-
-    // Add to actual node using protected method
-    if (this.currentEditingNode) {
-      (this.currentEditingNode as any).addProperty(newProp);
-    }
-
-    this.refreshPropertiesList();
-    this.regenerateClassCode();
-    this.triggerAutosave();
-  }
-
-  private removeProperty(index: number): void {
-    const propName = this.customNodeProperties[index]?.name;
-    this.customNodeProperties.splice(index, 1);
-
-    // Remove from actual node
-    if (this.currentEditingNode && propName) {
-      this.currentEditingNode.properties.delete(propName);
-    }
-
-    this.refreshPropertiesList();
-    this.regenerateClassCode();
-    this.triggerAutosave();
-  }
-
-  private refreshPropertiesList(): void {
-    const propsList = document.getElementById('properties-list');
-    if (propsList) {
-      this.renderPropertiesList(propsList);
-    }
-  }
-
-  private createCustomNodeCodeEditorSection(): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'custom-node-section';
-
-    const header = document.createElement('div');
-    header.style.display = 'flex';
-    header.style.justifyContent = 'space-between';
-    header.style.alignItems = 'center';
-
-    const titleEl = document.createElement('h3');
-    titleEl.textContent = 'Source Code';
-    header.appendChild(titleEl);
-
-    const fullscreenBtn = document.createElement('button');
-    fullscreenBtn.textContent = '⛶ Fullscreen';
-    fullscreenBtn.onclick = () => this.toggleCodeEditorFullscreen();
-    header.appendChild(fullscreenBtn);
-
-    section.appendChild(header);
-
-    // Add helper text
-    const helperText = document.createElement('div');
-    helperText.style.fontSize = '12px';
-    helperText.style.color = '#888';
-    helperText.style.marginBottom = '8px';
-    helperText.style.fontStyle = 'italic';
-    helperText.textContent =
-      'Full class source code. You can edit the evaluate() function body directly. To modify inputs/outputs/properties, use the form fields above.';
-    section.appendChild(helperText);
-
-    const editorContainer = document.createElement('div');
-    editorContainer.className = 'code-editor-container';
-    editorContainer.id = 'custom-node-code-editor';
-    section.appendChild(editorContainer);
-
-    // Initialize CodeMirror with auto-formatted code
-    requestAnimationFrame(async () => {
-      const startCode = this.currentCustomNodeDef?.evaluateCode || '// Add your custom logic here';
-
-      // Auto-format the code before displaying
-      const formattedCode = await this.formatCode(startCode);
-
-      this.editorView = new EditorView({
-        state: EditorState.create({
-          doc: formattedCode,
-          extensions: [
-            basicSetup,
-            javascript({ typescript: true }),
-            EditorView.lineWrapping,
-            vscodeDark,
-          ],
-        }),
-        parent: editorContainer,
-      });
-
-      // Block keyboard shortcuts
-      editorContainer.addEventListener(
-        'keydown',
-        (e) => {
-          if ((e.target as HTMLElement).closest('.cm-editor')) {
-            e.stopPropagation();
-          }
-        },
-        true
-      );
-    });
-
-    return section;
-  }
-
   private toggleCodeEditorFullscreen(): void {
-    const container = document.getElementById('custom-node-code-editor');
-    if (!container || !this.editorView) return;
-
-    // Check if already in fullscreen
-    const existingFullscreen = document.querySelector('.code-editor-fullscreen');
-
-    if (existingFullscreen) {
-      // Exit fullscreen - move container back to original location
-      if (this.codeEditorOriginalParent) {
-        // Remove escape key listener
-        const fullscreenWrapper = existingFullscreen as HTMLElement;
-        const escapeHandler = (fullscreenWrapper as any).__escapeHandler;
-        if (escapeHandler) {
-          document.removeEventListener('keydown', escapeHandler);
-        }
-
-        fullscreenWrapper.parentElement?.removeChild(fullscreenWrapper);
-
-        // Restore original container
-        container.className = 'code-editor-container';
-        this.codeEditorOriginalParent.appendChild(container);
-        this.codeEditorOriginalParent = undefined;
-      }
-    } else {
-      // Enter fullscreen - store original parent first
-      this.codeEditorOriginalParent = container.parentElement as HTMLElement;
-
-      const fullscreenWrapper = document.createElement('div');
-      fullscreenWrapper.className = 'code-editor-fullscreen';
-
-      const closeBtn = document.createElement('button');
-      closeBtn.textContent = '✕ Exit Fullscreen';
-      closeBtn.className = 'code-editor-fullscreen-close';
-      closeBtn.onclick = () => this.toggleCodeEditorFullscreen();
-      fullscreenWrapper.appendChild(closeBtn);
-
-      // Add Escape key listener
-      const escapeHandler = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          this.toggleCodeEditorFullscreen();
-        }
-      };
-      document.addEventListener('keydown', escapeHandler);
-
-      // Store handler reference so we can remove it later
-      (fullscreenWrapper as any).__escapeHandler = escapeHandler;
-
-      // Move container to fullscreen (preserves all state)
-      container.className = 'code-editor-container-fullscreen';
-      fullscreenWrapper.appendChild(container);
-      document.body.appendChild(fullscreenWrapper);
-    }
-  }
-
-  private toggleCodeViewerFullscreen(): void {
-    const container = document.getElementById('built-in-code-viewer');
-    if (!container || !this.codeViewerView) return;
-
-    // Check if already in fullscreen
-    const existingFullscreen = document.querySelector('.code-editor-fullscreen');
-
-    if (existingFullscreen) {
-      // Exit fullscreen - move container back to original location
-      if (this.codeViewerOriginalParent) {
-        // Remove escape key listener
-        const fullscreenWrapper = existingFullscreen as HTMLElement;
-        const escapeHandler = (fullscreenWrapper as any).__escapeHandler;
-        if (escapeHandler) {
-          document.removeEventListener('keydown', escapeHandler);
-        }
-
-        fullscreenWrapper.parentElement?.removeChild(fullscreenWrapper);
-
-        // Restore original container
-        container.className = 'code-viewer-container';
-        this.codeViewerOriginalParent.appendChild(container);
-        this.codeViewerOriginalParent = undefined;
-      }
-    } else {
-      // Enter fullscreen - store original parent first
-      this.codeViewerOriginalParent = container.parentElement as HTMLElement;
-
-      const fullscreenWrapper = document.createElement('div');
-      fullscreenWrapper.className = 'code-editor-fullscreen';
-
-      const closeBtn = document.createElement('button');
-      closeBtn.textContent = '✕ Exit Fullscreen';
-      closeBtn.className = 'code-editor-fullscreen-close';
-      closeBtn.onclick = () => this.toggleCodeViewerFullscreen();
-      fullscreenWrapper.appendChild(closeBtn);
-
-      // Add Escape key listener
-      const escapeHandler = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          this.toggleCodeViewerFullscreen();
-        }
-      };
-      document.addEventListener('keydown', escapeHandler);
-
-      // Store handler reference so we can remove it later
-      (fullscreenWrapper as any).__escapeHandler = escapeHandler;
-
-      // Move container to fullscreen (preserves all state)
-      container.className = 'code-editor-container-fullscreen';
-      fullscreenWrapper.appendChild(container);
-      document.body.appendChild(fullscreenWrapper);
-    }
+    this.codeEditor?.toggleFullscreen();
   }
 
   /**
-   * Format code using Prettier
+   * Format the code in the custom node editor
    */
-  private async formatCode(code: string): Promise<string> {
+  private async formatEditorCode(): Promise<void> {
+    if (!this.codeEditor) {
+      console.warn('No editor view available to format');
+      return;
+    }
+
     try {
-      const formatted = await prettier.format(code, {
-        parser: 'typescript',
-        plugins: [prettierPluginTypescript, prettierPluginEstree],
-        semi: true,
-        singleQuote: true,
-        tabWidth: 2,
-        trailingComma: 'es5',
-        printWidth: 80,
-      });
-      return formatted;
+      await this.codeEditor.formatCurrentCode();
     } catch (error) {
-      console.error('Prettier formatting error:', error);
-      // Don't show alert, just log and return original code
-      return code; // Return original code if formatting fails
+      console.error('Failed to format code:', error);
+      alert('Failed to format code. Check console for details.');
     }
   }
 
@@ -1468,7 +871,7 @@ ${evaluateBody
     section.className = 'custom-node-section';
 
     const titleEl = document.createElement('h3');
-    titleEl.textContent = '🤖 AI Assistant';
+    titleEl.textContent = 'Yolo AI Mode (Optional)';
     section.appendChild(titleEl);
 
     const providerGroup = document.createElement('div');
@@ -1534,15 +937,9 @@ ${evaluateBody
 
       const response = await AIAssistant.generateCode(request);
 
-      if (response.success && response.code && this.editorView) {
-        // Update editor with generated code
-        this.editorView.dispatch({
-          changes: {
-            from: 0,
-            to: this.editorView.state.doc.length,
-            insert: response.code,
-          },
-        });
+      if (response.success && response.code && this.codeEditor) {
+        // Update editor with generated code (format to ensure proper indentation)
+        await this.codeEditor.setCode(response.code, true);
 
         alert('Code generated successfully!');
       } else {
@@ -1577,36 +974,29 @@ ${evaluateBody
   }
 
   private exportCustomNode(): void {
-    if (!this.currentCustomNodeDef) return;
+    if (!this.currentEditingNode) return;
 
-    const definition: CustomNodeDefinition = {
-      id: this.currentCustomNodeDef.id || `custom-${Date.now()}`,
-      name: this.currentCustomNodeDef.name || 'CustomNode',
-      label: this.currentCustomNodeDef.label || 'Custom Node',
-      category: this.currentCustomNodeDef.category || 'Custom',
-      icon: this.currentCustomNodeDef.icon || '✨',
-      description: this.currentCustomNodeDef.description || '',
-      inputs: this.customNodeInputs,
-      outputs: this.customNodeOutputs,
-      properties: this.customNodeProperties,
-      evaluateCode: this.editorView?.state.doc.toString() || '',
-      version: '1.0.0',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-
-    exportCustomNodeToFile(definition);
+    // Cast to CustomNode to access export method
+    const customNode = this.currentEditingNode as any;
+    if (customNode.exportToFile) {
+      customNode.exportToFile();
+    }
   }
 
   private async importCustomNode(): Promise<void> {
+    if (!this.currentEditingNode) return;
+
     try {
-      const definition = await importCustomNodeFromFile();
-      if (definition && this.customNodeManager) {
-        const result = this.customNodeManager.createCustomNode(definition);
-        if (result.success) {
+      // Cast to CustomNode to access import method
+      const customNode = this.currentEditingNode as any;
+      if (customNode.importFromFile) {
+        const success = await customNode.importFromFile();
+        if (success) {
           alert('Custom node imported successfully!');
+          // Refresh the UI to show the imported data
+          this.renderContent();
         } else {
-          alert(`Import failed: ${result.error}`);
+          alert('Import failed');
         }
       }
     } catch (error) {
@@ -1615,15 +1005,19 @@ ${evaluateBody
   }
 
   private deleteCustomNode(): void {
-    if (!this.currentCustomNodeDef?.name || !this.customNodeManager) return;
+    if (!this.currentEditingNode) return;
 
-    if (confirm(`Delete custom node "${this.currentCustomNodeDef.label}"?`)) {
-      const result = this.customNodeManager.deleteCustomNode(this.currentCustomNodeDef.name);
-      if (result.success) {
-        alert('Custom node deleted successfully!');
-        this.hide();
-      } else {
-        alert(`Delete failed: ${result.error}`);
+    if (confirm(`Delete custom node "${this.currentEditingNode.label}"?`)) {
+      // Cast to CustomNode to access delete method
+      const customNode = this.currentEditingNode as any;
+      if (customNode.delete) {
+        const success = customNode.delete();
+        if (success) {
+          alert('Custom node deleted successfully!');
+          this.hide();
+        } else {
+          alert('Delete failed');
+        }
       }
     }
   }
@@ -1632,14 +1026,19 @@ ${evaluateBody
    * Setup autosave listeners for custom node editor
    */
   private setupAutosaveListeners(): void {
+    if (!this.currentEditingNode) return;
+
+    // Cast to CustomNode to access autosave methods
+    const customNode = this.currentEditingNode as any;
+
     // Listen to name input specifically for real-time updates
     const nameInput = this.contentContainer.querySelector(
       'input[data-field="name"]'
     ) as HTMLInputElement;
     if (nameInput) {
       nameInput.addEventListener('input', () => {
-        this.triggerNameUpdate();
-        this.triggerAutosave();
+        customNode.triggerNameUpdate();
+        customNode.triggerAutosave();
       });
     }
 
@@ -1650,7 +1049,7 @@ ${evaluateBody
     if (descriptionInput) {
       descriptionInput.addEventListener('input', () => {
         this.regenerateClassCode();
-        this.triggerAutosave();
+        customNode.triggerAutosave();
       });
     }
 
@@ -1659,26 +1058,28 @@ ${evaluateBody
       'input:not([data-field="name"]), textarea:not([data-field="description"]), select'
     );
     formInputs.forEach((input) => {
-      input.addEventListener('input', () => this.triggerAutosave());
-      input.addEventListener('change', () => this.triggerAutosave());
+      input.addEventListener('input', () => customNode.triggerAutosave());
+      input.addEventListener('change', () => customNode.triggerAutosave());
     });
 
     // Listen to code editor changes if available
-    if (this.editorView) {
+    if (this.codeEditor) {
       // CodeMirror change listener
       const checkForChanges = () => {
         this.syncClassNameFromCode();
-        this.triggerAutosave();
+        customNode.triggerAutosave();
       };
 
       // Use a mutation observer to detect code changes
-      const editorElement = this.editorView.dom;
-      const observer = new MutationObserver(checkForChanges);
-      observer.observe(editorElement, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-      });
+      const editorContainer = document.getElementById('unified-code-editor');
+      if (editorContainer) {
+        const observer = new MutationObserver(checkForChanges);
+        observer.observe(editorContainer, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+        });
+      }
     }
   }
 
@@ -1686,9 +1087,9 @@ ${evaluateBody
    * Sync the class name from CodeMirror to the name field
    */
   private syncClassNameFromCode(): void {
-    if (!this.editorView || this.isUpdatingFromField) return;
+    if (!this.codeEditor || this.isUpdatingFromField) return;
 
-    const code = this.editorView.state.doc.toString();
+    const code = this.codeEditor.getCode();
     const classNameMatch = code.match(/export\s+class\s+(\w+)\s+extends/);
 
     if (classNameMatch && classNameMatch[1]) {
@@ -1730,54 +1131,10 @@ ${evaluateBody
   }
 
   /**
-   * Trigger name update with 250ms debounce
-   */
-  private triggerNameUpdate(): void {
-    if (this.nameUpdateTimer) {
-      clearTimeout(this.nameUpdateTimer);
-    }
-
-    this.nameUpdateTimer = window.setTimeout(() => {
-      this.updateNodeName();
-    }, 250);
-  }
-
-  /**
-   * Update the node's name and label in real-time
-   */
-  private updateNodeName(): void {
-    if (!this.currentEditingNode) return;
-
-    const nameInput = this.contentContainer.querySelector(
-      'input[data-field="name"]'
-    ) as HTMLInputElement;
-
-    if (nameInput && nameInput.value) {
-      const newName = nameInput.value;
-
-      // Update the node's label and type
-      this.currentEditingNode.label = newName;
-      this.currentEditingNode.type = newName;
-
-      // Force visual update by marking node as dirty and triggering graph change
-      this.currentEditingNode.markDirty();
-      if (this.currentEditingNode.graph) {
-        this.currentEditingNode.graph.triggerChange();
-      }
-
-      // Update tabs if this node is selected
-      this.renderTabs();
-
-      // Update the class code in the editor
-      this.regenerateClassCode();
-    }
-  }
-
-  /**
    * Regenerate the class code based on current state
    */
-  private regenerateClassCode(): void {
-    if (!this.currentEditingNode || !this.editorView || this.isUpdatingFromCode) return;
+  private async regenerateClassCode(): Promise<void> {
+    if (!this.currentEditingNode || !this.codeEditor || this.isUpdatingFromCode) return;
 
     // Set flag to prevent circular updates
     this.isUpdatingFromField = true;
@@ -1787,7 +1144,7 @@ ${evaluateBody
     ) as HTMLInputElement;
 
     // Store the current evaluate function body
-    const fullCode = this.editorView.state.doc.toString();
+    const fullCode = this.codeEditor.getCode();
     const evaluateBody = this.extractEvaluateFunctionBody(fullCode);
 
     // Temporarily update the node's evaluate function for code generation
@@ -1798,16 +1155,8 @@ ${evaluateBody
     // Generate new class code
     const newClassCode = this.generateCustomNodeClassCodeWithEvaluate(tempNode, evaluateBody);
 
-    // Update the editor without losing cursor position
-    const currentSelection = this.editorView.state.selection;
-    this.editorView.dispatch({
-      changes: {
-        from: 0,
-        to: this.editorView.state.doc.length,
-        insert: newClassCode,
-      },
-      selection: currentSelection,
-    });
+    // Update the editor with formatting to prevent indentation accumulation
+    await this.codeEditor.setCode(newClassCode, true);
 
     // Clear flag after a short delay
     setTimeout(() => {
@@ -1905,151 +1254,18 @@ ${evaluateBody
     return classCode;
   }
 
-  /**
-   * Update all instances of a custom node type with new definition
-   */
-  private updateAllCustomNodeInstances(nodeType: string, definition: CustomNodeDefinition): void {
-    if (!this.currentEditingNode?.graph) return;
-
-    const graph = this.currentEditingNode.graph;
-    const allNodes = Array.from(graph.nodes.values());
-
-    // Find all nodes of this type
-    const nodesToUpdate = allNodes.filter((n) => n.type === nodeType);
-
-    if (nodesToUpdate.length === 0) return;
-
-    console.log(`Updating ${nodesToUpdate.length} instance(s) of ${nodeType}`);
-
-    // Recompile the evaluate function
-    try {
-      const evaluateFunc = new Function(
-        'context',
-        `"use strict";\n${definition.evaluateCode}`
-      ) as any;
-
-      // Update each instance
-      for (const node of nodesToUpdate) {
-        // Update the evaluate function
-        (node as any).evaluate = evaluateFunc;
-
-        // Mark as dirty to trigger re-evaluation
-        node.markDirty();
-      }
-
-      // Trigger graph re-evaluation
-      graph.triggerChange();
-
-      console.log(`Successfully updated all instances of ${nodeType}`);
-    } catch (error) {
-      console.error(`Failed to update instances of ${nodeType}:`, error);
-    }
-  }
-
-  /**
-   * Trigger autosave with 500ms debounce
-   */
-  private triggerAutosave(): void {
-    // Clear existing timer
-    if (this.autosaveTimer) {
-      clearTimeout(this.autosaveTimer);
-    }
-
-    // Set new timer
-    this.autosaveTimer = window.setTimeout(() => {
-      this.performAutosave();
-    }, 500);
-  }
-
-  /**
-   * Perform the actual autosave operation
-   */
-  private performAutosave(): void {
-    if (!this.currentEditingNode || !this.customNodeManager) return;
-
-    try {
-      // Gather current state from form inputs
-      const nameInput = this.contentContainer.querySelector(
-        'input[data-field="name"]'
-      ) as HTMLInputElement;
-      const categorySelect = this.contentContainer.querySelector(
-        'select[data-field="category"]'
-      ) as HTMLSelectElement;
-      const descriptionInput = this.contentContainer.querySelector(
-        'textarea[data-field="description"]'
-      ) as HTMLTextAreaElement;
-
-      const previousName = this.currentCustomNodeDef?.name;
-      const newName = nameInput?.value || 'CustomNode';
-
-      // Extract evaluate function body from the full class code
-      const fullCode = this.editorView?.state.doc.toString() || '';
-      const evaluateBody = this.extractEvaluateFunctionBody(fullCode);
-
-      // Update current definition (use name as label)
-      this.currentCustomNodeDef = {
-        ...this.currentCustomNodeDef,
-        name: newName,
-        label: newName, // Use name as label
-        category: categorySelect?.value || 'Custom',
-        description: descriptionInput?.value || '',
-        evaluateCode: evaluateBody,
-      };
-
-      // Create full definition
-      const definition: CustomNodeDefinition = {
-        id: this.currentCustomNodeDef.id || `custom-${Date.now()}`,
-        name: this.currentCustomNodeDef.name || 'CustomNode',
-        label: this.currentCustomNodeDef.label || 'Custom Node',
-        category: this.currentCustomNodeDef.category || 'Custom',
-        icon: this.currentCustomNodeDef.icon || '✨',
-        description: this.currentCustomNodeDef.description || '',
-        inputs: this.customNodeInputs,
-        outputs: this.customNodeOutputs,
-        properties: this.customNodeProperties,
-        evaluateCode: this.currentCustomNodeDef.evaluateCode || '',
-        version: '1.0.0',
-        createdAt: this.currentCustomNodeDef.createdAt || Date.now(),
-        updatedAt: Date.now(),
-      };
-
-      // Check if name changed from default
-      const isNewNode = previousName === 'CustomNode' && newName !== 'CustomNode';
-
-      if (isNewNode) {
-        // Register as new custom node
-        const result = this.customNodeManager.createCustomNode(definition);
-        if (result.success) {
-          console.log('Custom node registered:', newName);
-
-          // Update the actual node in the graph
-          this.currentEditingNode.type = newName;
-          this.currentEditingNode.label = definition.label;
-        }
-      } else if (previousName && previousName !== 'CustomNode') {
-        // Update existing custom node
-        const result = this.customNodeManager.updateCustomNode(definition);
-        if (result.success) {
-          console.log('Custom node updated:', newName);
-
-          // Update all instances of this custom node type
-          this.updateAllCustomNodeInstances(newName, definition);
-        }
-      } else {
-        // Just store locally, don't register yet
-        console.log('Custom node definition updated (not yet registered)');
-      }
-    } catch (error) {
-      console.error('Autosave failed:', error);
-    }
-  }
-
   dispose(): void {
     // Clean up property panes
     for (const pane of this.propertyPanes.values()) {
       pane.dispose();
     }
     this.propertyPanes.clear();
+
+    // Clean up code editor
+    if (this.codeEditor) {
+      this.codeEditor.dispose();
+      this.codeEditor = undefined;
+    }
 
     // Remove panel from DOM
     this.panel.remove();

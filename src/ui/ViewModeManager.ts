@@ -30,8 +30,8 @@ export class ViewModeManager {
   private createToggleButton(): HTMLButtonElement {
     const button = document.createElement('button');
     button.className = 'toolbar-button';
+    button.innerHTML = '<i class="ph ph-cube"></i>';
     button.id = 'toggle-button';
-    button.textContent = 'View 3D';
 
     // Find the toggle button container in the toolbar
     const container = document.getElementById('toggle-button-container');
@@ -79,11 +79,11 @@ export class ViewModeManager {
     if (this.currentMode === 'editor') {
       this.editorContainer.classList.remove('hidden');
       this.liveViewport.setControlsEnabled(false);
-      this.toggleButton.textContent = 'View 3D';
+      this.toggleButton.innerHTML = '<i class="ph ph-cube"></i>';
     } else {
       this.editorContainer.classList.add('hidden');
       this.liveViewport.setControlsEnabled(true);
-      this.toggleButton.textContent = 'Edit Nodes';
+      this.toggleButton.innerHTML = '<i class="ph ph-vector-two"></i>';
     }
   }
 

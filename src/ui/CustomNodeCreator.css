@@ -212,7 +212,6 @@
 .code-editor-fullscreen-btn {
   margin-bottom: 8px;
   padding: 6px 12px;
-  background: var(--secondary-color);
   border: 1px solid var(--border-color);
   border-radius: 4px;
   color: var(--text-color);
@@ -279,25 +278,6 @@
   z-index: 10000;
   display: flex;
   flex-direction: column;
-}
-
-.code-editor-fullscreen-close {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  padding: 8px 16px;
-  background: var(--tertiary-color);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  color: var(--text-color);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-  z-index: 1000;
-}
-
-.code-editor-fullscreen-close:hover {
-  background: var(--border-color);
 }
 
 .code-editor-container-fullscreen {

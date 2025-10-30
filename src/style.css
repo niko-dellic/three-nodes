@@ -14,6 +14,7 @@
   --text-color: #ffffff;
   --border-color: #444444;
   --button-padding: 6px 14px;
+  --border-radius: 4px;
 }
 
 * {
@@ -30,6 +31,8 @@ body {
   touch-action: pan-x pan-y;
   scrollbar-color: var(--secondary-color) transparent;
   scrollbar-width: thin;
+  color: var(--text-color);
+  font-size: 12px;
 }
 
 /* Prevent text selection during drag operations */
@@ -38,6 +41,54 @@ body.dragging {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
+}
+
+button {
+  background: var(--background-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: var(--button-padding);
+}
+
+button:hover {
+  background: var(--border-color);
+}
+
+input {
+  background: var(--background-color);
+  border: 1px solid var(--border-color);
+  padding: var(--button-padding);
+  color: var(--text-color);
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+  touch-action: manipulation; /* Enable tap on touch devices */
+  font-size: 12px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+}
+
+select {
+  background: var(--background-color);
+  border: 1px solid var(--border-color);
+  padding: var(--button-padding);
+  color: var(--text-color);
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+  touch-action: manipulation; /* Enable tap on touch devices */
+  font-size: 12px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+}
+
+.muted {
+  color: var(--secondary-color);
+  font-size: 11px;
+  font-style: italic;
 }
 
 #app {
@@ -634,7 +685,6 @@ body:not(#touch-device) .context-menu-pane {
 }
 
 .toolbar-button {
-  padding: var(--button-padding);
   background: transparent;
   color: var(--text-color);
   border: 1px solid transparent;
@@ -746,19 +796,6 @@ body:not(#touch-device) .context-menu-pane {
 .toolbar-section label {
   color: var(--text-color);
   font-size: 13px;
-}
-
-.toolbar-section select {
-  padding: 4px 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  color: var(--text-color);
-  font-size: 12px;
-  cursor: pointer;
-  outline: none;
-  transition: all 0.2s;
-  touch-action: manipulation; /* Enable tap on touch devices */
 }
 
 .toolbar-section select:hover {
@@ -1026,7 +1063,6 @@ body:not(#touch-device) .properties-tabs {
 }
 
 #properties-button {
-  padding: var(--button-padding);
   background: var(--background-color);
   border: 1px solid var(--border-color);
   border-radius: 4px;

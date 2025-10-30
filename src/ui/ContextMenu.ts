@@ -133,9 +133,7 @@ export class ContextMenu {
     this.selectedButtonIndex = -1;
 
     // Dispose old pane if exists
-    if (this.pane) {
-      this.pane.dispose();
-    }
+    if (this.pane) this.pane.dispose();
 
     // Get all node types grouped by category
     const allTypes = this.registry.getAllTypes();
@@ -149,18 +147,20 @@ export class ContextMenu {
       categories.get(metadata.category)!.push(metadata);
     }
 
-    // Log custom category specifically
-    if (categories.has('Custom')) {
+    // Log User category specifically
+    if (categories.has('User')) {
       console.log(
-        `Custom category has ${categories.get('Custom')!.length} nodes:`,
-        categories.get('Custom')!.map((m) => m.label)
+        `User category has ${categories.get('User')!.length} nodes:`,
+        categories.get('User')!.map((m) => m.label)
       );
     }
 
-    // Sort categories
-    const sortedCategories = Array.from(categories.entries()).sort((a, b) =>
-      a[0].localeCompare(b[0])
-    );
+    // Sort categories with "User" at the top
+    const sortedCategories = Array.from(categories.entries()).sort((a, b) => {
+      if (a[0] === 'User') return -1;
+      if (b[0] === 'User') return 1;
+      return a[0].localeCompare(b[0]);
+    });
 
     // Add search input (outside of Tweakpane)
     const searchContainer = document.createElement('div');
@@ -182,6 +182,22 @@ export class ContextMenu {
       container: paneContainer,
       title: 'Add Node',
     });
+
+    // Add "Create Custom Node" button at root level (not in a folder)
+    const customNodeButton = this.pane.addButton({
+      title: '+ New Node',
+    });
+
+    customNodeButton.on('click', () => {
+      this.handleCustomNode();
+    });
+
+    const customNodeButtonElement = this.findButtonElement(customNodeButton);
+    if (customNodeButtonElement) {
+      this.navigableButtons.push(customNodeButtonElement);
+      customNodeButtonElement.setAttribute('data-node-type', 'CustomNode');
+      customNodeButtonElement.setAttribute('data-label', 'create custom node');
+    }
 
     // Build categories as folders
     const folders: any[] = [];
@@ -215,25 +231,6 @@ export class ContextMenu {
           buttonElement.setAttribute('data-label', metadata.label.toLowerCase());
         }
       }
-    }
-
-    // Add Advanced folder with Custom Node
-    const advancedFolder = this.pane.addFolder({
-      title: 'Advanced',
-      expanded: false,
-    });
-
-    const customButton = advancedFolder.addButton({
-      title: '✨ Custom Node',
-    });
-
-    customButton.on('click', () => {
-      this.handleCustomNode();
-    });
-
-    const customButtonElement = this.findButtonElement(customButton);
-    if (customButtonElement) {
-      this.navigableButtons.push(customButtonElement);
     }
 
     // Setup search functionality
