@@ -8,7 +8,7 @@ export class MeshPhongMaterialNode extends BaseMaterialNode<
   constructor(id: string) {
     super(id, 'MeshPhongMaterialNode', 'Phong Material');
 
-    // Add material-specific input ports
+    // Add material-specific input ports with defaults
     this.addInput({ name: 'color', type: PortType.Color, defaultValue: new THREE.Color(1, 1, 1) });
     this.addInput({
       name: 'emissive',
@@ -23,7 +23,7 @@ export class MeshPhongMaterialNode extends BaseMaterialNode<
     });
     this.addInput({ name: 'shininess', type: PortType.Number, defaultValue: 30 });
 
-    // Add material-specific properties (common properties are in BaseMaterialNode)
+    // Add material-specific properties
     this.addProperty({ name: 'color', type: 'color', value: '#ffffff', label: 'Color' });
     this.addProperty({ name: 'emissive', type: 'color', value: '#000000', label: 'Emissive' });
     this.addProperty({
@@ -65,10 +65,25 @@ export class MeshPhongMaterialNode extends BaseMaterialNode<
     const shininess = this.getValueOrProperty<number>('shininess', 30);
 
     // Apply material-specific properties
-    material.color = color;
-    material.emissive = emissive;
+    if (color instanceof THREE.Color) {
+      material.color.copy(color);
+    } else if (typeof color === 'string') {
+      material.color.set(color);
+    }
+
+    if (emissive instanceof THREE.Color) {
+      material.emissive.copy(emissive);
+    } else if (typeof emissive === 'string') {
+      material.emissive.set(emissive);
+    }
+
+    if (specular instanceof THREE.Color) {
+      material.specular.copy(specular);
+    } else if (typeof specular === 'string') {
+      material.specular.set(specular);
+    }
+
     material.emissiveIntensity = emissiveIntensity;
-    material.specular = specular;
     material.shininess = shininess;
 
     // Apply common material properties from base class

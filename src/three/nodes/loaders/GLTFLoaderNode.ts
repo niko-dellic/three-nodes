@@ -2,6 +2,7 @@ import { BaseFileLoaderNode } from './BaseFileLoaderNode';
 import { PortType } from '@/types';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { EvaluationContext } from '@/core';
+import { NodeLayoutConfig } from '@/core/types';
 
 /**
  * GLTF Loader Node
@@ -71,5 +72,11 @@ export class GLTFLoaderNode extends BaseFileLoaderNode<
   dispose(): void {
     this.gltf = null;
     super.dispose();
+  }
+
+  getLayoutConfig(): NodeLayoutConfig {
+    return {
+      style: 'stacked',
+    };
   }
 }

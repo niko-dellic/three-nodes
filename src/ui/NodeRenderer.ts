@@ -215,6 +215,11 @@ export class NodeRenderer {
       return;
     }
 
+    if (layoutConfig?.style === 'stacked') {
+      this.buildStackedLayout(element, node, controlHeight, hoveringPortId, layoutConfig);
+      return;
+    }
+
     // Get header and body elements
     const header = element.querySelector('.node-header') as HTMLElement;
     const body = element.querySelector('.node-body') as HTMLElement;
@@ -444,6 +449,144 @@ export class NodeRenderer {
     }
 
     // Capture natural size
+    if (node.minWidth === undefined || node.minHeight === undefined) {
+      const naturalWidth = element.offsetWidth;
+      const naturalHeight = element.offsetHeight;
+      node.minWidth = naturalWidth;
+      node.minHeight = naturalHeight;
+    }
+  }
+
+  private buildStackedLayout(
+    element: HTMLElement,
+    node: Node,
+    controlHeight: number,
+    hoveringPortId: string | undefined,
+    layoutConfig: any
+  ): void {
+    const hasControls = node instanceof TweakpaneNode;
+
+    // Get header and body elements
+    const header = element.querySelector('.node-header') as HTMLElement;
+    const body = element.querySelector('.node-body') as HTMLElement;
+
+    if (!header || !body) return;
+
+    // Clear body content
+    body.innerHTML = '';
+    body.classList.remove('node-body-hidden');
+
+    // Ensure header doesn't have inline-specific class
+    if (header) {
+      header.classList.remove('node-header-inline');
+    }
+
+    // Apply custom body styles if provided
+    if (layoutConfig?.bodyStyle) {
+      Object.assign(body.style, layoutConfig.bodyStyle);
+    }
+
+    // Create vertical stacked container
+    const stackedContainer = document.createElement('div');
+    stackedContainer.classList.add('node-layout-stacked');
+
+    // Determine if we should show labels
+    const showInputLabels = layoutConfig?.showInputLabels !== false; // default true
+    const showOutputLabels = layoutConfig?.showOutputLabels !== false; // default true
+
+    // Top section: Controls (if any)
+    if (hasControls && controlHeight > 0) {
+      const controlDiv = document.createElement('div');
+      controlDiv.classList.add('node-control', 'stacked-control');
+      controlDiv.style.height = `${controlHeight}px`;
+
+      // Apply custom Tweakpane min-width if specified
+      if (layoutConfig?.tweakpaneMinWidth !== undefined) {
+        controlDiv.style.setProperty(
+          '--tweakpane-min-width',
+          `${layoutConfig.tweakpaneMinWidth}px`
+        );
+      }
+
+      // Track interaction for history recording
+      controlDiv.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        this.historyManager.beginInteraction();
+      });
+      controlDiv.addEventListener('pointermove', (e) => e.stopPropagation());
+      controlDiv.addEventListener('pointerup', (e) => {
+        e.stopPropagation();
+        this.historyManager.endInteraction();
+      });
+      controlDiv.addEventListener('pointerleave', (e) => {
+        if (e.buttons === 0) {
+          this.historyManager.endInteraction();
+        }
+      });
+      controlDiv.addEventListener('click', (e) => e.stopPropagation());
+
+      stackedContainer.appendChild(controlDiv);
+
+      // Initialize Tweakpane
+      if (!(node as TweakpaneNode).isTweakpaneInitialized()) {
+        (node as TweakpaneNode).initializeTweakpane(controlDiv);
+        this.setupTweakpaneCallback(node as TweakpaneNode);
+      }
+    }
+
+    // Bottom section: Ports row (inputs and outputs)
+    const portsRow = document.createElement('div');
+    portsRow.classList.add('node-layout', 'stacked-ports-row');
+
+    // Input ports column
+    const hasInputs = node.inputs.size > 0;
+    let inputColumn: HTMLElement | null = null;
+
+    if (hasInputs && !layoutConfig?.hideInputColumn) {
+      inputColumn = document.createElement('div');
+      inputColumn.classList.add('input-column');
+
+      for (const port of node.inputs.values()) {
+        this.createPortElement(inputColumn, port, 'input', hoveringPortId, showInputLabels);
+      }
+    }
+
+    // Empty center spacer
+    const centerSpacer = document.createElement('div');
+    centerSpacer.classList.add('content-column');
+    if (layoutConfig?.contentColumnStyle) {
+      Object.assign(centerSpacer.style, layoutConfig.contentColumnStyle);
+    }
+
+    // Output ports column
+    const hasOutputs = node.outputs.size > 0;
+    let outputColumn: HTMLElement | null = null;
+
+    if (hasOutputs && !layoutConfig?.hideOutputColumn) {
+      outputColumn = document.createElement('div');
+      outputColumn.classList.add('output-column');
+
+      for (const port of node.outputs.values()) {
+        this.createPortElement(outputColumn, port, 'output', hoveringPortId, showOutputLabels);
+      }
+    }
+
+    // Assemble ports row
+    if (inputColumn) {
+      portsRow.appendChild(inputColumn);
+    }
+    portsRow.appendChild(centerSpacer);
+    if (outputColumn) {
+      portsRow.appendChild(outputColumn);
+    }
+
+    // Add ports row to stacked container
+    stackedContainer.appendChild(portsRow);
+
+    // Add stacked container to body
+    body.appendChild(stackedContainer);
+
+    // Capture the natural size on first render
     if (node.minWidth === undefined || node.minHeight === undefined) {
       const naturalWidth = element.offsetWidth;
       const naturalHeight = element.offsetHeight;

@@ -466,6 +466,25 @@ body:not(#touch-device) .context-menu-pane {
   height: 100%;
 }
 
+/* Stacked layout - vertical arrangement with controls on top */
+.node-layout-stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.node-layout-stacked .stacked-control {
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.node-layout-stacked .stacked-ports-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  width: 100%;
+}
+
 .input-column {
   display: flex;
   flex-direction: column;

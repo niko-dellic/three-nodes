@@ -1,11 +1,9 @@
 import { TweakpaneNode } from '../../TweakpaneNode';
 import { PortType } from '@/types';
 import { EvaluationContext } from '@/core';
+import { NodeLayoutConfig } from '@/core/types';
 
-export class MergeNode extends TweakpaneNode<
-  'string',
-  'array'
-> {
+export class MergeNode extends TweakpaneNode<'string', 'array'> {
   constructor(id: string) {
     super(id, 'MergeNode', 'Merge');
 
@@ -88,5 +86,11 @@ export class MergeNode extends TweakpaneNode<
       this.pane.dispose();
       this.initializeTweakpane(this.container);
     }
+  }
+
+  getLayoutConfig(): NodeLayoutConfig {
+    return {
+      tweakpaneMinWidth: 50,
+    };
   }
 }

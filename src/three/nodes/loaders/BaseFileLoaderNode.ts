@@ -64,7 +64,8 @@ export abstract class BaseFileLoaderNode<
         this.initializeTweakpane(this.container);
       }
 
-      this.markDirty();
+      // Mark this node and all downstream nodes as dirty
+      this.markDownstreamDirty();
 
       // Force graph change notification to trigger evaluation
       // Use setTimeout to ensure the evaluation happens after this async operation completes
@@ -98,7 +99,9 @@ export abstract class BaseFileLoaderNode<
       this.pane.dispose();
       this.initializeTweakpane(this.container);
     }
-    this.markDirty();
+    
+    // Mark this node and all downstream nodes as dirty
+    this.markDownstreamDirty();
 
     // Force graph change notification to clear outputs and preview
     if (this.graph) {

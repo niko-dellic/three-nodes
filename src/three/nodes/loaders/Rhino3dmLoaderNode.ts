@@ -1,6 +1,7 @@
 import { BaseFileLoaderNode } from './BaseFileLoaderNode';
 import { Rhino3dmLoader } from 'three/examples/jsm/loaders/3DMLoader.js';
 import * as THREE from 'three';
+import { NodeLayoutConfig } from '@/core/types';
 
 /**
  * Rhino 3DM Loader Node
@@ -21,7 +22,8 @@ export class Rhino3dmLoaderNode extends BaseFileLoaderNode<'scene' | 'loaded'> {
 
     // Set the path to the Rhino3dm WASM/JS files
     // Note: These need to be available in your public directory
-    this.loader.setLibraryPath('https://cdn.jsdelivr.net/npm/rhino3dm@8.4.0/');
+    // this.loader.setLibraryPath('https://cdn.jsdelivr.net/npm/rhino3dm@8.4.0/');
+    this.loader.setLibraryPath('/3dm/');
 
     // Add property for Z-to-Y conversion
     this.addProperty({
@@ -144,5 +146,11 @@ export class Rhino3dmLoaderNode extends BaseFileLoaderNode<'scene' | 'loaded'> {
     // Reset conversion flag when file is cleared
     this.conversionApplied = false;
     super.clearFile();
+  }
+
+  getLayoutConfig(): NodeLayoutConfig {
+    return {
+      style: 'stacked',
+    };
   }
 }

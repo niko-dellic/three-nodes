@@ -97,6 +97,36 @@ export abstract class Node<TInputs extends string = string, TOutputs extends str
     this._isDirty = false;
   }
 
+  /**
+   * Mark this node and all downstream nodes as dirty
+   * Used when internal state changes (e.g., file loaded, property changed)
+   */
+  markDownstreamDirty(): void {
+    if (!this.graph) return;
+
+    const visited = new Set<string>();
+    const queue: string[] = [this.id];
+
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      if (visited.has(currentId)) continue;
+      visited.add(currentId);
+
+      const node = this.graph.getNode(currentId);
+      if (node) {
+        node.markDirty();
+
+        // Find all nodes connected to this node's outputs
+        for (const outputPort of node.outputs.values()) {
+          const edges = this.graph.getEdgesFromPort(outputPort);
+          for (const edge of edges) {
+            queue.push(edge.target.node.id);
+          }
+        }
+      }
+    }
+  }
+
   // Cache management
   cacheOutput(portName: string, value: PortValue): void {
     this._outputCache.set(portName, value);
