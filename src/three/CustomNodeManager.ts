@@ -20,6 +20,40 @@ export class CustomNodeManager {
 
   constructor(registry: NodeRegistry) {
     this.registry = registry;
+    // Register the base CustomNode type for creating new custom nodes
+    this.registerBaseCustomNodeType();
+  }
+
+  /**
+   * Register a base "CustomNode" type that creates empty custom nodes
+   * This allows users to create a new custom node from the context menu
+   */
+  private registerBaseCustomNodeType(): void {
+    const baseDefinition: CustomNodeDefinition = {
+      id: 'base-custom-node',
+      name: 'CustomNode',
+      label: 'Custom Node',
+      category: 'Custom',
+      icon: '✨',
+      description: 'A custom node ready to be configured',
+      inputs: [],
+      outputs: [],
+      properties: [],
+      evaluateCode: '// Add your custom logic here\n// Use this.getInputValue(name) to read inputs\n// Use this.setOutputValue(name, value) to write outputs\n// Use this.getProperty(name) to read properties',
+      version: '1.0.0',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    // Register without saving to storage (this is a built-in type)
+    const NodeClass = this.createNodeClass(baseDefinition);
+    this.registry.register(NodeClass, {
+      type: 'CustomNode',
+      label: 'Custom Node',
+      category: 'Custom',
+      icon: '✨',
+      description: 'Create a new custom node',
+    });
   }
 
   /**
@@ -110,6 +144,8 @@ export class CustomNodeManager {
 
       // Store the definition
       this.customNodes.set(definition.name, definition);
+
+      console.log(`Custom node registered: "${definition.name}" (${definition.label}) in category "${definition.category}"`);
 
       return {
         success: true,
@@ -214,6 +250,73 @@ export class CustomNodeManager {
    */
   getAllCustomNodes(): CustomNodeDefinition[] {
     return Array.from(this.customNodes.values());
+  }
+
+  /**
+   * Duplicate a node as a custom node
+   * Takes any node and creates a custom node definition from it
+   */
+  duplicateNode(sourceNode: Node, newName?: string): CustomNodeOperationResult {
+    try {
+      // Extract evaluate function code
+      let evaluateCode = '// Add your custom logic here';
+      if (typeof (sourceNode as any).evaluate === 'function') {
+        const evaluateFunc = (sourceNode as any).evaluate;
+        let code = evaluateFunc.toString();
+        // Remove the function wrapper to show just the body
+        code = code.replace(/^[^{]*{/, '').replace(/}[^}]*$/, '').trim();
+        evaluateCode = code || evaluateCode;
+      }
+
+      // Generate unique name if not provided
+      const baseName = newName || `${sourceNode.type}Copy`;
+      let uniqueName = baseName;
+      let counter = 1;
+      while (this.customNodes.has(uniqueName)) {
+        uniqueName = `${baseName}${counter}`;
+        counter++;
+      }
+
+      // Create custom node definition from source node
+      const definition: CustomNodeDefinition = {
+        id: `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: uniqueName,
+        label: `${sourceNode.label} (Copy)`,
+        category: 'Custom',
+        icon: '📋',
+        description: `Duplicate of ${sourceNode.label}`,
+        inputs: Array.from(sourceNode.inputs.values()).map((port) => ({
+          name: port.name,
+          type: port.type,
+          defaultValue: port.defaultValue,
+        })),
+        outputs: Array.from(sourceNode.outputs.values()).map((port) => ({
+          name: port.name,
+          type: port.type,
+        })),
+        properties: Array.from(sourceNode.properties.values()).map((prop) => ({
+          name: prop.name,
+          type: prop.type,
+          value: prop.value,
+          min: (prop as any).min,
+          max: (prop as any).max,
+          step: (prop as any).step,
+          options: (prop as any).options,
+        })),
+        evaluateCode: evaluateCode,
+        version: '1.0.0',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      // Create the custom node
+      return this.createCustomNode(definition);
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to duplicate node: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
   }
 
   /**

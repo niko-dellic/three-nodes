@@ -12,7 +12,6 @@ import { HistoryManager } from './HistoryManager';
 import { PropertiesPanel } from './PropertiesPanel';
 import { SaveLoadManager } from './SaveLoadManager';
 import { NodeRegistry } from '@/three/NodeRegistry';
-import { CustomNodeCreator } from './CustomNodeCreator';
 import { CustomNodeManager } from '@/three/CustomNodeManager';
 import { AutoLayoutManager } from './AutoLayoutManager';
 import { Pane } from 'tweakpane';
@@ -32,7 +31,6 @@ export class GraphEditor {
   private saveLoadManager: SaveLoadManager;
   private registry: NodeRegistry;
   private customNodeManager: CustomNodeManager;
-  private customNodeCreator: CustomNodeCreator;
   private autoLayoutManager: AutoLayoutManager;
   private autoLayoutPane: Pane | null = null;
   private autoLayoutPaneContainer: HTMLElement | null = null;
@@ -157,7 +155,7 @@ export class GraphEditor {
     this.infoOverlay = this.createInfoOverlay();
 
     // Initialize properties panel
-    this.propertiesPanel = new PropertiesPanel(container);
+    this.propertiesPanel = new PropertiesPanel(this.appContainer);
 
     // Wire up selection changes to properties panel
     this.selectionManager.onChange(() => {
@@ -167,16 +165,9 @@ export class GraphEditor {
 
     // Initialize custom node system
     this.customNodeManager = new CustomNodeManager(registry);
-    this.customNodeCreator = new CustomNodeCreator(container, this.customNodeManager);
 
-    // Connect custom node creator to context menu
-    this.contextMenu.setCustomNodeCreator(this.customNodeCreator);
-
-    // Callback to rebuild context menu when new custom nodes are created
-    this.customNodeCreator.onNodeCreatedCallback(() => {
-      // Rebuild context menu to show new custom node
-      // The context menu will automatically pick up the new node from the registry
-    });
+    // Connect custom node manager to properties panel
+    this.propertiesPanel.setCustomNodeManager(this.customNodeManager);
 
     // Initialize auto-layout system
     const savedLayoutConfig = localStorage.getItem('autoLayoutConfig');
@@ -513,26 +504,6 @@ export class GraphEditor {
     toolbar.appendChild(utilityGroup);
 
     // Separator
-    const separator1 = document.createElement('div');
-    separator1.className = 'toolbar-separator';
-    toolbar.appendChild(separator1);
-
-    // This will be populated by ViewModeManager
-    const toggleButtonPlaceholder = document.createElement('div');
-    toggleButtonPlaceholder.id = 'toggle-button-container';
-    toolbar.appendChild(toggleButtonPlaceholder);
-
-    // Separator
-    const separator2 = document.createElement('div');
-    separator2.className = 'toolbar-separator';
-    toolbar.appendChild(separator2);
-
-    // Preview controls section (will be populated by main.ts)
-    const previewSection = document.createElement('div');
-    previewSection.className = 'toolbar-section preview-controls';
-    toolbar.appendChild(previewSection);
-
-    // Separator
     const separator3 = document.createElement('div');
     separator3.className = 'toolbar-separator';
     toolbar.appendChild(separator3);
@@ -562,6 +533,16 @@ export class GraphEditor {
     fileOpsGroup.appendChild(loadButton);
 
     toolbar.appendChild(fileOpsGroup);
+
+    // Separator
+    const separator2 = document.createElement('div');
+    separator2.className = 'toolbar-separator';
+    toolbar.appendChild(separator2);
+
+    // Preview controls section (will be populated by main.ts)
+    const previewSection = document.createElement('div');
+    previewSection.className = 'toolbar-section preview-controls';
+    toolbar.appendChild(previewSection);
 
     // Separator
     const separator4 = document.createElement('div');
@@ -609,7 +590,13 @@ export class GraphEditor {
     });
     toolbar.appendChild(propertiesButton);
 
+    // This will be populated by ViewModeManager
+    const toggleButtonPlaceholder = document.createElement('div');
+    toggleButtonPlaceholder.id = 'toggle-button-container';
+    toolbar.appendChild(toggleButtonPlaceholder);
+
     this.appContainer.appendChild(toolbar);
+
     return toolbar;
   }
 
@@ -681,6 +668,13 @@ export class GraphEditor {
     if (node) {
       node.position = { x: worldPos.x, y: worldPos.y };
       this.graph.addNode(node);
+
+      // Auto-select custom nodes to open PropertiesPanel for immediate editing
+      if (nodeType === 'CustomNode') {
+        this.selectionManager.clearSelection();
+        this.selectionManager.selectNode(node.id);
+        this.propertiesPanel.show();
+      }
     }
   }
 

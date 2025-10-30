@@ -58,6 +58,7 @@ export interface NodeMetadata {
   label: string;
   description?: string;
   icon?: string;
+  sourceFile?: string; // Path to the source file for displaying full code
 }
 
 // Scene output structure

@@ -102,7 +102,7 @@ cameraPosNode.inputs.get('z')!.value = 5;
 graph.addNode(cameraPosNode);
 
 const cameraNode = registry.insertNode(PerspectiveCameraNode, 'camera');
-cameraNode.position = { x: 1050, y: 450 };
+cameraNode.position = { x: 1150, y: 450 };
 graph.addNode(cameraNode);
 
 graph.connect(cameraPosNode.output('vector'), cameraNode.input('position'));

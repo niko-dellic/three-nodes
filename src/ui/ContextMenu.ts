@@ -1,7 +1,6 @@
 import { NodeRegistry } from '@/three/NodeRegistry';
 import { NodeMetadata } from '@/types';
 import { Pane } from 'tweakpane';
-import { CustomNodeCreator } from './CustomNodeCreator';
 
 export class ContextMenu {
   private element: HTMLElement;
@@ -13,17 +12,12 @@ export class ContextMenu {
   private searchInput: HTMLInputElement | null = null;
   private navigableButtons: HTMLButtonElement[] = [];
   private selectedButtonIndex: number = -1;
-  private customNodeCreator: CustomNodeCreator | null = null;
 
   constructor(container: HTMLElement, registry: NodeRegistry) {
     this.registry = registry;
     this.element = this.createContextMenu();
     container.appendChild(this.element);
     this.setupEventListeners();
-  }
-
-  setCustomNodeCreator(creator: CustomNodeCreator): void {
-    this.customNodeCreator = creator;
   }
 
   private createContextMenu(): HTMLElement {
@@ -145,6 +139,7 @@ export class ContextMenu {
 
     // Get all node types grouped by category
     const allTypes = this.registry.getAllTypes();
+    console.log(`Context menu: Found ${allTypes.length} node types`);
     const categories = new Map<string, NodeMetadata[]>();
 
     for (const metadata of allTypes) {
@@ -152,6 +147,14 @@ export class ContextMenu {
         categories.set(metadata.category, []);
       }
       categories.get(metadata.category)!.push(metadata);
+    }
+
+    // Log custom category specifically
+    if (categories.has('Custom')) {
+      console.log(
+        `Custom category has ${categories.get('Custom')!.length} nodes:`,
+        categories.get('Custom')!.map((m) => m.label)
+      );
     }
 
     // Sort categories
@@ -375,11 +378,9 @@ export class ContextMenu {
   private handleCustomNode(): void {
     this.hide();
 
-    if (this.customNodeCreator) {
-      this.customNodeCreator.show();
-    } else {
-      console.error('CustomNodeCreator not initialized');
-      alert('Custom node creator is not available');
+    // Create a custom node at the menu position
+    if (this.onNodeSelect) {
+      this.onNodeSelect('CustomNode', this.position.x, this.position.y);
     }
   }
 
