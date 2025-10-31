@@ -13,3 +13,5 @@ export { HistoryManager } from './HistoryManager';
 export { SaveLoadManager } from './SaveLoadManager';
 export { ObjectInspector } from './ObjectInspector';
 export { AutoLayoutManager } from './AutoLayoutManager';
+export { ViewportSelectionManager } from './ViewportSelectionManager';
+export { ObjectNodeMapper } from './ObjectNodeMapper';

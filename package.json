@@ -25,6 +25,7 @@
     "@uiw/codemirror-theme-vscode": "^4.25.2",
     "codemirror": "^6.0.2",
     "d3": "^7.9.0",
+    "postprocessing": "^6.37.8",
     "three": "^0.180.0",
     "tweakpane": "^4.0.5"
   },

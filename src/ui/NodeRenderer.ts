@@ -671,8 +671,14 @@ export class NodeRenderer {
       portContainer.appendChild(label);
     }
 
-    // Add file picker button for texture input ports that have no connections
-    if (side === 'input' && port.type === PortType.Texture && port.connections.length === 0) {
+    // Add file picker button for texture input ports or ports with file pickers that have no connections
+    if (
+      side === 'input' &&
+      port.connections.length === 0 &&
+      (port.type === PortType.Texture ||
+        (typeof (port.node as any).getFilePicker === 'function' &&
+          (port.node as any).getFilePicker(port.name)))
+    ) {
       this.addFilePickerButton(portContainer, port);
     }
 

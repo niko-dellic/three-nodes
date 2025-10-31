@@ -657,6 +657,14 @@ export class GraphEditor {
     return this.selectionManager;
   }
 
+  getHistoryManager(): HistoryManager {
+    return this.historyManager;
+  }
+
+  getClipboardManager(): ClipboardManager {
+    return this.clipboardManager;
+  }
+
   setPreviewManager(previewManager: any): void {
     this.nodeRenderer.setPreviewManager(previewManager);
   }

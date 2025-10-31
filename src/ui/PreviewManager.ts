@@ -38,26 +38,22 @@ export class PreviewManager {
         transparent: true,
         opacity: 0.5,
         side: THREE.DoubleSide,
-        fog: true,
       }),
       new THREE.MeshBasicMaterial({
         color: 0x00ff00,
         wireframe: true,
         transparent: true,
         opacity: 0.7,
-        fog: true,
       }),
-      new THREE.MeshNormalMaterial({ 
-        wireframe: false, 
-        transparent: true, 
+      new THREE.MeshNormalMaterial({
+        wireframe: false,
+        transparent: true,
         opacity: 0.8,
-        fog: true,
       }),
       new THREE.MeshBasicMaterial({
         color: 0xff9900,
         transparent: true,
         opacity: 0.6,
-        fog: true,
       }),
     ];
 
@@ -311,6 +307,9 @@ export class PreviewManager {
       nodesToPreview.push(...this.graph.nodes.values());
     }
 
+    // Check if any selected node is a SceneCompilerNode and apply background/fog
+    this.applySceneCompilerSettings(nodesToPreview, scene);
+
     // Add objects to baked scene as preview overlays
     for (const node of nodesToPreview) {
       if (this.previewMode === 'all' && this.hiddenNodes.has(node.id)) {
@@ -321,6 +320,44 @@ export class PreviewManager {
     }
 
     this.notifyChange();
+  }
+
+  /**
+   * Apply background and fog from SceneCompilerNode if present in preview
+   */
+  private applySceneCompilerSettings(nodesToPreview: Node[], scene: THREE.Scene): void {
+    // Only apply settings in "selected" mode when SceneCompilerNode is explicitly selected
+    if (this.previewMode !== 'selected') {
+      return;
+    }
+
+    // Find SceneCompilerNode in the selected nodes
+    const sceneCompilerNode = nodesToPreview.find((node) => node.type === 'SceneCompilerNode');
+
+    if (sceneCompilerNode) {
+      // SceneCompilerNode is selected - apply its settings
+      const compiledOutput = sceneCompilerNode.outputs.get('compiled');
+      if (compiledOutput && compiledOutput.value) {
+        const compiled = compiledOutput.value as any;
+
+        // Apply background only if it's defined and not null
+        if (compiled.background !== undefined && compiled.background !== null) {
+          scene.background = compiled.background;
+        }
+
+        // Apply fog if present
+        if (compiled.fog !== undefined) {
+          scene.fog = compiled.fog;
+        }
+      }
+    } else {
+      // SceneCompilerNode is not selected - reset to default background
+      // Only reset if we're not viewing the baked scene
+      if (!this.currentBakedScene) {
+        scene.background = this.graph.defaultBackground;
+        scene.fog = null;
+      }
+    }
   }
 
   private addNodeToPreview(node: Node): void {
@@ -347,7 +384,7 @@ export class PreviewManager {
             const objId = node.id + '_obj_' + obj.uuid;
             if (!addedObjects.has(objId)) {
               addedObjects.add(objId);
-              this.addObject3DToPreview(objId, obj, true); // Preserve materials
+              this.addObject3DToPreview(objId, obj, true, node.id); // Preserve materials
             }
           }
         }
@@ -359,7 +396,7 @@ export class PreviewManager {
         const lightId = node.id + '_light_' + value.uuid;
         if (!addedObjects.has(lightId)) {
           addedObjects.add(lightId);
-          this.addDirectionalLightToPreview(lightId, value);
+          this.addDirectionalLightToPreview(lightId, value, node.id);
         }
         continue;
       }
@@ -369,7 +406,7 @@ export class PreviewManager {
         const lightId = node.id + '_light_' + value.uuid;
         if (!addedObjects.has(lightId)) {
           addedObjects.add(lightId);
-          this.addPointLightToPreview(lightId, value);
+          this.addPointLightToPreview(lightId, value, node.id);
         }
         continue;
       }
@@ -378,7 +415,7 @@ export class PreviewManager {
         const lightId = node.id + '_light_' + value.uuid;
         if (!addedObjects.has(lightId)) {
           addedObjects.add(lightId);
-          this.addSpotLightToPreview(lightId, value);
+          this.addSpotLightToPreview(lightId, value, node.id);
         }
         continue;
       }
@@ -405,7 +442,7 @@ export class PreviewManager {
             const objId = node.id + '_arr_' + i + '_' + item.uuid;
             if (!addedObjects.has(objId)) {
               addedObjects.add(objId);
-              this.addObject3DToPreview(objId, item, true);
+              this.addObject3DToPreview(objId, item, true, node.id);
             }
           }
           // Handle BufferGeometry in array
@@ -413,7 +450,7 @@ export class PreviewManager {
             const geomId = node.id + '_arr_geom_' + i + '_' + item.uuid;
             if (!addedObjects.has(geomId)) {
               addedObjects.add(geomId);
-              this.addGeometryToPreview(geomId, item);
+              this.addGeometryToPreview(geomId, item, node.id);
             }
           }
           // Handle Material in array
@@ -421,7 +458,7 @@ export class PreviewManager {
             const matId = node.id + '_arr_mat_' + i + '_' + item.uuid;
             if (!addedObjects.has(matId)) {
               addedObjects.add(matId);
-              this.addMaterialPreview(matId, item);
+              this.addMaterialPreview(matId, item, node.id);
             }
           }
           // Handle lights in arrays
@@ -429,21 +466,19 @@ export class PreviewManager {
             const lightId = node.id + '_arr_light_' + i + '_' + item.uuid;
             if (!addedObjects.has(lightId)) {
               addedObjects.add(lightId);
-              this.addDirectionalLightToPreview(lightId, item);
+              this.addDirectionalLightToPreview(lightId, item, node.id);
             }
-          }
-          else if (item instanceof THREE.PointLight) {
+          } else if (item instanceof THREE.PointLight) {
             const lightId = node.id + '_arr_light_' + i + '_' + item.uuid;
             if (!addedObjects.has(lightId)) {
               addedObjects.add(lightId);
-              this.addPointLightToPreview(lightId, item);
+              this.addPointLightToPreview(lightId, item, node.id);
             }
-          }
-          else if (item instanceof THREE.SpotLight) {
+          } else if (item instanceof THREE.SpotLight) {
             const lightId = node.id + '_arr_light_' + i + '_' + item.uuid;
             if (!addedObjects.has(lightId)) {
               addedObjects.add(lightId);
-              this.addSpotLightToPreview(lightId, item);
+              this.addSpotLightToPreview(lightId, item, node.id);
             }
           }
         }
@@ -455,19 +490,19 @@ export class PreviewManager {
         const objId = node.id + '_' + value.uuid;
         if (!addedObjects.has(objId)) {
           addedObjects.add(objId);
-          this.addObject3DToPreview(objId, value, true); // Preserve materials for mesh objects
+          this.addObject3DToPreview(objId, value, true, node.id); // Preserve materials for mesh objects
         }
       } else if (value instanceof THREE.BufferGeometry) {
         const geomId = node.id + '_geom_' + value.uuid;
         if (!addedObjects.has(geomId)) {
           addedObjects.add(geomId);
-          this.addGeometryToPreview(geomId, value);
+          this.addGeometryToPreview(geomId, value, node.id);
         }
       } else if (value instanceof THREE.Material) {
         const matId = node.id + '_mat_' + value.uuid;
         if (!addedObjects.has(matId)) {
           addedObjects.add(matId);
-          this.addMaterialPreview(matId, value);
+          this.addMaterialPreview(matId, value, node.id);
         }
       }
     }
@@ -476,12 +511,17 @@ export class PreviewManager {
   private addObject3DToPreview(
     nodeId: string,
     object: THREE.Object3D,
-    preserveMaterials: boolean = false
+    preserveMaterials: boolean = false,
+    sourceNodeId?: string
   ): void {
     const scene = this.getPreviewScene();
 
     // Clone the object so we don't affect the original
     const clone = object.clone();
+
+    // Tag the object with metadata for selection and mapping
+    clone.userData.sourceNodeId = sourceNodeId || nodeId;
+    clone.userData.objectType = 'preview';
 
     // Apply preview material to all meshes in the hierarchy (unless preserving materials)
     if (!preserveMaterials) {
@@ -489,6 +529,9 @@ export class PreviewManager {
         if (child instanceof THREE.Mesh) {
           child.material = this.previewMaterial;
         }
+        // Tag all children too
+        child.userData.sourceNodeId = sourceNodeId || nodeId;
+        child.userData.objectType = 'preview';
       });
     } else {
       // For meshes with materials, make them slightly transparent to distinguish from baked scene
@@ -504,16 +547,25 @@ export class PreviewManager {
             material.forEach((m) => {
               m.transparent = true;
               m.opacity = 0.7;
-              m.fog = true; // Ensure fog is enabled
+              // Only set fog if the material supports it
+              if ('fog' in m) {
+                m.fog = true;
+              }
             });
           } else {
             material.transparent = true;
             material.opacity = 0.7;
-            material.fog = true; // Ensure fog is enabled
+            // Only set fog if the material supports it
+            if ('fog' in material) {
+              (material as any).fog = true;
+            }
           }
 
           child.material = material;
         }
+        // Tag all children too
+        child.userData.sourceNodeId = sourceNodeId || nodeId;
+        child.userData.objectType = 'preview';
       });
     }
 
@@ -521,27 +573,43 @@ export class PreviewManager {
     scene.add(clone);
   }
 
-  private addGeometryToPreview(nodeId: string, geometry: THREE.BufferGeometry): void {
+  private addGeometryToPreview(
+    nodeId: string,
+    geometry: THREE.BufferGeometry,
+    sourceNodeId?: string
+  ): void {
     const scene = this.getPreviewScene();
 
     // Create a mesh with the preview material
     // Note: Arrays are now handled at a higher level in addNodeToPreview
     const mesh = new THREE.Mesh(geometry.clone(), this.previewMaterial);
+    mesh.userData.sourceNodeId = sourceNodeId || nodeId;
+    mesh.userData.objectType = 'preview';
     this.nodeObjects.set(nodeId, mesh);
     scene.add(mesh);
   }
 
-  private addMaterialPreview(nodeId: string, material: THREE.Material): void {
+  private addMaterialPreview(
+    nodeId: string,
+    material: THREE.Material,
+    sourceNodeId?: string
+  ): void {
     const scene = this.getPreviewScene();
 
     // Create a sphere to show the material
     const geometry = new THREE.SphereGeometry(1, 32, 32);
     const mesh = new THREE.Mesh(geometry, material);
+    mesh.userData.sourceNodeId = sourceNodeId || nodeId;
+    mesh.userData.objectType = 'preview';
     this.nodeObjects.set(nodeId, mesh);
     scene.add(mesh);
   }
 
-  private addDirectionalLightToPreview(nodeId: string, light: THREE.DirectionalLight): void {
+  private addDirectionalLightToPreview(
+    nodeId: string,
+    light: THREE.DirectionalLight,
+    sourceNodeId?: string
+  ): void {
     const scene = this.getPreviewScene();
 
     // Clone the light
@@ -552,6 +620,8 @@ export class PreviewManager {
 
     // Create a group containing both light and helper
     const group = new THREE.Group();
+    group.userData.sourceNodeId = sourceNodeId || nodeId;
+    group.userData.objectType = 'preview';
     group.add(lightClone);
     group.add(helper);
 
@@ -559,7 +629,11 @@ export class PreviewManager {
     scene.add(group);
   }
 
-  private addPointLightToPreview(nodeId: string, light: THREE.PointLight): void {
+  private addPointLightToPreview(
+    nodeId: string,
+    light: THREE.PointLight,
+    sourceNodeId?: string
+  ): void {
     const scene = this.getPreviewScene();
 
     // Clone the light
@@ -570,6 +644,8 @@ export class PreviewManager {
 
     // Create a group containing both light and helper
     const group = new THREE.Group();
+    group.userData.sourceNodeId = sourceNodeId || nodeId;
+    group.userData.objectType = 'preview';
     group.add(lightClone);
     group.add(helper);
 
@@ -577,7 +653,11 @@ export class PreviewManager {
     scene.add(group);
   }
 
-  private addSpotLightToPreview(nodeId: string, light: THREE.SpotLight): void {
+  private addSpotLightToPreview(
+    nodeId: string,
+    light: THREE.SpotLight,
+    sourceNodeId?: string
+  ): void {
     const scene = this.getPreviewScene();
 
     // Clone the light
@@ -588,6 +668,8 @@ export class PreviewManager {
 
     // Create a group containing both light and helper
     const group = new THREE.Group();
+    group.userData.sourceNodeId = sourceNodeId || nodeId;
+    group.userData.objectType = 'preview';
     group.add(lightClone);
     group.add(helper);
 
@@ -612,7 +694,6 @@ export class PreviewManager {
       size: 0.1,
       transparent: true,
       opacity: 0.7,
-      fog: true,
     });
 
     // Create Points object

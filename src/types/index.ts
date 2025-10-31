@@ -43,6 +43,8 @@ export type BasePortValue =
   | THREE.Scene
   | THREE.Camera
   | THREE.Light
+  | THREE.Fog
+  | THREE.FogExp2
   | Point2D
   | SceneOutput
   | null

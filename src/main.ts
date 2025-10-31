@@ -8,7 +8,6 @@ import {
   CreateMeshNode,
   SceneNode,
   Vector3Node,
-  PerspectiveCameraNode,
   AmbientLightNode,
   DirectionalLightNode,
   SceneCompilerNode,
@@ -195,6 +194,13 @@ const graphEditor = new GraphEditor(editorContainer, graph, registry, appContain
 
 // Create live viewport
 const liveViewport = new LiveViewport(viewportContainer, graph);
+
+// Connect history manager to viewport for undo/redo integration
+liveViewport.setHistoryManager(graphEditor.getHistoryManager());
+
+// Connect selection manager and clipboard manager to viewport for copy/paste
+liveViewport.setSelectionManager(graphEditor.getSelectionManager());
+liveViewport.setClipboardManager(graphEditor.getClipboardManager());
 
 // Create preview manager and initialize its UI
 const previewManager = new PreviewManager(graph, graphEditor.getSelectionManager());

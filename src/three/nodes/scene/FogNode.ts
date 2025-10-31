@@ -8,10 +8,7 @@ import * as THREE from 'three';
  * Creates fog for atmospheric effects in scenes
  * Supports both linear fog (near/far) and exponential fog (density)
  */
-export class FogNode extends BaseThreeNode<
-  'color' | 'near' | 'far' | 'density',
-  'fog'
-> {
+export class FogNode extends BaseThreeNode<'color' | 'near' | 'far' | 'density', 'fog'> {
   private fog: THREE.Fog | THREE.FogExp2;
 
   constructor(id: string) {
@@ -31,10 +28,13 @@ export class FogNode extends BaseThreeNode<
     // Properties with defaults (adjusted for immediate visibility)
     this.addProperty({
       name: 'fogType',
-      type: 'select',
+      type: 'list',
       value: 'linear',
       label: 'Fog Type',
-      options: ['linear', 'exponential'],
+      options: {
+        Linear: 'linear',
+        Exponential: 'exponential',
+      },
     });
     this.addProperty({
       name: 'color',
@@ -91,7 +91,7 @@ export class FogNode extends BaseThreeNode<
     } else {
       // Update existing fog properties
       this.fog.color = new THREE.Color(color);
-      
+
       if (this.fog instanceof THREE.Fog) {
         this.fog.near = near;
         this.fog.far = far;
@@ -109,4 +109,3 @@ export class FogNode extends BaseThreeNode<
     super.dispose();
   }
 }
-
