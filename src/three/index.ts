@@ -1267,7 +1267,7 @@ export function createDefaultRegistry(): NodeRegistry {
     type: 'MarchingCubesNode',
     category: 'Addons',
     label: 'Marching Cubes',
-    description: 'Creates metaball/blob surfaces',
+    description: 'Creates metaball/blob surfaces from point arrays',
     icon: '🫧',
   });
 
