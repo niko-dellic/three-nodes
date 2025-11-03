@@ -205,7 +205,8 @@ liveViewport.setClipboardManager(graphEditor.getClipboardManager());
 // Create preview manager and initialize its UI
 const previewManager = new PreviewManager(graph, graphEditor.getSelectionManager());
 liveViewport.setPreviewManager(previewManager);
-graphEditor.setPreviewManager(previewManager); // Connect preview manager to node renderer
+graphEditor.setPreviewManager(previewManager);
+graphEditor.setLiveViewport(liveViewport); // Connect preview manager to node renderer
 
 // Initialize preview controls in toolbar
 const toolbar = graphEditor.getToolbar();

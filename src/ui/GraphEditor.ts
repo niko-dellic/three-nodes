@@ -15,6 +15,7 @@ import { NodeRegistry } from '@/three/NodeRegistry';
 import { CustomNodeManager } from '@/three/CustomNodeManager';
 import { AutoLayoutManager } from './AutoLayoutManager';
 import { Pane } from 'tweakpane';
+import { LiveViewport } from './LiveViewport';
 
 export class GraphEditor {
   private graph: Graph;
@@ -34,6 +35,7 @@ export class GraphEditor {
   private autoLayoutManager: AutoLayoutManager;
   private autoLayoutPane: Pane | null = null;
   private autoLayoutPaneContainer: HTMLElement | null = null;
+  private liveViewport: LiveViewport | null = null; // Reference to LiveViewport for camera fit operations
 
   private graphContainer: HTMLElement; // Main graph canvas container
   private backgroundLayer: HTMLElement;
@@ -228,10 +230,13 @@ export class GraphEditor {
         this.collapseButton?.click();
       }
 
-      // Fullscreen (F key)
+      // Fit camera to selected objects (F key)
       if (e.key === 'f' || e.key === 'F') {
         e.preventDefault();
-        this.fullscreenButton?.click();
+        console.log('fit camera to selected objects', this.liveViewport);
+        if (this.liveViewport) {
+          this.liveViewport.fitToSelectedObjects();
+        }
       }
 
       // Save (Ctrl/Cmd+S)
@@ -463,7 +468,7 @@ export class GraphEditor {
       this.fullscreenButton = document.createElement('button');
       this.fullscreenButton.className = 'toolbar-button fullscreen-button';
       this.fullscreenButton.innerHTML = '<i class="ph ph-arrows-out"></i>';
-      this.fullscreenButton.title = 'Toggle fullscreen (F)';
+      this.fullscreenButton.title = 'Toggle fullscreen';
 
       const updateFullscreenIcon = () => {
         if (document.fullscreenElement) {
@@ -624,12 +629,8 @@ export class GraphEditor {
       '<p>Tab - Toggle between editor and 3D view</p>',
       '<p>T - Toggle properties panel</p>',
       '<p>H - Collapse/expand toolbar</p>',
+      '<p>F - Fit camera to selected object(s)</p>',
     ];
-
-    // Only show fullscreen shortcut if fullscreen button exists
-    if (this.fullscreenButton) {
-      controls.push('<p>F - Toggle fullscreen</p>');
-    }
 
     controls.push(
       '<p>Space/Right-click - Context menu</p>',
@@ -667,6 +668,10 @@ export class GraphEditor {
 
   setPreviewManager(previewManager: any): void {
     this.nodeRenderer.setPreviewManager(previewManager);
+  }
+
+  setLiveViewport(liveViewport: any): void {
+    this.liveViewport = liveViewport;
   }
 
   private findPort(portId: string): Port | null {

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import CameraControls from 'camera-controls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import {
   EffectComposer,
@@ -20,11 +20,15 @@ import { HistoryManager } from './HistoryManager';
 import { SelectionManager } from './SelectionManager';
 import { ClipboardManager } from './ClipboardManager';
 
+// Install camera-controls
+CameraControls.install({ THREE });
+
 export class LiveViewport {
   private container: HTMLElement;
   private renderer: THREE.WebGLRenderer;
-  private controls: OrbitControls;
+  private controls: CameraControls;
   private transformControls: TransformControls;
+  private clock: THREE.Clock;
   private raycaster: THREE.Raycaster;
   private graph: Graph;
   private previewManager: PreviewManager | null = null;
@@ -66,9 +70,11 @@ export class LiveViewport {
     // Create default camera for controls
     this.defaultCamera = graph.defaultCamera;
 
-    // Create orbit controls
-    this.controls = new OrbitControls(this.defaultCamera, this.renderer.domElement);
-    this.controls.enableDamping = true;
+    // Create clock for camera controls
+    this.clock = new THREE.Clock();
+
+    // Create camera controls
+    this.controls = new CameraControls(this.defaultCamera, this.renderer.domElement);
 
     // Create raycaster for selection
     this.raycaster = new THREE.Raycaster();
@@ -564,9 +570,9 @@ export class LiveViewport {
   }
 
   private updateControlsCamera(): void {
-    // Always use default camera for orbit controls
+    // Always use default camera for camera controls
     // This gives the user consistent control over the viewport regardless of preview mode
-    this.controls.object = this.defaultCamera;
+    this.controls.camera = this.defaultCamera;
   }
 
   setPreviewManager(previewManager: PreviewManager): void {
@@ -595,7 +601,8 @@ export class LiveViewport {
     const animate = () => {
       // Only update controls if not using node-controlled camera
       if (!this.isNodeCameraActive) {
-        this.controls.update();
+        const delta = this.clock.getDelta();
+        this.controls.update(delta);
       }
 
       // Render the scene with post-processing
@@ -666,10 +673,80 @@ export class LiveViewport {
     return this.objectNodeMapper;
   }
 
+  /**
+   * Fit camera to selected objects with preview geometry
+   */
+  fitToSelectedObjects(): void {
+    if (!this.selectionManager || !this.previewManager) {
+      console.warn('SelectionManager or PreviewManager not available for fit-to-sphere');
+      return;
+    }
+
+    // Get selected node IDs
+    const selectedNodeIds = this.selectionManager.getSelectedNodes();
+    console.log('selectedNodeIds', selectedNodeIds);
+    if (selectedNodeIds.size === 0) {
+      console.log('No nodes selected');
+      return;
+    }
+
+    // Collect all objects that have preview geometry from selected nodes
+    const objectsToFit: THREE.Object3D[] = [];
+
+    // First, check viewport selection (objects directly selected in 3D view)
+    const viewportSelectedObjects = this.viewportSelectionManager.getSelectedObjectsArray();
+    objectsToFit.push(...viewportSelectedObjects);
+
+    // If no viewport selection, search the current scene for objects with matching sourceNodeId
+    if (objectsToFit.length === 0 && this.currentScene) {
+      for (const nodeId of selectedNodeIds) {
+        // Traverse the scene to find objects with this sourceNodeId
+        this.currentScene.traverse((obj) => {
+          if (obj.userData.sourceNodeId === nodeId) {
+            // Only add meshes, lines, and points (not helpers or other objects)
+            if (
+              obj instanceof THREE.Mesh ||
+              obj instanceof THREE.Line ||
+              obj instanceof THREE.Points ||
+              obj instanceof THREE.Group
+            ) {
+              objectsToFit.push(obj);
+            }
+          }
+        });
+      }
+    }
+
+    if (objectsToFit.length === 0) {
+      console.log('No preview geometry found for selected nodes');
+      return;
+    }
+
+    // Calculate bounding sphere for all selected objects
+    const box = new THREE.Box3();
+    for (const obj of objectsToFit) {
+      box.expandByObject(obj);
+    }
+
+    if (box.isEmpty()) {
+      console.log('Bounding box is empty');
+      return;
+    }
+
+    const sphere = new THREE.Sphere();
+    box.getBoundingSphere(sphere);
+
+    // Fit camera to the bounding sphere with animation
+    this.controls.fitToSphere(sphere, true);
+
+    console.log(`Fitted camera to ${objectsToFit.length} object(s)`);
+  }
+
   destroy(): void {
     if (this.animationId !== null) {
       cancelAnimationFrame(this.animationId);
     }
+    this.controls.dispose();
     this.transformControls.dispose();
     this.outlineEffect.dispose();
     if (this.smaaEffect) {
