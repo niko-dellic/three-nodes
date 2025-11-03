@@ -280,6 +280,12 @@ export class LiveViewport {
         const primarySelection = this.viewportSelectionManager.getPrimarySelection();
         if (primarySelection) {
           this.transformControls.attach(primarySelection);
+
+          // Add gizmo to scene when attaching to an object
+          const gizmo = this.transformControls.getHelper();
+          if (this.currentScene && !this.currentScene.children.includes(gizmo)) {
+            this.currentScene.add(gizmo);
+          }
         }
       }
     } else {
@@ -287,6 +293,12 @@ export class LiveViewport {
       if (!event.shiftKey && !event.ctrlKey && !event.metaKey) {
         this.viewportSelectionManager.clearSelection();
         this.transformControls.detach();
+
+        // Remove gizmo from scene when detaching
+        const gizmo = this.transformControls.getHelper();
+        if (this.currentScene && this.currentScene.children.includes(gizmo)) {
+          this.currentScene.remove(gizmo);
+        }
       }
     }
   }
@@ -427,6 +439,12 @@ export class LiveViewport {
     this.viewportSelectionManager.clearSelection();
     this.transformControls.detach();
 
+    // Remove gizmo from scene when detaching
+    const gizmo = this.transformControls.getHelper();
+    if (this.currentScene && this.currentScene.children.includes(gizmo)) {
+      this.currentScene.remove(gizmo);
+    }
+
     console.log(`Cut ${nodeIds.size} node(s) from viewport`);
   }
 
@@ -476,6 +494,12 @@ export class LiveViewport {
     // Detach transform controls
     this.transformControls.detach();
 
+    // Remove gizmo from scene when detaching
+    const gizmo = this.transformControls.getHelper();
+    if (this.currentScene && this.currentScene.children.includes(gizmo)) {
+      this.currentScene.remove(gizmo);
+    }
+
     // Clear selection
     this.viewportSelectionManager.clearSelection();
 
@@ -501,12 +525,6 @@ export class LiveViewport {
             this.previewManager.setBakedScene(this.currentScene);
           }
 
-          // Add transform controls gizmo to scene
-          const gizmo = this.transformControls.getHelper();
-          if (this.currentScene && !this.currentScene.children.includes(gizmo)) {
-            this.currentScene.add(gizmo);
-          }
-
           // Recreate composer with new scene
           this.recreateComposer(this.currentScene, this.defaultCamera);
 
@@ -523,20 +541,28 @@ export class LiveViewport {
       this.previewManager.setBakedScene(null); // null means use default scene
     }
 
-    // Add transform controls gizmo to default scene
-    const gizmo = this.transformControls.getHelper();
-    if (this.currentScene && !this.currentScene.children.includes(gizmo)) {
-      this.currentScene.add(gizmo);
-    }
-
     // Recreate composer with new scene
+
     this.recreateComposer(this.currentScene, this.defaultCamera);
   }
 
   private recreateComposer(scene: THREE.Scene, camera: THREE.Camera): void {
-    // Dispose old composer
-    this.composer.dispose();
-    this.outlineEffect.dispose();
+    // Dispose all existing passes before disposing composer
+    if (this.composer && this.composer.passes) {
+      this.composer.passes.forEach((pass) => {
+        if (pass.dispose) {
+          pass.dispose();
+        }
+      });
+    }
+
+    // Dispose old composer and effects
+    if (this.composer) {
+      this.composer.dispose();
+    }
+    if (this.outlineEffect) {
+      this.outlineEffect.dispose();
+    }
 
     // Create new composer with updated scene/camera
     this.composer = new EffectComposer(this.renderer);
@@ -578,7 +604,9 @@ export class LiveViewport {
   setPreviewManager(previewManager: PreviewManager): void {
     this.previewManager = previewManager;
     this.previewManager.onChange(() => {
-      this.updateScene();
+      // Don't call updateScene() here - it unnecessarily recreates the composer
+      // when preview overlays change (which happens on every selection change)
+      // The scene is already updated via graph.onChange() callback
       this.updateControlsCamera();
     });
     // Immediately update controls camera after setting preview manager
