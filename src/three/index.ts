@@ -13,6 +13,10 @@ import { PointInputNode } from './nodes/data/PointInputNode';
 import { ListInputNode } from './nodes/data/ListInputNode';
 import { TextInputNode } from './nodes/data/TextInputNode';
 import { IntervalInputNode } from './nodes/data/IntervalInputNode';
+import { BufferAttributeNode } from './nodes/data/BufferAttributeNode';
+import { Float16BufferAttributeNode } from './nodes/data/Float16BufferAttributeNode';
+import { Float32BufferAttributeNode } from './nodes/data/Float32BufferAttributeNode';
+import { LayersNode } from './nodes/data/LayersNode';
 
 // Input nodes (interactive controls)
 import { ButtonNode } from './nodes/input/ButtonNode';
@@ -27,6 +31,15 @@ import { BoxGeometryNode } from './nodes/geometry/BoxGeometryNode';
 import { SphereGeometryNode } from './nodes/geometry/SphereGeometryNode';
 import { PointGridNode } from './nodes/geometry/PointGridNode';
 import { VoxelGridNode } from './nodes/geometry/VoxelGridNode';
+import { BufferGeometryNode } from './nodes/geometry/BufferGeometryNode';
+import { CapsuleGeometryNode } from './nodes/geometry/CapsuleGeometryNode';
+import { PlaneGeometryNode } from './nodes/geometry/PlaneGeometryNode';
+import { CylinderGeometryNode } from './nodes/geometry/CylinderGeometryNode';
+import { ConeGeometryNode } from './nodes/geometry/ConeGeometryNode';
+import { TorusGeometryNode } from './nodes/geometry/TorusGeometryNode';
+import { TorusKnotGeometryNode } from './nodes/geometry/TorusKnotGeometryNode';
+import { IcosahedronGeometryNode } from './nodes/geometry/IcosahedronGeometryNode';
+import { TubeGeometryNode } from './nodes/geometry/TubeGeometryNode';
 
 // Material nodes
 import { MeshStandardMaterialNode } from './nodes/material/MeshStandardMaterialNode';
@@ -97,6 +110,11 @@ import { RandIntNode } from './nodes/math/RandIntNode';
 import { IsPowerOfTwoNode } from './nodes/math/IsPowerOfTwoNode';
 import { CeilPowerOfTwoNode } from './nodes/math/CeilPowerOfTwoNode';
 import { FloorPowerOfTwoNode } from './nodes/math/FloorPowerOfTwoNode';
+import { Vector2Node } from './nodes/math/Vector2Node';
+import { QuaternionNode } from './nodes/math/QuaternionNode';
+import { EulerNode } from './nodes/math/EulerNode';
+import { RayNode } from './nodes/math/RayNode';
+import { PlaneNode } from './nodes/math/PlaneNode';
 
 // Math operation nodes
 import { AddNode } from './nodes/math/operations/AddNode';
@@ -136,6 +154,29 @@ import { Rhino3dmLoaderNode } from './nodes/loaders/Rhino3dmLoaderNode';
 import { JSONLoaderNode } from './nodes/loaders/JSONLoaderNode';
 import { CSVLoaderNode } from './nodes/loaders/CSVLoaderNode';
 
+// Curve nodes
+import { CatmullRomCurve3Node } from './nodes/curves/CatmullRomCurve3Node';
+import { LineCurve3Node } from './nodes/curves/LineCurve3Node';
+import { CubicBezierCurve3Node } from './nodes/curves/CubicBezierCurve3Node';
+import { QuadraticBezierCurve3Node } from './nodes/curves/QuadraticBezierCurve3Node';
+import { EvaluateCurveNode } from './nodes/curves/EvaluateCurveNode';
+import { CurvePathNode } from './nodes/curves/CurvePathNode';
+import { GetPointsOnCurveNode } from './nodes/curves/GetPointsOnCurveNode';
+
+// Addon nodes
+import { FlowNode } from './nodes/addons/FlowNode';
+import { MarchingCubesNode } from './nodes/addons/MarchingCubesNode';
+import { OctreeNode } from './nodes/addons/OctreeNode';
+import { CapsuleMathNode } from './nodes/addons/CapsuleMathNode';
+import { ImprovedNoiseNode } from './nodes/addons/ImprovedNoiseNode';
+import { ConvexHullNode } from './nodes/addons/ConvexHullNode';
+import { OctreeHelperNode } from './nodes/addons/OctreeHelperNode';
+
+// Physics nodes
+import { RapierWorldNode } from './nodes/physics/RapierWorldNode';
+import { RapierRigidBodyNode } from './nodes/physics/RapierRigidBodyNode';
+import { RapierColliderNode } from './nodes/physics/RapierColliderNode';
+
 export { NodeRegistry } from './NodeRegistry';
 export { BaseThreeNode } from './BaseThreeNode';
 export { TweakpaneNode } from './TweakpaneNode';
@@ -153,6 +194,10 @@ export { PointInputNode } from './nodes/data/PointInputNode';
 export { ListInputNode } from './nodes/data/ListInputNode';
 export { TextInputNode } from './nodes/data/TextInputNode';
 export { IntervalInputNode } from './nodes/data/IntervalInputNode';
+export { BufferAttributeNode } from './nodes/data/BufferAttributeNode';
+export { Float16BufferAttributeNode } from './nodes/data/Float16BufferAttributeNode';
+export { Float32BufferAttributeNode } from './nodes/data/Float32BufferAttributeNode';
+export { LayersNode } from './nodes/data/LayersNode';
 export { ButtonNode } from './nodes/input/ButtonNode';
 export { NumberMonitorNode } from './nodes/monitor/NumberMonitorNode';
 export { TextMonitorNode } from './nodes/monitor/TextMonitorNode';
@@ -161,6 +206,15 @@ export { BoxGeometryNode } from './nodes/geometry/BoxGeometryNode';
 export { SphereGeometryNode } from './nodes/geometry/SphereGeometryNode';
 export { PointGridNode } from './nodes/geometry/PointGridNode';
 export { VoxelGridNode } from './nodes/geometry/VoxelGridNode';
+export { BufferGeometryNode } from './nodes/geometry/BufferGeometryNode';
+export { CapsuleGeometryNode } from './nodes/geometry/CapsuleGeometryNode';
+export { PlaneGeometryNode } from './nodes/geometry/PlaneGeometryNode';
+export { CylinderGeometryNode } from './nodes/geometry/CylinderGeometryNode';
+export { ConeGeometryNode } from './nodes/geometry/ConeGeometryNode';
+export { TorusGeometryNode } from './nodes/geometry/TorusGeometryNode';
+export { TorusKnotGeometryNode } from './nodes/geometry/TorusKnotGeometryNode';
+export { IcosahedronGeometryNode } from './nodes/geometry/IcosahedronGeometryNode';
+export { TubeGeometryNode } from './nodes/geometry/TubeGeometryNode';
 export { MeshStandardMaterialNode } from './nodes/material/MeshStandardMaterialNode';
 export { MeshBasicMaterialNode } from './nodes/material/MeshBasicMaterialNode';
 export { MeshPhongMaterialNode } from './nodes/material/MeshPhongMaterialNode';
@@ -206,6 +260,28 @@ export { GLTFLoaderNode } from './nodes/loaders/GLTFLoaderNode';
 export { Rhino3dmLoaderNode } from './nodes/loaders/Rhino3dmLoaderNode';
 export { JSONLoaderNode } from './nodes/loaders/JSONLoaderNode';
 export { CSVLoaderNode } from './nodes/loaders/CSVLoaderNode';
+export { CatmullRomCurve3Node } from './nodes/curves/CatmullRomCurve3Node';
+export { LineCurve3Node } from './nodes/curves/LineCurve3Node';
+export { CubicBezierCurve3Node } from './nodes/curves/CubicBezierCurve3Node';
+export { QuadraticBezierCurve3Node } from './nodes/curves/QuadraticBezierCurve3Node';
+export { EvaluateCurveNode } from './nodes/curves/EvaluateCurveNode';
+export { CurvePathNode } from './nodes/curves/CurvePathNode';
+export { GetPointsOnCurveNode } from './nodes/curves/GetPointsOnCurveNode';
+export { FlowNode } from './nodes/addons/FlowNode';
+export { MarchingCubesNode } from './nodes/addons/MarchingCubesNode';
+export { OctreeNode } from './nodes/addons/OctreeNode';
+export { CapsuleMathNode } from './nodes/addons/CapsuleMathNode';
+export { ImprovedNoiseNode } from './nodes/addons/ImprovedNoiseNode';
+export { ConvexHullNode } from './nodes/addons/ConvexHullNode';
+export { OctreeHelperNode } from './nodes/addons/OctreeHelperNode';
+export { RapierWorldNode } from './nodes/physics/RapierWorldNode';
+export { RapierRigidBodyNode } from './nodes/physics/RapierRigidBodyNode';
+export { RapierColliderNode } from './nodes/physics/RapierColliderNode';
+export { Vector2Node } from './nodes/math/Vector2Node';
+export { QuaternionNode } from './nodes/math/QuaternionNode';
+export { EulerNode } from './nodes/math/EulerNode';
+export { RayNode } from './nodes/math/RayNode';
+export { PlaneNode } from './nodes/math/PlaneNode';
 
 // Create and configure the default registry
 export function createDefaultRegistry(): NodeRegistry {
@@ -313,6 +389,38 @@ export function createDefaultRegistry(): NodeRegistry {
     icon: '⬌',
   });
 
+  registry.register(BufferAttributeNode, {
+    type: 'BufferAttributeNode',
+    category: 'Data',
+    label: 'Buffer Attribute',
+    description: 'Creates a BufferAttribute for geometry data',
+    icon: '📊',
+  });
+
+  registry.register(Float16BufferAttributeNode, {
+    type: 'Float16BufferAttributeNode',
+    category: 'Data',
+    label: 'Float16 Buffer Attribute',
+    description: 'Creates a Float16 BufferAttribute (16-bit float precision)',
+    icon: '📊',
+  });
+
+  registry.register(Float32BufferAttributeNode, {
+    type: 'Float32BufferAttributeNode',
+    category: 'Data',
+    label: 'Float32 Buffer Attribute',
+    description: 'Creates a Float32 BufferAttribute (32-bit float precision)',
+    icon: '📊',
+  });
+
+  registry.register(LayersNode, {
+    type: 'LayersNode',
+    category: 'Data',
+    label: 'Layers',
+    description: 'Creates a Layers object for visibility control',
+    icon: '👁️',
+  });
+
   // Register monitor nodes
   registry.register(NumberMonitorNode, {
     type: 'NumberMonitorNode',
@@ -367,6 +475,74 @@ export function createDefaultRegistry(): NodeRegistry {
     label: 'Voxel Grid',
     description: 'Creates a grid of boxes using InstancedMesh',
     icon: '🧊',
+  });
+
+  registry.register(BufferGeometryNode, {
+    type: 'BufferGeometryNode',
+    category: 'Geometry',
+    label: 'Buffer Geometry',
+    description: 'Creates an empty BufferGeometry',
+    icon: '📐',
+  });
+
+  registry.register(CapsuleGeometryNode, {
+    type: 'CapsuleGeometryNode',
+    category: 'Geometry',
+    label: 'Capsule Geometry',
+    description: 'Creates a capsule geometry',
+    icon: '💊',
+  });
+
+  registry.register(PlaneGeometryNode, {
+    type: 'PlaneGeometryNode',
+    category: 'Geometry',
+    label: 'Plane Geometry',
+    description: 'Creates a plane geometry',
+    icon: '▭',
+  });
+
+  registry.register(CylinderGeometryNode, {
+    type: 'CylinderGeometryNode',
+    category: 'Geometry',
+    label: 'Cylinder Geometry',
+    description: 'Creates a cylinder geometry',
+  });
+
+  registry.register(ConeGeometryNode, {
+    type: 'ConeGeometryNode',
+    category: 'Geometry',
+    label: 'Cone Geometry',
+    description: 'Creates a cone geometry',
+    icon: '🔺',
+  });
+
+  registry.register(TorusGeometryNode, {
+    type: 'TorusGeometryNode',
+    category: 'Geometry',
+    label: 'Torus Geometry',
+    description: 'Creates a torus (donut) geometry',
+    icon: '🍩',
+  });
+
+  registry.register(TorusKnotGeometryNode, {
+    type: 'TorusKnotGeometryNode',
+    category: 'Geometry',
+    label: 'Torus Knot Geometry',
+    description: 'Creates a torus knot geometry',
+  });
+
+  registry.register(IcosahedronGeometryNode, {
+    type: 'IcosahedronGeometryNode',
+    category: 'Geometry',
+    label: 'Icosahedron Geometry',
+    description: 'Creates an icosahedron geometry',
+  });
+
+  registry.register(TubeGeometryNode, {
+    type: 'TubeGeometryNode',
+    category: 'Geometry',
+    label: 'Tube Geometry',
+    description: 'Creates a tube geometry along a curve',
   });
 
   // Register material nodes
@@ -989,6 +1165,175 @@ export function createDefaultRegistry(): NodeRegistry {
     label: 'CSV Loader',
     description: 'Load and parse CSV data files using d3',
     icon: '📊',
+  });
+
+  // Register math nodes
+  registry.register(Vector2Node, {
+    type: 'Vector2Node',
+    category: 'Math',
+    label: 'Vector2',
+    description: 'Creates a 2D vector',
+  });
+
+  registry.register(QuaternionNode, {
+    type: 'QuaternionNode',
+    category: 'Math',
+    label: 'Quaternion',
+    description: 'Creates a quaternion for rotations',
+  });
+
+  registry.register(EulerNode, {
+    type: 'EulerNode',
+    category: 'Math',
+    label: 'Euler',
+    description: 'Creates Euler angles for rotations',
+  });
+
+  registry.register(RayNode, {
+    type: 'RayNode',
+    category: 'Math',
+    label: 'Ray',
+    description: 'Creates a ray with origin and direction',
+  });
+
+  registry.register(PlaneNode, {
+    type: 'PlaneNode',
+    category: 'Math',
+    label: 'Plane',
+    description: 'Creates a mathematical plane',
+  });
+
+  // Register curve nodes
+  registry.register(CatmullRomCurve3Node, {
+    type: 'CatmullRomCurve3Node',
+    category: 'Curves',
+    label: 'Catmull-Rom Curve 3D',
+    description: 'Creates a smooth Catmull-Rom spline curve in 3D',
+    icon: '〰️',
+  });
+
+  registry.register(LineCurve3Node, {
+    type: 'LineCurve3Node',
+    category: 'Curves',
+    label: 'Line Curve 3D',
+    description: 'Creates a straight line curve in 3D',
+  });
+
+  registry.register(CubicBezierCurve3Node, {
+    type: 'CubicBezierCurve3Node',
+    category: 'Curves',
+    label: 'Cubic Bezier Curve 3D',
+    description: 'Creates a cubic Bezier curve in 3D',
+  });
+
+  registry.register(QuadraticBezierCurve3Node, {
+    type: 'QuadraticBezierCurve3Node',
+    category: 'Curves',
+    label: 'Quadratic Bezier Curve 3D',
+    description: 'Creates a quadratic Bezier curve in 3D',
+  });
+
+  registry.register(EvaluateCurveNode, {
+    type: 'EvaluateCurveNode',
+    category: 'Curves',
+    label: 'Evaluate Curve',
+    description: 'Gets point and tangent on curve at parameter t',
+  });
+
+  registry.register(CurvePathNode, {
+    type: 'CurvePathNode',
+    category: 'Curves',
+    label: 'Curve Path',
+    description: 'Combines multiple curves into a path',
+  });
+
+  registry.register(GetPointsOnCurveNode, {
+    type: 'GetPointsOnCurveNode',
+    category: 'Curves',
+    label: 'Get Points on Curve',
+    description: 'Extracts points along a curve',
+  });
+
+  // Register addon nodes
+  registry.register(FlowNode, {
+    type: 'FlowNode',
+    category: 'Addons',
+    label: 'Flow',
+    description: 'Bends meshes along curves using Flow modifier',
+    icon: '🌊',
+  });
+
+  registry.register(MarchingCubesNode, {
+    type: 'MarchingCubesNode',
+    category: 'Addons',
+    label: 'Marching Cubes',
+    description: 'Creates metaball/blob surfaces',
+    icon: '🫧',
+  });
+
+  registry.register(OctreeNode, {
+    type: 'OctreeNode',
+    category: 'Addons',
+    label: 'Octree',
+    description: 'Spatial partitioning for collision detection',
+    icon: '🎲',
+  });
+
+  registry.register(CapsuleMathNode, {
+    type: 'CapsuleMathNode',
+    category: 'Addons',
+    label: 'Capsule (Math)',
+    description: 'Math capsule for collision/physics',
+    icon: '💊',
+  });
+
+  registry.register(ImprovedNoiseNode, {
+    type: 'ImprovedNoiseNode',
+    category: 'Addons',
+    label: 'Improved Noise',
+    description: 'Perlin noise generation',
+    icon: '🌫️',
+  });
+
+  registry.register(ConvexHullNode, {
+    type: 'ConvexHullNode',
+    category: 'Addons',
+    label: 'Convex Hull',
+    description: 'Computes convex hull from points',
+    icon: '📐',
+  });
+
+  registry.register(OctreeHelperNode, {
+    type: 'OctreeHelperNode',
+    category: 'Addons',
+    label: 'Octree Helper',
+    description: 'Visualizes octree structure',
+    icon: '🔍',
+  });
+
+  // Register physics nodes
+  registry.register(RapierWorldNode, {
+    type: 'RapierWorldNode',
+    category: 'Physics',
+    label: 'Rapier World',
+    description: 'Creates a Rapier physics world',
+    icon: '🌍',
+  });
+
+  registry.register(RapierRigidBodyNode, {
+    type: 'RapierRigidBodyNode',
+    category: 'Physics',
+    label: 'Rapier Rigid Body',
+    description: 'Creates a physics rigid body',
+    icon: '📦',
+  });
+
+  registry.register(RapierColliderNode, {
+    type: 'RapierColliderNode',
+    category: 'Physics',
+    label: 'Rapier Collider',
+    description: 'Attaches collision shape to rigid body',
+    icon: '🛡️',
   });
 
   return registry;

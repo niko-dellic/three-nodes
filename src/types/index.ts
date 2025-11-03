@@ -34,10 +34,12 @@ export type BasePortValue =
   | boolean
   | string
   | THREE.Vector3
+  | THREE.Vector2
   | THREE.Color
   | THREE.Matrix4
   | THREE.Texture
   | THREE.BufferGeometry
+  | THREE.BufferAttribute
   | THREE.Material
   | THREE.Object3D
   | THREE.Scene
@@ -45,8 +47,16 @@ export type BasePortValue =
   | THREE.Light
   | THREE.Fog
   | THREE.FogExp2
+  | THREE.Layers
+  | THREE.Quaternion
+  | THREE.Euler
+  | THREE.Ray
+  | THREE.Plane
+  | THREE.Curve<THREE.Vector3>
+  | THREE.CurvePath<THREE.Vector3>
   | Point2D
   | SceneOutput
+  | any // Allow any for addon types (Octree, Capsule, Flow, etc.) and physics types
   | null
   | undefined;
 

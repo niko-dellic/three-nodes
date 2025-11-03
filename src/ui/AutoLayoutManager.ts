@@ -379,9 +379,7 @@ export class AutoLayoutManager {
       this.graph.triggerChange();
 
       // Continue animation if not complete
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      }
+      if (progress < 1) requestAnimationFrame(animate);
     };
 
     requestAnimationFrame(animate);
