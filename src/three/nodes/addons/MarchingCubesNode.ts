@@ -33,10 +33,12 @@ export class MarchingCubesNode extends BaseThreeNode<
       subtract = [];
       const numPoints = 30;
 
+      const size = 1;
+
       for (let i = 0; i < numPoints; i++) {
-        const x = THREE.MathUtils.randFloat(0, 1);
-        const z = THREE.MathUtils.randFloat(0, 1);
-        const y = THREE.MathUtils.randFloat(0, 1);
+        const x = THREE.MathUtils.randFloat(0, size);
+        const z = THREE.MathUtils.randFloat(0, size);
+        const y = THREE.MathUtils.randFloat(0, size);
         points.push(new THREE.Vector3(x, y, z));
         strengths.push(THREE.MathUtils.randFloat(0, 1));
         subtract.push(false);
