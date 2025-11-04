@@ -36,7 +36,6 @@ export class GraphEditor {
   private autoLayoutPane: Pane | null = null;
   private autoLayoutPaneContainer: HTMLElement | null = null;
   private liveViewport: LiveViewport | null = null; // Reference to LiveViewport for camera fit operations
-
   private graphContainer: HTMLElement; // Main graph canvas container
   private backgroundLayer: HTMLElement;
   private edgesLayer: HTMLElement;
@@ -50,16 +49,14 @@ export class GraphEditor {
   private collapseButton: HTMLButtonElement | null = null;
   private animationId: number | null = null;
 
-  constructor(
-    container: HTMLElement,
-    graph: Graph,
-    registry: NodeRegistry,
-    appContainer?: HTMLElement
-  ) {
+  constructor(graph: Graph, registry: NodeRegistry, appContainer: HTMLElement) {
     this.preventDefaultZoom();
 
-    this.container = container;
-    this.appContainer = appContainer || container.parentElement || document.body;
+    // Create editor container (node editor - overlay layer)
+    this.container = document.createElement('div');
+    this.container.id = 'editor';
+    appContainer.appendChild(this.container);
+    this.appContainer = appContainer;
     this.graph = graph;
     this.registry = registry;
     this.evaluator = new Evaluator(graph);
@@ -77,7 +74,7 @@ export class GraphEditor {
       height: 100%;
       overflow: hidden;
     `;
-    container.appendChild(this.graphContainer);
+    this.container.appendChild(this.graphContainer);
 
     // Create layered structure
     // Background layer
@@ -141,7 +138,7 @@ export class GraphEditor {
     this.nodeRenderer = new NodeRenderer(this.nodesLayer, graph, this.historyManager, registry);
 
     // Initialize context menu
-    this.contextMenu = new ContextMenu(container, registry);
+    this.contextMenu = new ContextMenu(this.container, registry);
     this.contextMenu.onNodeSelectCallback((nodeType, screenX, screenY) => {
       this.addNodeAtScreenPosition(nodeType, screenX, screenY);
     });
@@ -253,6 +250,10 @@ export class GraphEditor {
     // Handle resize
     window.addEventListener('resize', () => this.handleResize());
     this.handleResize();
+  }
+
+  public getContainer(): HTMLElement {
+    return this.container;
   }
 
   private preventDefaultZoom(): void {

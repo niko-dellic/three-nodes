@@ -57,15 +57,19 @@ export class LiveViewport {
   private pointerDownPos: THREE.Vector2 = new THREE.Vector2();
   private readonly CLICK_THRESHOLD = 5; // pixels
 
-  constructor(container: HTMLElement, graph: Graph) {
-    this.container = container;
+  constructor(graph: Graph, appContainer: HTMLElement) {
+    // Create viewport container (3D view - background layer)
+    this.container = document.createElement('div');
+    this.container.id = 'viewport';
+    appContainer.appendChild(this.container);
+
     this.graph = graph;
 
     // Create renderer
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setClearColor(0x1a1a1a);
-    container.appendChild(this.renderer.domElement);
+    this.container.appendChild(this.renderer.domElement);
 
     // Create default camera for controls
     this.defaultCamera = graph.defaultCamera;

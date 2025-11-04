@@ -24,22 +24,10 @@ export default class Workflow {
 
     // Create the graph
     this.graph = new Graph();
-
-    const { viewportContainer, editorContainer } = this.initViewports();
-
     // Create graph editor (pass registry and app container for UI creation)
-    this.graphEditor = new GraphEditor(editorContainer, this.graph, this.registry, this.container);
-
+    this.graphEditor = new GraphEditor(this.graph, this.registry, this.container);
     // Create live viewport
-    this.liveViewport = new LiveViewport(viewportContainer, this.graph);
-
-    // Connect history manager to viewport for undo/redo integration
-    this.liveViewport.setHistoryManager(this.graphEditor.getHistoryManager());
-
-    // Connect selection manager and clipboard manager to viewport for copy/paste
-    this.liveViewport.setSelectionManager(this.graphEditor.getSelectionManager());
-    this.liveViewport.setClipboardManager(this.graphEditor.getClipboardManager());
-
+    this.liveViewport = new LiveViewport(this.graph, this.container);
     // Create preview manager and initialize its UI
     this.previewManager = new PreviewManager(this.graph, this.graphEditor.getSelectionManager());
     this.liveViewport.setPreviewManager(this.previewManager);
@@ -55,33 +43,16 @@ export default class Workflow {
     this.viewModeManager = new ViewModeManager(
       this.graphEditor,
       this.liveViewport,
-      editorContainer,
+      this.graphEditor.getContainer(),
       this.container
     );
-  }
-
-  initViewports(): Record<string, HTMLElement> {
-    // Create viewport container (3D view - background layer)
-    const viewportContainer = document.createElement('div');
-    viewportContainer.id = 'viewport';
-    this.container.appendChild(viewportContainer);
-
-    // Create editor container (node editor - overlay layer)
-    const editorContainer = document.createElement('div');
-    editorContainer.id = 'editor';
-    this.container.appendChild(editorContainer);
-
-    return { viewportContainer, editorContainer };
   }
 
   loadCustomNodes() {
     // Load custom nodes from localStorage
     const customNodeManager = new CustomNodeManager(this.registry);
     const loadResult = customNodeManager.loadFromStorage();
-    if (loadResult.success) {
-      console.log(loadResult.message);
-    } else if (loadResult.error) {
-      console.warn('Custom nodes load warning:', loadResult.error);
-    }
+    if (loadResult.success) console.log(loadResult.message);
+    else if (loadResult.error) console.warn('Custom nodes load warning:', loadResult.error);
   }
 }
