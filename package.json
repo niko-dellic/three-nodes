@@ -6,7 +6,6 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
     "type-check": "tsc --noEmit",
@@ -39,12 +38,10 @@
     "@typescript-eslint/eslint-plugin": "^8.46.2",
     "@typescript-eslint/parser": "^8.46.2",
     "eslint": "^9.38.0",
-    "jsdom": "^27.0.1",
     "prettier": "^3.6.2",
     "typescript": "^5.3.3",
     "vite": "^7.1.12",
     "vite-plugin-top-level-await": "^1.6.0",
-    "vite-plugin-wasm": "^3.5.0",
-    "vitest": "^4.0.4"
+    "vite-plugin-wasm": "^3.5.0"
   }
 }

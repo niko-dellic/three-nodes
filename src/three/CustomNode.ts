@@ -2,13 +2,14 @@ import { BaseThreeNode } from './BaseThreeNode';
 import { EvaluationContext } from '@/core/types';
 import { CustomNodeDefinition } from '@/types/customNode';
 import { exportCustomNodeToFile, importCustomNodeFromFile } from '@/utils/customNodeIO';
+import { CustomNodeManager } from './CustomNodeManager';
 
 /**
  * Custom node that extends BaseThreeNode with editing capabilities
  */
 export class CustomNode extends BaseThreeNode {
   private definition: Partial<CustomNodeDefinition> = {};
-  private customNodeManager?: any;
+  private customNodeManager?: CustomNodeManager;
   private isEditing: boolean = false;
   private autosaveTimer?: number;
   private nameUpdateTimer?: number;

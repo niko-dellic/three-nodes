@@ -1,4 +1,4 @@
-import { Graph } from '@/core';
+import Workflow from '@/core/Workflow';
 import {
   BoxGeometryNode,
   ColorPickerNode,
@@ -16,10 +16,11 @@ import {
   GridHelperNode,
   ActiveCameraNode,
   BooleanInputNode,
-  NodeRegistry,
 } from '@/three';
 
-export function buildBasicGraph(graph: Graph, registry: NodeRegistry) {
+export function buildBasicGraph(workflow: Workflow) {
+  const { graph, registry } = workflow;
+
   // Build example scene: A rotating cube
   // Node positions are laid out left to right
 
