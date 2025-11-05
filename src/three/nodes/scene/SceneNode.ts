@@ -10,7 +10,7 @@ export class SceneNode extends BaseThreeNode<never, 'scene'> {
 
   evaluate(context: EvaluationContext): void {
     // Output the graph's default scene
-    const scene = context.graph?.defaultScene;
+    const scene = context.graph?.scene;
     if (scene) {
       this.setOutputValue('scene', scene);
     } else {

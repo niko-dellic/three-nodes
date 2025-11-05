@@ -1,21 +1,21 @@
 import { Graph } from '@/core/Graph';
 import { Evaluator } from '@/core/Evaluator';
 import { Port } from '@/core/Port';
-import { Viewport } from './Viewport';
-import { NodeRenderer } from './NodeRenderer';
-import { EdgeRendererHTML } from './EdgeRendererHTML';
-import { InteractionManager } from './InteractionManager';
-import { SelectionManager } from './SelectionManager';
-import { ContextMenu } from './ContextMenu';
-import { ClipboardManager } from './ClipboardManager';
-import { HistoryManager } from './HistoryManager';
-import { PropertiesPanel } from './PropertiesPanel';
-import { SaveLoadManager } from './SaveLoadManager';
+import { Viewport } from '../Viewport';
+import { NodeRenderer } from '../NodeRenderer';
+import { EdgeRendererHTML } from '../EdgeRendererHTML';
+import { InteractionManager } from '../InteractionManager';
+import { SelectionManager } from '../SelectionManager';
+import { ContextMenu } from '../ContextMenu';
+import { ClipboardManager } from '../ClipboardManager';
+import { PropertiesPanel } from '../PropertiesPanel';
+import { SaveLoadManager } from '../SaveLoadManager';
 import { NodeRegistry } from '@/three/NodeRegistry';
 import { CustomNodeManager } from '@/three/CustomNodeManager';
-import { AutoLayoutManager } from './AutoLayoutManager';
+import { AutoLayoutManager } from '../AutoLayoutManager';
 import { Pane } from 'tweakpane';
-import { LiveViewport } from './LiveViewport';
+import { LiveViewport } from '../LiveViewport';
+import './GraphEditor.css';
 
 export class GraphEditor {
   private graph: Graph;
@@ -27,7 +27,6 @@ export class GraphEditor {
   private selectionManager: SelectionManager;
   private contextMenu: ContextMenu;
   private clipboardManager: ClipboardManager;
-  private historyManager: HistoryManager;
   private propertiesPanel: PropertiesPanel;
   private saveLoadManager: SaveLoadManager;
   private registry: NodeRegistry;
@@ -37,10 +36,8 @@ export class GraphEditor {
   private autoLayoutPaneContainer: HTMLElement | null = null;
   private liveViewport: LiveViewport | null = null; // Reference to LiveViewport for camera fit operations
   private graphContainer: HTMLElement; // Main graph canvas container
-  private backgroundLayer: HTMLElement;
   private edgesLayer: HTMLElement;
   private nodesLayer: HTMLElement;
-  private overlayLayer: HTMLElement;
   private container: HTMLElement;
   private appContainer: HTMLElement;
   private toolbar: HTMLElement;
@@ -66,76 +63,23 @@ export class GraphEditor {
     // Create HTML container structure for graph
     this.graphContainer = document.createElement('div');
     this.graphContainer.classList.add('graph-canvas');
-    this.graphContainer.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-    `;
     this.container.appendChild(this.graphContainer);
 
     // Create layered structure
-    // Background layer
-    this.backgroundLayer = document.createElement('div');
-    this.backgroundLayer.classList.add('background-layer');
-    this.backgroundLayer.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-    `;
-    this.graphContainer.appendChild(this.backgroundLayer);
 
     // Edges layer (for D3 SVG - will be transformed along with nodes)
     this.edgesLayer = document.createElement('div');
     this.edgesLayer.classList.add('edges-layer');
-    this.edgesLayer.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      transform-origin: 0 0;
-      will-change: transform;
-    `;
     this.graphContainer.appendChild(this.edgesLayer);
 
     // Nodes layer (this will be transformed for zoom/pan)
     this.nodesLayer = document.createElement('div');
     this.nodesLayer.classList.add('nodes-layer');
-    this.nodesLayer.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      transform-origin: 0 0;
-      will-change: transform;
-    `;
     this.graphContainer.appendChild(this.nodesLayer);
-
-    // Overlay layer (for marquee selection, etc.)
-    this.overlayLayer = document.createElement('div');
-    this.overlayLayer.classList.add('overlay-layer');
-    this.overlayLayer.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-    `;
-    this.graphContainer.appendChild(this.overlayLayer);
-
-    // Initialize history manager first (needed by NodeRenderer)
-    this.historyManager = new HistoryManager(graph, registry, this.selectionManager);
 
     // Initialize renderers with HTML layers
     this.edgeRenderer = new EdgeRendererHTML(this.edgesLayer);
-    this.nodeRenderer = new NodeRenderer(this.nodesLayer, graph, this.historyManager, registry);
+    this.nodeRenderer = new NodeRenderer(this.nodesLayer, graph, registry);
 
     // Initialize context menu
     this.contextMenu = new ContextMenu(this.container, registry);
@@ -193,11 +137,10 @@ export class GraphEditor {
       this.viewport,
       this.nodeRenderer,
       this.graphContainer,
-      this.overlayLayer,
+      this.container,
       this.selectionManager,
       this.contextMenu,
-      this.clipboardManager,
-      this.historyManager
+      this.clipboardManager
     );
 
     // Listen to graph changes
@@ -639,8 +582,6 @@ export class GraphEditor {
       '<p>Ctrl/Cmd+C - Copy selected nodes</p>',
       '<p>Ctrl/Cmd+X - Cut selected nodes</p>',
       '<p>Ctrl/Cmd+V - Paste nodes</p>',
-      '<p>Ctrl/Cmd+Z - Undo</p>',
-      '<p>Ctrl/Cmd+Shift+Z / Ctrl/Cmd+Y - Redo</p>',
       '<p>Ctrl/Cmd+A - Select all</p>',
       '<p>V - Toggle node visibility (Preview All mode)</p>',
       '<p>Delete - Remove selected nodes</p>'
@@ -657,10 +598,6 @@ export class GraphEditor {
 
   getSelectionManager(): SelectionManager {
     return this.selectionManager;
-  }
-
-  getHistoryManager(): HistoryManager {
-    return this.historyManager;
   }
 
   getClipboardManager(): ClipboardManager {
@@ -797,9 +734,6 @@ export class GraphEditor {
         })
       );
 
-      // Begin interaction
-      this.historyManager.beginInteraction();
-
       // Apply layout with axis constraints
       if (params.horizontalEnabled || params.verticalEnabled) {
         this.autoLayoutManager.applyLayoutWithConstraints(
@@ -807,11 +741,6 @@ export class GraphEditor {
           params.verticalEnabled
         );
       }
-
-      // End interaction after a short delay
-      setTimeout(() => {
-        this.historyManager.endInteraction();
-      }, 50);
     };
 
     // Listen to all parameter changes

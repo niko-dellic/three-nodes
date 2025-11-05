@@ -1,4 +1,4 @@
-export { GraphEditor } from './GraphEditor';
+export { GraphEditor } from './GraphEditor/GraphEditor';
 export { LiveViewport } from './LiveViewport';
 export { ViewModeManager } from './ViewModeManager';
 export { Viewport } from './Viewport';
@@ -7,9 +7,8 @@ export { EdgeRendererHTML } from './EdgeRendererHTML';
 export { InteractionManager } from './InteractionManager';
 export { SelectionManager } from './SelectionManager';
 export { ContextMenu } from './ContextMenu';
-export { PreviewManager } from './PreviewManager';
+export { PreviewManager } from './PreviewManager/PreviewManager';
 export { ClipboardManager } from './ClipboardManager';
-export { HistoryManager } from './HistoryManager';
 export { SaveLoadManager } from './SaveLoadManager';
 export { ObjectInspector } from './ObjectInspector';
 export { AutoLayoutManager } from './AutoLayoutManager';

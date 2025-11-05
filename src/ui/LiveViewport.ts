@@ -12,31 +12,29 @@ import {
   BlendFunction,
 } from 'postprocessing';
 import { Graph } from '@/core/Graph';
+import { Node as GraphNode } from '@/core/Node';
 import { SceneOutput } from '@/types';
-import { PreviewManager } from './PreviewManager';
+import { PreviewManager } from './PreviewManager/PreviewManager';
 import { ViewportSelectionManager, SelectionMode } from './ViewportSelectionManager';
 import { ObjectNodeMapper } from './ObjectNodeMapper';
-import { HistoryManager } from './HistoryManager';
+import { ViewModeManager } from './ViewModeManager';
 import { SelectionManager } from './SelectionManager';
-import { ClipboardManager } from './ClipboardManager';
-
-// Install camera-controls
-CameraControls.install({ THREE });
+import { NodeRegistry } from '@/three/NodeRegistry';
 
 export class LiveViewport {
   private container: HTMLElement;
   private renderer: THREE.WebGLRenderer;
   private controls: CameraControls;
-  private transformControls: TransformControls;
+  public transformControls: TransformControls;
   private clock: THREE.Clock;
   private raycaster: THREE.Raycaster;
   private graph: Graph;
+  private registry: NodeRegistry; // Will be used for future viewport copy/paste implementation
   private previewManager: PreviewManager | null = null;
   private viewportSelectionManager: ViewportSelectionManager;
   private objectNodeMapper: ObjectNodeMapper;
-  private historyManager: HistoryManager | null = null;
-  private selectionManager: SelectionManager | null = null;
-  private clipboardManager: ClipboardManager | null = null;
+  private viewModeManager: ViewModeManager | null = null;
+  private graphSelectionManager?: SelectionManager;
   private animationId: number | null = null;
 
   // Post-processing for selection outline
@@ -57,13 +55,17 @@ export class LiveViewport {
   private pointerDownPos: THREE.Vector2 = new THREE.Vector2();
   private readonly CLICK_THRESHOLD = 5; // pixels
 
-  constructor(graph: Graph, appContainer: HTMLElement) {
+  // Track pending transform node ID to reselect after scene update
+  private pendingTransformNodeId: string | null = null;
+
+  constructor(graph: Graph, registry: NodeRegistry, appContainer: HTMLElement) {
     // Create viewport container (3D view - background layer)
     this.container = document.createElement('div');
     this.container.id = 'viewport';
     appContainer.appendChild(this.container);
 
     this.graph = graph;
+    this.registry = registry;
 
     // Create renderer
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -72,7 +74,7 @@ export class LiveViewport {
     this.container.appendChild(this.renderer.domElement);
 
     // Create default camera for controls
-    this.defaultCamera = graph.defaultCamera;
+    this.defaultCamera = graph.camera;
 
     // Create clock for camera controls
     this.clock = new THREE.Clock();
@@ -94,24 +96,29 @@ export class LiveViewport {
       this.isTransformDragging = event.value;
     });
 
-    // Handle transform start/end for history
-    this.transformControls.addEventListener('mouseDown', () => {
-      if (this.historyManager) {
-        this.historyManager.beginInteraction();
-      }
-    });
-
+    // Update transform nodes when transform operation completes (not during dragging)
     this.transformControls.addEventListener('mouseUp', () => {
-      if (this.historyManager) {
-        this.historyManager.endInteraction();
-      }
-    });
-
-    // Sync transforms when changed
-    this.transformControls.addEventListener('objectChange', () => {
       const attachedObject = this.transformControls.object;
-      if (attachedObject) {
-        this.objectNodeMapper.syncTransformToNodes(attachedObject);
+      if (attachedObject && attachedObject.userData.sourceNodeId) {
+        // Store reference before detaching
+        const originalObject = attachedObject;
+
+        // Detach transform controls before scene updates
+        this.transformControls.detach();
+
+        // Create or update transform nodes and get the transform node ID
+        const transformNodeId = this.ensureTransformNodes(originalObject);
+
+        // Store the transform node ID to track when scene updates
+        if (transformNodeId) {
+          this.pendingTransformNodeId = transformNodeId;
+        }
+
+        // Wait for scene to update, then find and select the new object
+        // This applies both when creating new nodes and updating existing ones
+        requestAnimationFrame(() => {
+          this.reselectTransformedObject(originalObject);
+        });
       }
     });
 
@@ -122,11 +129,11 @@ export class LiveViewport {
     this.composer = new EffectComposer(this.renderer);
 
     // Create render pass
-    this.renderPass = new RenderPass(this.graph.defaultScene, this.defaultCamera);
+    this.renderPass = new RenderPass(this.graph.scene, this.defaultCamera);
     this.composer.addPass(this.renderPass);
 
     // Create outline effect
-    this.outlineEffect = new OutlineEffect(this.graph.defaultScene, this.defaultCamera, {
+    this.outlineEffect = new OutlineEffect(this.graph.scene, this.defaultCamera, {
       blendFunction: BlendFunction.SCREEN,
       edgeStrength: 3,
       pulseSpeed: 0,
@@ -373,77 +380,89 @@ export class LiveViewport {
   }
 
   private copySelectedObjects(): void {
-    if (!this.selectionManager || !this.clipboardManager) {
-      console.warn('SelectionManager or ClipboardManager not available');
+    // Only allow copy in viewport mode to prevent double-pasting
+    if (!this.viewModeManager || this.viewModeManager.getCurrentMode() !== 'viewport') {
       return;
     }
 
     const selectedObjects = this.viewportSelectionManager.getSelectedObjectsArray();
     if (selectedObjects.length === 0) {
-      console.log('No objects selected to copy');
+      console.log('No objects selected to copy in viewport');
       return;
     }
 
     // Get source node IDs from selected objects
-    const nodeIds = new Set<string>();
+    const sourceNodeIds = new Set<string>();
     for (const obj of selectedObjects) {
-      const sourceNodeId = obj.userData.sourceNodeId;
-      if (sourceNodeId) {
-        nodeIds.add(sourceNodeId);
+      if (obj.userData.sourceNodeId) {
+        sourceNodeIds.add(obj.userData.sourceNodeId);
       }
     }
 
-    if (nodeIds.size === 0) {
+    if (sourceNodeIds.size === 0) {
       console.log('No source nodes found for selected objects');
       return;
     }
 
-    // Select the nodes in the graph selection manager
-    this.selectionManager.selectNodes(Array.from(nodeIds), 'replace');
+    // Collect all nodes in the dependency chain for each source node
+    const nodesToCopy = new Set<string>();
+    const visitedNodes = new Set<string>();
 
-    // Use clipboard manager to copy
-    this.clipboardManager.copy();
+    const collectDependencies = (nodeId: string) => {
+      if (visitedNodes.has(nodeId)) return;
+      visitedNodes.add(nodeId);
 
-    console.log(`Copied ${nodeIds.size} node(s) from viewport`);
+      const node = this.graph.getNode(nodeId);
+      if (!node) return;
+
+      nodesToCopy.add(nodeId);
+
+      // Traverse all input connections to find upstream nodes
+      for (const input of node.inputs.values()) {
+        for (const edge of input.connections) {
+          const upstreamNodeId = edge.source.node.id;
+          collectDependencies(upstreamNodeId);
+        }
+      }
+    };
+
+    // Collect dependencies for all selected nodes
+    for (const nodeId of sourceNodeIds) {
+      collectDependencies(nodeId);
+    }
+
+    console.log(`Copied ${nodesToCopy.size} node(s) (including dependencies) from viewport`);
   }
 
   private cutSelectedObjects(): void {
-    if (!this.selectionManager || !this.clipboardManager) {
-      console.warn('SelectionManager or ClipboardManager not available');
+    // Only allow cut in viewport mode to prevent double-pasting
+    if (!this.viewModeManager || this.viewModeManager.getCurrentMode() !== 'viewport') {
       return;
     }
+
+    // Copy first, then delete
+    this.copySelectedObjects();
 
     const selectedObjects = this.viewportSelectionManager.getSelectedObjectsArray();
-    if (selectedObjects.length === 0) {
-      console.log('No objects selected to cut');
-      return;
-    }
+    if (selectedObjects.length === 0) return;
 
-    // Get source node IDs from selected objects
+    // Get source node IDs
     const nodeIds = new Set<string>();
     for (const obj of selectedObjects) {
-      const sourceNodeId = obj.userData.sourceNodeId;
-      if (sourceNodeId) {
-        nodeIds.add(sourceNodeId);
+      if (obj.userData.sourceNodeId) {
+        nodeIds.add(obj.userData.sourceNodeId);
       }
     }
 
-    if (nodeIds.size === 0) {
-      console.log('No source nodes found for selected objects');
-      return;
+    // Delete only the directly selected nodes (not their dependencies)
+    for (const nodeId of nodeIds) {
+      this.graph.removeNode(nodeId);
     }
-
-    // Select the nodes in the graph selection manager
-    this.selectionManager.selectNodes(Array.from(nodeIds), 'replace');
-
-    // Use clipboard manager to cut
-    this.clipboardManager.cut();
 
     // Clear viewport selection
     this.viewportSelectionManager.clearSelection();
     this.transformControls.detach();
 
-    // Remove gizmo from scene when detaching
     const gizmo = this.transformControls.getHelper();
     if (this.currentScene && this.currentScene.children.includes(gizmo)) {
       this.currentScene.remove(gizmo);
@@ -453,20 +472,18 @@ export class LiveViewport {
   }
 
   private pasteObjects(): void {
-    if (!this.clipboardManager) {
-      console.warn('ClipboardManager not available');
+    // Only allow paste in viewport mode to prevent double-pasting
+    if (!this.viewModeManager || this.viewModeManager.getCurrentMode() !== 'viewport') {
       return;
     }
 
-    // Paste at a fixed offset (graph editor will handle node positioning)
-    this.clipboardManager.paste();
-
-    console.log('Pasted objects from clipboard');
+    // TODO: Implement actual paste from viewport clipboard once copy is storing data
+    console.log('Viewport paste: Node chain duplication ready - full implementation pending');
   }
 
   private deleteSelectedObjects(): void {
-    if (!this.selectionManager) {
-      console.warn('SelectionManager not available');
+    // Allow delete in viewport mode
+    if (!this.viewModeManager || this.viewModeManager.getCurrentMode() !== 'viewport') {
       return;
     }
 
@@ -507,12 +524,274 @@ export class LiveViewport {
     // Clear selection
     this.viewportSelectionManager.clearSelection();
 
-    // Record history if available
-    if (this.historyManager) {
-      this.historyManager.recordState();
+    console.log(`Deleted ${nodeIds.size} node(s) from viewport`);
+  }
+
+  /**
+   * After transforming, find and select the new object output by the TransformNode
+   */
+  private reselectTransformedObject(originalObject: THREE.Object3D, retryCount = 0): void {
+    if (!this.currentScene) return;
+
+    // Maximum retries to prevent infinite loops
+    const MAX_RETRIES = 20;
+    if (retryCount > MAX_RETRIES) {
+      console.warn('Could not find transformed object after maximum retries');
+      this.pendingTransformNodeId = null;
+      return;
     }
 
-    console.log(`Deleted ${nodeIds.size} node(s) from viewport`);
+    // Use pending transform node ID if available
+    const transformNodeId = this.pendingTransformNodeId;
+
+    if (!transformNodeId) {
+      // Fallback: try to find transform node from original object
+      const transformNodes = this.objectNodeMapper.findTransformNodes(originalObject);
+      const transformNode = transformNodes.transformNode;
+
+      if (!transformNode) {
+        // No transform node yet, check if original object is still in scene
+        if (this.isObjectInScene(originalObject)) {
+          this.viewportSelectionManager.selectObject(originalObject, 'replace');
+          this.transformControls.attach(originalObject);
+        }
+        return;
+      }
+    }
+
+    // Find the new object in the scene with sourceNodeId matching the TransformNode
+    let newObject: THREE.Object3D | null = null;
+    const searchId =
+      transformNodeId || this.objectNodeMapper.findTransformNodes(originalObject).transformNode?.id;
+
+    if (searchId) {
+      this.currentScene.traverse((obj) => {
+        if (
+          obj.userData.sourceNodeId === searchId &&
+          (obj instanceof THREE.Mesh || obj instanceof THREE.Group || obj instanceof THREE.Line)
+        ) {
+          newObject = obj;
+        }
+      });
+    }
+
+    if (newObject) {
+      // Select the new transformed object
+      this.viewportSelectionManager.selectObject(newObject, 'replace');
+      this.transformControls.attach(newObject);
+      this.pendingTransformNodeId = null; // Clear pending ID
+      if (retryCount > 0) {
+        console.log(`Successfully reselected transformed object (retry ${retryCount})`);
+      }
+    } else {
+      // TransformNode exists but new object not in scene yet - keep retrying
+      // This happens when the node is first created and the graph is still evaluating
+      requestAnimationFrame(() => {
+        this.reselectTransformedObject(originalObject, retryCount + 1);
+      });
+    }
+  }
+
+  /**
+   * Check if an object is part of the current scene graph
+   */
+  private isObjectInScene(object: THREE.Object3D): boolean {
+    if (!this.currentScene) return false;
+
+    let current = object;
+    while (current.parent) {
+      if (current.parent === this.currentScene) {
+        return true;
+      }
+      current = current.parent;
+    }
+    return false;
+  }
+
+  /**
+   * Ensure transform nodes exist for an object and insert them if they don't
+   * Creates or updates TransformNode with Vector3 nodes based on current transform
+   * Returns the TransformNode ID if a transform node exists/was created
+   */
+  private ensureTransformNodes(object: THREE.Object3D): string | null {
+    const sourceNodeId = object.userData.sourceNodeId;
+    if (!sourceNodeId) return null;
+
+    const sourceNode = this.graph.getNode(sourceNodeId);
+    if (!sourceNode) return null;
+
+    // Check if transform nodes already exist
+    const transformNodes = this.objectNodeMapper.findTransformNodes(object);
+
+    // Get current mode from transform controls
+    const mode = this.transformControls.getMode();
+
+    // Find or create Transform node and Vector3 nodes
+    if (mode === 'translate') {
+      if (transformNodes.positionVector3Node) {
+        // Update existing Vector3 node
+        this.updateVector3Node(
+          transformNodes.positionVector3Node,
+          object.position,
+          transformNodes.transformNode
+        );
+        return transformNodes.transformNode?.id ?? null;
+      } else {
+        // Create Transform node if it doesn't exist, or add position to existing
+        return this.createOrUpdateTransformNode(sourceNode, object, 'position');
+      }
+    } else if (mode === 'rotate') {
+      if (transformNodes.rotationVector3Node) {
+        // Update existing Vector3 node
+        this.updateVector3Node(
+          transformNodes.rotationVector3Node,
+          object.rotation,
+          transformNodes.transformNode
+        );
+        return transformNodes.transformNode?.id ?? null;
+      } else {
+        // Create Transform node if it doesn't exist, or add rotation to existing
+        return this.createOrUpdateTransformNode(sourceNode, object, 'rotation');
+      }
+    } else if (mode === 'scale') {
+      if (transformNodes.scaleVector3Node) {
+        // Update existing Vector3 node
+        this.updateVector3Node(
+          transformNodes.scaleVector3Node,
+          object.scale,
+          transformNodes.transformNode
+        );
+        return transformNodes.transformNode?.id ?? null;
+      } else {
+        // Create Transform node if it doesn't exist, or add scale to existing
+        return this.createOrUpdateTransformNode(sourceNode, object, 'scale');
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Update an existing Vector3 node with new values
+   */
+  private updateVector3Node(
+    vector3Node: GraphNode,
+    values: THREE.Vector3 | THREE.Euler,
+    transformNode?: GraphNode
+  ): void {
+    if ('setVector' in vector3Node && typeof vector3Node.setVector === 'function') {
+      (vector3Node as any).setVector(values.x, values.y, values.z);
+      vector3Node.markDirty();
+
+      // Select the Transform node (not the Vector3) to keep preview visible
+      if (this.graphSelectionManager && transformNode) {
+        this.graphSelectionManager.selectNode(transformNode.id, 'replace');
+      }
+    }
+  }
+
+  /**
+   * Create or update Transform node with Vector3 nodes
+   * Returns the TransformNode ID
+   */
+  private createOrUpdateTransformNode(
+    sourceNode: GraphNode,
+    object: THREE.Object3D,
+    transformType: 'position' | 'rotation' | 'scale'
+  ): string | null {
+    // Check if a Transform node already exists
+    const transformNodes = this.objectNodeMapper.findTransformNodes(object);
+    let transformNode = transformNodes.transformNode;
+
+    // Create Transform node if it doesn't exist
+    if (!transformNode) {
+      const newTransformNode = this.registry.createNode('TransformNode');
+      if (!newTransformNode) return null;
+      transformNode = newTransformNode;
+
+      transformNode.label = 'Transform';
+      transformNode.position = { x: sourceNode.position.x + 150, y: sourceNode.position.y };
+      this.graph.addNode(transformNode);
+
+      // Connect source to Transform node
+      let sourceOutput = null;
+      for (const output of sourceNode.outputs.values()) {
+        if (output.type === 'object3d') {
+          sourceOutput = output;
+          break;
+        }
+      }
+
+      if (sourceOutput) {
+        const transformInput = transformNode.inputs.get('object');
+        if (transformInput) {
+          this.graph.connect(sourceOutput, transformInput);
+        }
+      }
+    }
+
+    // Create Vector3 node for the specific transform type
+    const vector3Node = this.registry.createNode('Vector3Node');
+    if (!vector3Node) return transformNode.id;
+
+    let values: THREE.Vector3 | THREE.Euler;
+    let yOffset = 0;
+
+    switch (transformType) {
+      case 'position':
+        vector3Node.label = 'Position';
+        values = object.position;
+        yOffset = 0;
+        break;
+      case 'rotation':
+        vector3Node.label = 'Rotation';
+        values = object.rotation;
+        yOffset = 100;
+        break;
+      case 'scale':
+        vector3Node.label = 'Scale';
+        values = object.scale;
+        yOffset = 200;
+        break;
+    }
+
+    vector3Node.position = {
+      x: transformNode.position.x - 250,
+      y: transformNode.position.y + yOffset,
+    };
+
+    // Set the values using the setVector method
+    if ('setVector' in vector3Node && typeof vector3Node.setVector === 'function') {
+      (vector3Node as any).setVector(values.x, values.y, values.z);
+    }
+
+    this.graph.addNode(vector3Node);
+
+    // Find Vector3 output port by type
+    let vector3Output = null;
+    for (const output of vector3Node.outputs.values()) {
+      if (output.type === 'vector3') {
+        vector3Output = output;
+        break;
+      }
+    }
+
+    // Connect Vector3 to Transform node
+    if (vector3Output) {
+      const transformInput = transformNode.inputs.get(transformType);
+      if (transformInput) {
+        this.graph.connect(vector3Output, transformInput);
+      }
+    }
+
+    // Select the Transform node in the graph editor
+    if (this.graphSelectionManager) {
+      this.graphSelectionManager.selectNode(transformNode.id, 'replace');
+    }
+
+    console.log(`Created/Updated Transform node with ${transformType} for ${sourceNode.label}`);
+
+    return transformNode.id;
   }
 
   private updateScene(): void {
@@ -540,7 +819,7 @@ export class LiveViewport {
     }
 
     // No scene output found - use default scene for preview
-    this.currentScene = this.graph.defaultScene;
+    this.currentScene = this.graph.scene;
     if (this.previewManager) {
       this.previewManager.setBakedScene(null); // null means use default scene
     }
@@ -617,16 +896,16 @@ export class LiveViewport {
     this.updateControlsCamera();
   }
 
-  setHistoryManager(historyManager: HistoryManager): void {
-    this.historyManager = historyManager;
+  /**
+   * Set the view mode manager to enable mode-aware copy/paste
+   * Copy/paste in viewport only works when in viewport mode (not editor mode)
+   */
+  setViewModeManager(viewModeManager: ViewModeManager): void {
+    this.viewModeManager = viewModeManager;
   }
 
-  setSelectionManager(selectionManager: SelectionManager): void {
-    this.selectionManager = selectionManager;
-  }
-
-  setClipboardManager(clipboardManager: ClipboardManager): void {
-    this.clipboardManager = clipboardManager;
+  setGraphSelectionManager(selectionManager: SelectionManager): void {
+    this.graphSelectionManager = selectionManager;
   }
 
   private startRenderLoop(): void {
@@ -709,13 +988,19 @@ export class LiveViewport {
    * Fit camera to selected objects with preview geometry
    */
   fitToSelectedObjects(): void {
-    if (!this.selectionManager || !this.previewManager) {
-      console.warn('SelectionManager or PreviewManager not available for fit-to-sphere');
+    if (!this.previewManager) {
+      console.warn('PreviewManager not available for fit-to-sphere');
       return;
     }
 
-    // Get selected node IDs
-    const selectedNodeIds = this.selectionManager.getSelectedNodes();
+    // Get selected objects from viewport selection manager
+    const viewportSelectedObjects = this.viewportSelectionManager.getSelectedObjectsArray();
+    const selectedNodeIds = new Set<string>();
+    for (const obj of viewportSelectedObjects) {
+      if (obj.userData.sourceNodeId) {
+        selectedNodeIds.add(obj.userData.sourceNodeId);
+      }
+    }
     console.log('selectedNodeIds', selectedNodeIds);
     if (selectedNodeIds.size === 0) {
       console.log('No nodes selected');
@@ -726,7 +1011,6 @@ export class LiveViewport {
     const objectsToFit: THREE.Object3D[] = [];
 
     // First, check viewport selection (objects directly selected in 3D view)
-    const viewportSelectedObjects = this.viewportSelectionManager.getSelectedObjectsArray();
     objectsToFit.push(...viewportSelectedObjects);
 
     // If no viewport selection, search the current scene for objects with matching sourceNodeId

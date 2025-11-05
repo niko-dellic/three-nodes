@@ -20,7 +20,7 @@ export interface CompiledScene {
 }
 
 export class SceneCompilerNode extends BaseThreeNode<
-  'scene' | 'objects' | 'camera' | 'fog' | 'background',
+  'objects' | 'camera' | 'fog' | 'background',
   'compiled'
 > {
   private backgroundTexture: THREE.Texture | THREE.CubeTexture | null = null;
@@ -29,7 +29,6 @@ export class SceneCompilerNode extends BaseThreeNode<
 
   constructor(id: string) {
     super(id, 'SceneCompilerNode', 'Scene Compiler');
-    this.addInput({ name: 'scene', type: PortType.Scene });
     this.addInput({ name: 'objects', type: PortType.Object3D });
     this.addInput({ name: 'camera', type: PortType.Camera });
     this.addInput({ name: 'fog', type: PortType.Any });
@@ -181,20 +180,13 @@ export class SceneCompilerNode extends BaseThreeNode<
     return false;
   }
 
-  evaluate(_context: EvaluationContext): void {
-    const scene = this.getInputValue<THREE.Scene>('scene');
+  evaluate(context: EvaluationContext): void {
+    const scene = context.graph?.scene;
     const camera = this.getInputValue<THREE.Camera>('camera');
     const objectInputs = this.getInputValues<THREE.Object3D>('objects');
     const fog = this.getInputValue<THREE.Fog | THREE.FogExp2>('fog');
 
-    if (!scene) {
-      console.warn('SceneCompilerNode: No scene provided');
-      this.setOutputValue('compiled', undefined);
-      return;
-    }
-
     if (!camera) {
-      console.warn('SceneCompilerNode: No camera provided');
       this.setOutputValue('compiled', undefined);
       return;
     }

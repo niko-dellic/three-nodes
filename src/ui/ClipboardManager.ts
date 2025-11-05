@@ -80,13 +80,13 @@ export class ClipboardManager {
       });
     }
 
-    // Collect edges between selected nodes
+    // Collect edges: include both internal edges and incoming edges from non-selected nodes
     for (const edge of this.graph.edges.values()) {
       const sourceNodeId = edge.source.node.id;
       const targetNodeId = edge.target.node.id;
 
-      // Only include edges where both nodes are selected
-      if (selectedIds.has(sourceNodeId) && selectedIds.has(targetNodeId)) {
+      // Include edges where target is selected (both internal and incoming connections)
+      if (selectedIds.has(targetNodeId)) {
         edges.push({
           sourceNodeId,
           sourcePortName: edge.source.name,
@@ -179,12 +179,14 @@ export class ClipboardManager {
 
     // Recreate edges with new IDs
     for (const edgeData of this.clipboard.edges) {
-      const newSourceId = idMap.get(edgeData.sourceNodeId);
       const newTargetId = idMap.get(edgeData.targetNodeId);
+      if (!newTargetId) continue;
 
-      if (!newSourceId || !newTargetId) continue;
+      // Check if source was pasted (internal edge) or exists in graph (external edge)
+      const newSourceId = idMap.get(edgeData.sourceNodeId);
+      const sourceNodeId = newSourceId || edgeData.sourceNodeId; // Use original ID if not pasted
 
-      const sourceNode = this.graph.getNode(newSourceId);
+      const sourceNode = this.graph.getNode(sourceNodeId);
       const targetNode = this.graph.getNode(newTargetId);
 
       if (!sourceNode || !targetNode) continue;
@@ -201,11 +203,9 @@ export class ClipboardManager {
       }
     }
 
-    // Select the newly pasted nodes
-    this.selectionManager.clearSelection();
-    for (const node of newNodes) {
-      this.selectionManager.selectNode(node.id);
-    }
+    // Select all the newly pasted nodes
+    const newNodeIds = newNodes.map((node) => node.id);
+    this.selectionManager.selectNodes(newNodeIds, 'replace');
 
     console.log(`Pasted ${newNodes.length} node(s)`);
   }

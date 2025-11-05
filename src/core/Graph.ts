@@ -2,23 +2,25 @@ import { Node } from './Node';
 import { Edge } from './Edge';
 import { Port } from './Port';
 import * as THREE from 'three';
+import CameraControls from 'camera-controls';
+
+CameraControls.install({ THREE });
 
 export class Graph {
   public nodes: Map<string, Node> = new Map();
   public edges: Map<string, Edge> = new Map();
-  public defaultScene: THREE.Scene; // Always available for preview/rendering
-  public defaultCamera: THREE.PerspectiveCamera; // Always available for preview/rendering
+  public scene: THREE.Scene; // Always available for preview/rendering
+  public camera: THREE.PerspectiveCamera; // Always available for preview/rendering
   public defaultBackground: THREE.Color = new THREE.Color(0x1a1a1a);
-
   private _listeners: Set<(graph: Graph) => void> = new Set();
 
   constructor() {
     // Create a default scene that's always available
-    this.defaultScene = new THREE.Scene();
-    this.defaultScene.background = this.defaultBackground;
-    this.defaultCamera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-    this.defaultCamera.position.set(10, 10, 10);
-    this.defaultCamera.lookAt(0, 0, 0);
+    this.scene = new THREE.Scene();
+    this.scene.background = this.defaultBackground;
+    this.camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+    this.camera.position.set(10, 10, 10);
+    this.camera.lookAt(0, 0, 0);
   }
 
   // Add a node to the graph
@@ -85,9 +87,8 @@ export class Graph {
       if (
         'refreshControls' in targetPort.node &&
         typeof (targetPort.node as any).refreshControls === 'function'
-      ) {
+      )
         (targetPort.node as any).refreshControls();
-      }
 
       this.notifyChange();
 

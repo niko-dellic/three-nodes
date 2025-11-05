@@ -122,9 +122,6 @@ export function buildBasicGraph(workflow: Workflow) {
   sceneCompiler.position = { x: 1350, y: 250 };
   graph.addNode(sceneCompiler);
 
-  // Connect scene
-  graph.connect(sceneNode.output('scene'), sceneCompiler.input('scene'));
-
   // Connect all objects to the compiler (using shift+drag for multiple connections)
   graph.connect(meshNode.output('mesh'), sceneCompiler.input('objects'));
   graph.connect(ambientLightNode.output('light'), sceneCompiler.input('objects'), true);

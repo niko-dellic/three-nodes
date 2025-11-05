@@ -147,6 +147,7 @@ import { MoveToNode } from './nodes/transform/MoveToNode';
 import { RotationNode } from './nodes/transform/RotationNode';
 import { ScaleNode } from './nodes/transform/ScaleNode';
 import { Matrix4Node } from './nodes/transform/Matrix4Node';
+import { TransformNode } from './nodes/transform/TransformNode';
 
 // Loader nodes
 import { GLTFLoaderNode } from './nodes/loaders/GLTFLoaderNode';
@@ -1132,6 +1133,14 @@ export function createDefaultRegistry(): NodeRegistry {
     label: 'Matrix4',
     description: 'Apply Matrix4 transformation to an Object3D',
     icon: '🔢',
+  });
+
+  registry.register(TransformNode, {
+    type: 'TransformNode',
+    category: 'Transform',
+    label: 'Transform',
+    description: 'Set position, rotation, and scale of an Object3D',
+    icon: '🎯',
   });
 
   // Register loader nodes

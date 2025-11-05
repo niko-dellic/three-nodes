@@ -27,12 +27,16 @@ export default class Workflow {
     // Create graph editor (pass registry and app container for UI creation)
     this.graphEditor = new GraphEditor(this.graph, this.registry, this.container);
     // Create live viewport
-    this.liveViewport = new LiveViewport(this.graph, this.container);
+    this.liveViewport = new LiveViewport(this.graph, this.registry, this.container);
     // Create preview manager and initialize its UI
-    this.previewManager = new PreviewManager(this.graph, this.graphEditor.getSelectionManager());
+    this.previewManager = new PreviewManager(
+      this.graph,
+      this.graphEditor.getSelectionManager(),
+      this.liveViewport
+    );
     this.liveViewport.setPreviewManager(this.previewManager);
     this.graphEditor.setPreviewManager(this.previewManager);
-    this.graphEditor.setLiveViewport(this.liveViewport); // Connect preview manager to node renderer
+    this.graphEditor.setLiveViewport(this.liveViewport);
 
     // Initialize preview controls in toolbar
     const toolbar = this.graphEditor.getToolbar();
@@ -46,6 +50,12 @@ export default class Workflow {
       this.graphEditor.getContainer(),
       this.container
     );
+
+    // Connect view mode manager to LiveViewport for mode-aware copy/paste
+    this.liveViewport.setViewModeManager(this.viewModeManager);
+
+    // Connect graph selection manager to LiveViewport for node selection
+    this.liveViewport.setGraphSelectionManager(this.graphEditor.getSelectionManager());
   }
 
   loadCustomNodes() {

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { Graph } from '@/core/Graph';
 import { Node } from '@/core/Node';
-import { SelectionManager } from './SelectionManager';
+import { SelectionManager } from '../SelectionManager';
+import { LiveViewport } from '../LiveViewport';
 
 export type PreviewMode = 'none' | 'selected' | 'all';
 
@@ -14,7 +15,7 @@ export class PreviewManager {
   private nodeObjects: Map<string, THREE.Object3D> = new Map();
   private hiddenNodes: Set<string> = new Set();
   private onChangeCallbacks: Set<() => void> = new Set();
-
+  private liveViewport: LiveViewport;
   // Preview materials for cycling through different visualization modes
   private previewMaterials: THREE.Material[];
   private currentMaterialIndex: number = 0;
@@ -27,10 +28,10 @@ export class PreviewManager {
   private readonly PREVIEW_MODE_KEY = 'three-nodes-preview-mode';
   private readonly PREVIEW_MATERIAL_KEY = 'three-nodes-preview-material-index';
 
-  constructor(graph: Graph, selectionManager: SelectionManager) {
+  constructor(graph: Graph, selectionManager: SelectionManager, liveViewport: LiveViewport) {
     this.graph = graph;
     this.selectionManager = selectionManager;
-
+    this.liveViewport = liveViewport;
     // Initialize preview materials - Default is BasicMaterial (unlit), semi-transparent green
     this.previewMaterials = [
       new THREE.MeshBasicMaterial({
@@ -252,18 +253,11 @@ export class PreviewManager {
   }
 
   /**
-   * Get the scene to use for preview (baked scene if available, otherwise default scene)
-   */
-  private getPreviewScene(): THREE.Scene {
-    return this.currentBakedScene || this.graph.defaultScene;
-  }
-
-  /**
    * Set the current baked scene from the graph output
    */
   setBakedScene(scene: THREE.Scene | null): void {
     // Remove preview objects from old scene
-    const oldScene = this.getPreviewScene();
+    const oldScene = this.graph.scene;
     for (const obj of this.nodeObjects.values()) {
       oldScene.remove(obj);
     }
@@ -271,7 +265,7 @@ export class PreviewManager {
     this.currentBakedScene = scene;
 
     // Re-add preview objects to new scene (or default scene if null)
-    const newScene = this.getPreviewScene();
+    const newScene = this.graph.scene;
     for (const obj of this.nodeObjects.values()) {
       newScene.add(obj);
     }
@@ -279,9 +273,9 @@ export class PreviewManager {
 
   private updatePreview(): void {
     // Remove all preview objects from the scene
-    const scene = this.getPreviewScene();
+    const scene = this.graph.scene;
     for (const obj of this.nodeObjects.values()) {
-      scene.remove(obj);
+      obj.removeFromParent();
       // Dispose of cloned materials and geometries
       this.disposeObject(obj);
     }
@@ -514,7 +508,7 @@ export class PreviewManager {
     preserveMaterials: boolean = false,
     sourceNodeId?: string
   ): void {
-    const scene = this.getPreviewScene();
+    const scene = this.graph.scene;
 
     // Clone the object so we don't affect the original
     const clone = object.clone();
@@ -578,7 +572,7 @@ export class PreviewManager {
     geometry: THREE.BufferGeometry,
     sourceNodeId?: string
   ): void {
-    const scene = this.getPreviewScene();
+    const scene = this.graph.scene;
 
     // Create a mesh with the preview material
     // Note: Arrays are now handled at a higher level in addNodeToPreview
@@ -594,7 +588,7 @@ export class PreviewManager {
     material: THREE.Material,
     sourceNodeId?: string
   ): void {
-    const scene = this.getPreviewScene();
+    const scene = this.graph.scene;
 
     // Create a sphere to show the material
     const geometry = new THREE.SphereGeometry(1, 32, 32);
@@ -610,7 +604,7 @@ export class PreviewManager {
     light: THREE.DirectionalLight,
     sourceNodeId?: string
   ): void {
-    const scene = this.getPreviewScene();
+    const scene = this.graph.scene;
 
     // Clone the light
     const lightClone = light.clone();
@@ -634,7 +628,7 @@ export class PreviewManager {
     light: THREE.PointLight,
     sourceNodeId?: string
   ): void {
-    const scene = this.getPreviewScene();
+    const scene = this.graph.scene;
 
     // Clone the light
     const lightClone = light.clone();
@@ -658,7 +652,7 @@ export class PreviewManager {
     light: THREE.SpotLight,
     sourceNodeId?: string
   ): void {
-    const scene = this.getPreviewScene();
+    const scene = this.graph.scene;
 
     // Clone the light
     const lightClone = light.clone();
@@ -678,7 +672,7 @@ export class PreviewManager {
   }
 
   private addVector3ArrayToPreview(nodeId: string, positions: THREE.Vector3[]): void {
-    const scene = this.getPreviewScene();
+    const scene = this.graph.scene;
 
     if (!positions || positions.length === 0) {
       return;
@@ -747,7 +741,7 @@ export class PreviewManager {
    * Clean up - removes all preview objects from the scene
    */
   dispose(): void {
-    const scene = this.getPreviewScene();
+    const scene = this.graph.scene;
     for (const obj of this.nodeObjects.values()) {
       scene.remove(obj);
       this.disposeObject(obj);

@@ -1,4 +1,5 @@
 import { PortType, PortValue } from '@/types';
+import { Graph } from './Graph';
 
 export interface PortSchema {
   name: string;
@@ -7,7 +8,7 @@ export interface PortSchema {
 }
 
 export interface EvaluationContext {
-  graph?: import('./Graph').Graph; // Reference to the graph for accessing shared resources
+  graph: Graph;
   [key: string]: unknown;
 }
 

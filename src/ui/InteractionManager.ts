@@ -7,7 +7,6 @@ import { NodeRenderer } from './NodeRenderer';
 import { SelectionManager } from './SelectionManager';
 import { ContextMenu } from './ContextMenu';
 import { ClipboardManager } from './ClipboardManager';
-import { HistoryManager } from './HistoryManager';
 import { isTouchDevice } from '@/utils/deviceDetection';
 
 export type DragState =
@@ -41,7 +40,6 @@ export class InteractionManager {
   private selectionManager: SelectionManager;
   private contextMenu: ContextMenu;
   private clipboardManager: ClipboardManager;
-  private historyManager: HistoryManager;
 
   private dragState: DragState = { type: 'none' };
   private currentMousePos: { x: number; y: number } | null = null;
@@ -75,8 +73,7 @@ export class InteractionManager {
     overlayLayer: HTMLElement,
     selectionManager: SelectionManager,
     contextMenu: ContextMenu,
-    clipboardManager: ClipboardManager,
-    historyManager: HistoryManager
+    clipboardManager: ClipboardManager
   ) {
     this.graph = graph;
     this.viewport = viewport;
@@ -86,7 +83,6 @@ export class InteractionManager {
     this.selectionManager = selectionManager;
     this.contextMenu = contextMenu;
     this.clipboardManager = clipboardManager;
-    this.historyManager = historyManager;
 
     // Detect device type
     this.isTouchDevice = isTouchDevice();
@@ -505,20 +501,6 @@ export class InteractionManager {
           ? this.viewport.screenToWorld(this.currentMousePos.x, this.currentMousePos.y)
           : undefined;
         this.clipboardManager.paste(worldPos);
-      } else if (e.key === 'z' || e.key === 'Z') {
-        // Undo/Redo
-        e.preventDefault();
-        if (e.shiftKey) {
-          // Redo (Ctrl/Cmd + Shift + Z)
-          this.historyManager.redo();
-        } else {
-          // Undo (Ctrl/Cmd + Z)
-          this.historyManager.undo();
-        }
-      } else if (e.key === 'y' || e.key === 'Y') {
-        // Redo (alternative: Ctrl/Cmd + Y)
-        e.preventDefault();
-        this.historyManager.redo();
       } else if (e.key === 'a' || e.key === 'A') {
         // Select all nodes
         e.preventDefault();
@@ -595,7 +577,6 @@ export class InteractionManager {
               }
 
               // Start node drag
-              this.historyManager.beginInteraction();
               this.dragState = {
                 type: 'nodes',
                 referenceNode: node,
@@ -623,15 +604,9 @@ export class InteractionManager {
       // Mark that this gesture has involved multiple fingers
       this.hadMultipleFingers = true;
 
-      // Cancel any existing drag (but don't end interaction yet - we might return to single touch)
-      const wasNodeDrag = this.dragState.type === 'nodes';
+      // Cancel any existing drag
       this.dragState = { type: 'none' };
       this.touchMoved = true; // Prevent tap detection with 2 fingers
-
-      // If we were dragging a node, end that interaction
-      if (wasNodeDrag) {
-        this.historyManager.endInteraction();
-      }
     }
   }
 
@@ -713,7 +688,6 @@ export class InteractionManager {
 
     // Check if this was a tap (not a drag) - only if we NEVER had multiple fingers during this gesture
     const wasTap = !this.touchMoved && !this.hadMultipleFingers && touchesBefore === 1;
-    const wasNodeDrag = this.dragState.type === 'nodes' && this.touchMoved;
     let tapTarget: Element | null = null;
 
     if (wasTap && e.changedTouches.length > 0) {
@@ -725,11 +699,6 @@ export class InteractionManager {
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
       this.activeTouches.delete(touch.identifier);
-    }
-
-    // Handle node drag completion - end interaction to record in history
-    if (wasNodeDrag) {
-      this.historyManager.endInteraction();
     }
 
     // Handle tap on empty canvas - deselect nodes
@@ -781,7 +750,6 @@ export class InteractionManager {
             const node = this.graph.getNode(nodeId);
             if (node) {
               const worldPos = this.viewport.screenToWorld(touch.clientX, touch.clientY);
-              this.historyManager.beginInteraction();
               this.dragState = {
                 type: 'nodes',
                 referenceNode: node,

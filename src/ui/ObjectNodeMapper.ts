@@ -32,9 +32,10 @@ export class ObjectNodeMapper {
 
   /**
    * Find transform-related nodes in the graph that affect this object
-   * Returns nodes that control position, rotation, and scale
+   * Returns TransformNode and its connected Vector3 nodes
    */
   findTransformNodes(object: THREE.Object3D): {
+    transformNode?: Node;
     positionNode?: Node;
     rotationNode?: Node;
     scaleNode?: Node;
@@ -48,6 +49,7 @@ export class ObjectNodeMapper {
     }
 
     const result: {
+      transformNode?: Node;
       positionNode?: Node;
       rotationNode?: Node;
       scaleNode?: Node;
@@ -66,13 +68,42 @@ export class ObjectNodeMapper {
       visited.add(currentNode.id);
 
       // Check if this is a transform node
-      if (currentNode.type === 'PositionNode') {
+      if (currentNode.type === 'TransformNode') {
+        result.transformNode = currentNode;
+        // Find connected Vector3Nodes on the position, rotation, and scale inputs
+        const positionInput = currentNode.inputs.get('position');
+        if (positionInput && positionInput.connections.length > 0) {
+          const edge = positionInput.connections[0];
+          const sourceNode = this.graph.getNode(edge.source.node.id);
+          if (sourceNode && sourceNode.type === 'Vector3Node') {
+            result.positionVector3Node = sourceNode as Vector3Node;
+          }
+        }
+        
+        const rotationInput = currentNode.inputs.get('rotation');
+        if (rotationInput && rotationInput.connections.length > 0) {
+          const edge = rotationInput.connections[0];
+          const sourceNode = this.graph.getNode(edge.source.node.id);
+          if (sourceNode && sourceNode.type === 'Vector3Node') {
+            result.rotationVector3Node = sourceNode as Vector3Node;
+          }
+        }
+        
+        const scaleInput = currentNode.inputs.get('scale');
+        if (scaleInput && scaleInput.connections.length > 0) {
+          const edge = scaleInput.connections[0];
+          const sourceNode = this.graph.getNode(edge.source.node.id);
+          if (sourceNode && sourceNode.type === 'Vector3Node') {
+            result.scaleVector3Node = sourceNode as Vector3Node;
+          }
+        }
+      } else if (currentNode.type === 'PositionNode') {
         result.positionNode = currentNode;
         // Find connected Vector3Node on the position input
         const positionInput = currentNode.inputs.get('position');
         if (positionInput && positionInput.connections.length > 0) {
           const edge = positionInput.connections[0];
-          const sourceNode = this.graph.getNode(edge.from.nodeId);
+          const sourceNode = this.graph.getNode(edge.source.node.id);
           if (sourceNode && sourceNode.type === 'Vector3Node') {
             result.positionVector3Node = sourceNode as Vector3Node;
           }
@@ -83,7 +114,7 @@ export class ObjectNodeMapper {
         const rotationInput = currentNode.inputs.get('rotation');
         if (rotationInput && rotationInput.connections.length > 0) {
           const edge = rotationInput.connections[0];
-          const sourceNode = this.graph.getNode(edge.from.nodeId);
+          const sourceNode = this.graph.getNode(edge.source.node.id);
           if (sourceNode && sourceNode.type === 'Vector3Node') {
             result.rotationVector3Node = sourceNode as Vector3Node;
           }
@@ -94,7 +125,7 @@ export class ObjectNodeMapper {
         const scaleInput = currentNode.inputs.get('scale');
         if (scaleInput && scaleInput.connections.length > 0) {
           const edge = scaleInput.connections[0];
-          const sourceNode = this.graph.getNode(edge.from.nodeId);
+          const sourceNode = this.graph.getNode(edge.source.node.id);
           if (sourceNode && sourceNode.type === 'Vector3Node') {
             result.scaleVector3Node = sourceNode as Vector3Node;
           }
@@ -104,7 +135,7 @@ export class ObjectNodeMapper {
         const positionInput = currentNode.inputs.get('position');
         if (positionInput && positionInput.connections.length > 0) {
           const edge = positionInput.connections[0];
-          const sourceNode = this.graph.getNode(edge.from.nodeId);
+          const sourceNode = this.graph.getNode(edge.source.node.id);
           if (sourceNode && sourceNode.type === 'Vector3Node') {
             result.positionVector3Node = sourceNode as Vector3Node;
           }
@@ -112,7 +143,7 @@ export class ObjectNodeMapper {
         const rotationInput = currentNode.inputs.get('rotation');
         if (rotationInput && rotationInput.connections.length > 0) {
           const edge = rotationInput.connections[0];
-          const sourceNode = this.graph.getNode(edge.from.nodeId);
+          const sourceNode = this.graph.getNode(edge.source.node.id);
           if (sourceNode && sourceNode.type === 'Vector3Node') {
             result.rotationVector3Node = sourceNode as Vector3Node;
           }
@@ -120,7 +151,7 @@ export class ObjectNodeMapper {
         const scaleInput = currentNode.inputs.get('scale');
         if (scaleInput && scaleInput.connections.length > 0) {
           const edge = scaleInput.connections[0];
-          const sourceNode = this.graph.getNode(edge.from.nodeId);
+          const sourceNode = this.graph.getNode(edge.source.node.id);
           if (sourceNode && sourceNode.type === 'Vector3Node') {
             result.scaleVector3Node = sourceNode as Vector3Node;
           }
@@ -130,7 +161,7 @@ export class ObjectNodeMapper {
       // Add upstream nodes to the queue (nodes that feed into this node)
       for (const input of currentNode.inputs.values()) {
         for (const edge of input.connections) {
-          const upstreamNode = this.graph.getNode(edge.from.nodeId);
+          const upstreamNode = this.graph.getNode(edge.source.node.id);
           if (upstreamNode && !visited.has(upstreamNode.id)) {
             queue.push(upstreamNode);
           }

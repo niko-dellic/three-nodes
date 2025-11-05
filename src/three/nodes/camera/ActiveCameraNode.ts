@@ -24,7 +24,7 @@ export class ActiveCameraNode extends BaseThreeNode<
   }
 
   evaluate(context: EvaluationContext): void {
-    const camera = context.graph?.defaultCamera;
+    const camera = context.graph?.camera;
     const update = this.getInputValue<boolean>('update') ?? false;
     const position = this.getInputValue<THREE.Vector3>('position');
     const target = this.getInputValue<THREE.Vector3>('target');

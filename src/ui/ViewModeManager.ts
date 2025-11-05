@@ -1,4 +1,4 @@
-import { GraphEditor } from './GraphEditor';
+import { GraphEditor } from './GraphEditor/GraphEditor';
 import { LiveViewport } from './LiveViewport';
 
 export type ViewMode = 'editor' | 'viewport';

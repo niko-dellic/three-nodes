@@ -3,7 +3,6 @@ import { Node } from '@/core/Node';
 import { Port } from '@/core/Port';
 import { PortType } from '@/types';
 import { TweakpaneNode } from '@/three/TweakpaneNode';
-import { HistoryManager } from './HistoryManager';
 import { NodeRegistry } from '@/three/NodeRegistry';
 import './NodeRenderer.css';
 
@@ -29,7 +28,6 @@ export class NodeRenderer {
   private container: HTMLElement;
   private nodeElements: Map<string, HTMLElement> = new Map();
   private graph: Graph;
-  private historyManager: HistoryManager;
   private registry: NodeRegistry;
   private previewManager: any = null; // Will be set later to avoid circular dependency
   private previewMode: string = 'none';
@@ -42,12 +40,10 @@ export class NodeRenderer {
   constructor(
     parentLayer: HTMLElement,
     graph: Graph,
-    historyManager: HistoryManager,
     registry: NodeRegistry
   ) {
     this.container = parentLayer;
     this.graph = graph;
-    this.historyManager = historyManager;
     this.registry = registry;
     this.createTooltipElement();
   }
@@ -336,21 +332,10 @@ export class NodeRenderer {
         );
       }
 
-      // Track interaction for history recording
-      controlDiv.addEventListener('pointerdown', (e) => {
-        e.stopPropagation();
-        this.historyManager.beginInteraction();
-      });
+      // Stop propagation to prevent dragging the node
+      controlDiv.addEventListener('pointerdown', (e) => e.stopPropagation());
       controlDiv.addEventListener('pointermove', (e) => e.stopPropagation());
-      controlDiv.addEventListener('pointerup', (e) => {
-        e.stopPropagation();
-        this.historyManager.endInteraction();
-      });
-      controlDiv.addEventListener('pointerleave', (e) => {
-        if (e.buttons === 0) {
-          this.historyManager.endInteraction();
-        }
-      });
+      controlDiv.addEventListener('pointerup', (e) => e.stopPropagation());
       controlDiv.addEventListener('click', (e) => e.stopPropagation());
 
       contentColumn.appendChild(controlDiv);
@@ -449,21 +434,10 @@ export class NodeRenderer {
         );
       }
 
-      // Track interaction for history recording
-      controlDiv.addEventListener('pointerdown', (e) => {
-        e.stopPropagation();
-        this.historyManager.beginInteraction();
-      });
+      // Stop propagation to prevent dragging the node
+      controlDiv.addEventListener('pointerdown', (e) => e.stopPropagation());
       controlDiv.addEventListener('pointermove', (e) => e.stopPropagation());
-      controlDiv.addEventListener('pointerup', (e) => {
-        e.stopPropagation();
-        this.historyManager.endInteraction();
-      });
-      controlDiv.addEventListener('pointerleave', (e) => {
-        if (e.buttons === 0) {
-          this.historyManager.endInteraction();
-        }
-      });
+      controlDiv.addEventListener('pointerup', (e) => e.stopPropagation());
       controlDiv.addEventListener('click', (e) => e.stopPropagation());
 
       header.appendChild(controlDiv);
@@ -545,21 +519,10 @@ export class NodeRenderer {
         );
       }
 
-      // Track interaction for history recording
-      controlDiv.addEventListener('pointerdown', (e) => {
-        e.stopPropagation();
-        this.historyManager.beginInteraction();
-      });
+      // Stop propagation to prevent dragging the node
+      controlDiv.addEventListener('pointerdown', (e) => e.stopPropagation());
       controlDiv.addEventListener('pointermove', (e) => e.stopPropagation());
-      controlDiv.addEventListener('pointerup', (e) => {
-        e.stopPropagation();
-        this.historyManager.endInteraction();
-      });
-      controlDiv.addEventListener('pointerleave', (e) => {
-        if (e.buttons === 0) {
-          this.historyManager.endInteraction();
-        }
-      });
+      controlDiv.addEventListener('pointerup', (e) => e.stopPropagation());
       controlDiv.addEventListener('click', (e) => e.stopPropagation());
 
       stackedContainer.appendChild(controlDiv);
@@ -884,9 +847,6 @@ export class NodeRenderer {
         startWidth = node.customWidth ?? element.offsetWidth;
         startHeight = node.customHeight ?? element.offsetHeight;
 
-        // Begin interaction for history
-        this.historyManager.beginInteraction();
-
         handle.setPointerCapture(e.pointerId);
       };
 
@@ -916,9 +876,6 @@ export class NodeRenderer {
         if (!isResizing) return;
         e.stopPropagation();
         isResizing = false;
-
-        // End interaction for history
-        this.historyManager.endInteraction();
 
         handle.releasePointerCapture(e.pointerId);
       };
